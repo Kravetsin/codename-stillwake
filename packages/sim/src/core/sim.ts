@@ -11,6 +11,7 @@ import {
   type QueryApi,
   type ReadCtx,
 } from './module';
+import { EMPTY_LAYOUT, type Layout } from './layout';
 import { rngOver, seedRng, type RngState } from './rng';
 
 export const TICKS_PER_SECOND = 20;
@@ -72,7 +73,8 @@ export interface Sim {
 export interface SimDefinition {
   /** Registered modules in run order: every module after the ones it depends on. */
   readonly modules: readonly AnyModule[];
-  create(seed: number): Sim;
+  /** A new world; every module builds its slice from `layout`, empty when there is no map. */
+  create(seed: number, layout?: Layout): Sim;
   /** Restores a world from `Sim.save()`, rebuilding every module's derived state. */
   load(text: string): Sim;
 }
@@ -81,9 +83,9 @@ export function defineSim(modules: readonly AnyModule[]): SimDefinition {
   const ordered = orderModules(modules);
   return {
     modules: ordered,
-    create(seed) {
+    create(seed, layout = EMPTY_LAYOUT) {
       const slices: Record<string, unknown> = {};
-      for (const m of ordered) slices[m.id] = m.init();
+      for (const m of ordered) slices[m.id] = m.init(layout);
       return instantiate(ordered, { tick: 0, rng: seedRng(seed), slices });
     },
     load(text) {
@@ -142,7 +144,7 @@ function readSave(ordered: readonly AnyModule[], text: string): WorldData {
       continue;
     }
     // Derived keys start from `init` and are rebuilt once every slice is in place.
-    const fresh = m.init() as Record<string, unknown>;
+    const fresh = m.init(EMPTY_LAYOUT) as Record<string, unknown>;
     const restored = { ...(slice as Record<string, unknown>) };
     for (const k of m.derived.keys) restored[k] = fresh[k];
     slices[m.id] = restored;

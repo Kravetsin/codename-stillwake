@@ -112,8 +112,10 @@ running, and a sim tick under 2 ms.
 
 ## Tests
 
-- **Scenario tests** are the default: an ASCII world, commands, `run(ticks)`, assertions through
-  queries. Every rule of a module and every refusal reason gets one.
+- **Scenario tests** are the default: `scenario(definition, map)` from `packages/sim/src/testing`
+  builds a world from an ASCII map (characters per `LEGEND` in `content`), then `.do(...)`, `.run(ticks)`
+  and assertions through `.query(...)`, `.refusals` and `.events`. Every rule of a module and every
+  refusal reason gets one. Modules read the map in `init(layout)`.
 - **Invariant tests** (fast-check) for what must always hold: no tank below zero, every open cell in
   exactly one room.
 - **Generic suites** — save round trip, state hash, desync fuzz — cover every registered module on

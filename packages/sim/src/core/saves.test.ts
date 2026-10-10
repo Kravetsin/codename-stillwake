@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { command, defineSim, SAVE_FORMAT, type Command, type SimDefinition } from './sim';
-import { crew, dice, ledger, tanks } from './test-modules';
+import { crew, dice, ledger, tanks, TWO_TANKS } from './test-modules';
 
 const def = defineSim([crew, tanks, dice, ledger]);
 
 const opening: Command[] = [
-  command(tanks, 'fill', { tank: 0, amount: 6 }),
-  command(tanks, 'fill', { tank: 1, amount: 3 }),
-  command(crew, 'join', { tank: 0 }),
+  command(tanks, 'fill', { cell: 0, amount: 6 }),
+  command(tanks, 'fill', { cell: 1, amount: 3 }),
+  command(crew, 'join', { cell: 0 }),
   command(ledger, 'add', { value: 7 }),
   command(ledger, 'add', { value: 7 }),
   command(ledger, 'add', { value: 2 }),
 ];
 
-const later: Command[] = [command(crew, 'join', { tank: 1 }), command(ledger, 'add', { value: 7 })];
+const later: Command[] = [command(crew, 'join', { cell: 1 }), command(ledger, 'add', { value: 7 })];
 
 /**
  * Plays a world, saves it, loads the save, then plays both on with the same commands. Comparing
  * only right after the load would miss a bad rebuild of derived state; playing on shows it.
  */
 function reloadMidway(definition: SimDefinition, seed: number) {
-  const played = definition.create(seed);
+  const played = definition.create(seed, TWO_TANKS);
   played.step(opening);
   for (let i = 0; i < 5; i++) played.step([]);
 
@@ -43,7 +43,7 @@ describe('save and load', () => {
   });
 
   it('rebuilds derived state instead of saving it', () => {
-    const sim = def.create(1);
+    const sim = def.create(1, TWO_TANKS);
     sim.step(opening);
     const text = sim.save();
 
@@ -52,7 +52,7 @@ describe('save and load', () => {
   });
 
   it('leaves derived state out of the hash', () => {
-    const sim = def.create(1);
+    const sim = def.create(1, TWO_TANKS);
     sim.step(opening);
     const before = sim.hash();
     (sim.world.slices['ledger'] as { counts: Map<number, number> }).counts.clear();
@@ -60,14 +60,14 @@ describe('save and load', () => {
   });
 
   it('writes the same text for the same world', () => {
-    const [a, b] = [def.create(5), def.create(5)];
+    const [a, b] = [def.create(5, TWO_TANKS), def.create(5, TWO_TANKS)];
     a.step(opening);
     b.step(opening);
     expect(a.save()).toBe(b.save());
   });
 
   it('keeps the random sequence going where it left off', () => {
-    const played = def.create(3);
+    const played = def.create(3, TWO_TANKS);
     for (let i = 0; i < 4; i++) played.step([]);
     const loaded = def.load(played.save());
     played.step([]);
@@ -77,7 +77,7 @@ describe('save and load', () => {
 });
 
 describe('refusing saves it cannot read', () => {
-  const save = () => def.create(1).save();
+  const save = () => def.create(1, TWO_TANKS).save();
   const edit = (
     f: (file: { format: number; world: { slices: Record<string, unknown> } }) => void,
   ) => {

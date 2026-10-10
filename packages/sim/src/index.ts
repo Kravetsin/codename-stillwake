@@ -16,6 +16,7 @@ export {
   type RebuildCtx,
   type Refusal,
 } from './core/module';
+export { cellsOf, EMPTY_LAYOUT, parseLayout, type Layout } from './core/layout';
 export { createRng, type Rng } from './core/rng';
 export {
   SAVE_FORMAT,

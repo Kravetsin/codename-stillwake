@@ -1,44 +1,52 @@
 // Test-only modules that exercise the core. Real modules live in `src/modules/`.
+import { cellsOf, parseLayout } from './layout';
 import { defineModule, event, refuse, withFuzz } from './module';
 
 const tanksModule = defineModule()({
   id: 'tanks',
   dependsOn: [],
-  events: { emptied: event<{ tank: number }>() },
-  init: () => ({ levels: [0, 0] as number[], capacity: 10 }),
+  events: { emptied: event<{ cell: number }>() },
+  // One tank per 'T' on the map; `levels[i]` belongs to the tank at `cells[i]`.
+  init: (layout) => {
+    const cells = cellsOf(layout, 'T');
+    return { cells, levels: cells.map(() => 0), capacity: 10 };
+  },
   queries: {
-    level: (ctx, tank: number) => ctx.state.levels[tank] ?? 0,
+    level: (ctx, cell: number) => ctx.state.levels[ctx.state.cells.indexOf(cell)] ?? 0,
     total: (ctx) => ctx.state.levels.reduce((sum, l) => sum + l, 0),
   },
   operations: {
-    /** Takes up to `amount` from a tank and says how much it got. */
-    draw(ctx, tank: number, amount: number): number {
-      const level = ctx.state.levels[tank] ?? 0;
+    /** Takes up to `amount` from the tank at `cell` and says how much it got. */
+    draw(ctx, cell: number, amount: number): number {
+      const i = ctx.state.cells.indexOf(cell);
+      const level = ctx.state.levels[i] ?? 0;
       const got = Math.min(level, amount);
-      ctx.state.levels[tank] = level - got;
-      if (got > 0 && level - got === 0) ctx.emit('emptied', { tank });
+      if (got === 0) return 0;
+      ctx.state.levels[i] = level - got;
+      if (level - got === 0) ctx.emit('emptied', { cell });
       return got;
     },
   },
   commands: {
     fill: {
-      validate(ctx, p: { tank: number; amount: number }) {
-        const level = ctx.state.levels[p.tank];
+      validate(ctx, p: { cell: number; amount: number }) {
+        const level = ctx.state.levels[ctx.state.cells.indexOf(p.cell)];
         if (level === undefined) return refuse('tanks.noSuchTank');
         if (!Number.isSafeInteger(p.amount) || p.amount < 1) return refuse('tanks.badAmount');
         if (level + p.amount > ctx.state.capacity) return refuse('tanks.overCapacity');
       },
-      apply(ctx, p: { tank: number; amount: number }) {
-        ctx.state.levels[p.tank] = (ctx.state.levels[p.tank] ?? 0) + p.amount;
+      apply(ctx, p: { cell: number; amount: number }) {
+        const i = ctx.state.cells.indexOf(p.cell);
+        ctx.state.levels[i] = (ctx.state.levels[i] ?? 0) + p.amount;
       },
     },
   },
 });
 
-// One tank past the end and an amount of 0 come up often enough to fuzz the refusals too.
+// A cell with no tank and an amount of 0 come up often enough to fuzz the refusals too.
 export const tanks = withFuzz(tanksModule, (state, rng) => ({
   type: 'fill',
-  payload: { tank: rng.below(state.levels.length + 1), amount: rng.below(6) },
+  payload: { cell: state.cells[rng.below(state.cells.length + 1)] ?? -1, amount: rng.below(6) },
 }));
 
 export type Tanks = typeof tanks;
@@ -47,17 +55,17 @@ const crewModule = defineModule<[Tanks]>()({
   id: 'crew',
   dependsOn: ['tanks'],
   events: { gasping: event<{ hero: number }>() },
-  init: () => ({ heroes: [] as { tank: number; air: number }[] }),
+  init: () => ({ heroes: [] as { cell: number; air: number }[] }),
   queries: {
     air: (ctx, hero: number) => ctx.state.heroes[hero]?.air,
   },
   commands: {
     join: {
-      validate(ctx, p: { tank: number }) {
-        if (ctx.deps.tanks.query.level(p.tank) === 0) return refuse('crew.noAir');
+      validate(ctx, p: { cell: number }) {
+        if (ctx.deps.tanks.query.level(p.cell) === 0) return refuse('crew.noAir');
       },
-      apply(ctx, p: { tank: number }) {
-        ctx.state.heroes.push({ tank: p.tank, air: 3 });
+      apply(ctx, p: { cell: number }) {
+        ctx.state.heroes.push({ cell: p.cell, air: 3 });
       },
     },
   },
@@ -66,7 +74,7 @@ const crewModule = defineModule<[Tanks]>()({
       phase: 'simulation',
       run(ctx) {
         ctx.state.heroes.forEach((hero, i) => {
-          if (ctx.deps.tanks.op.draw(hero.tank, 1) === 1) return;
+          if (ctx.deps.tanks.op.draw(hero.cell, 1) === 1) return;
           hero.air = Math.max(0, hero.air - 1);
           ctx.emit('gasping', { hero: i });
         });
@@ -77,8 +85,11 @@ const crewModule = defineModule<[Tanks]>()({
 
 export const crew = withFuzz(crewModule, (_state, rng) => ({
   type: 'join',
-  payload: { tank: rng.below(3) },
+  payload: { cell: rng.below(3) },
 }));
+
+/** The map most core tests run on: two tanks, at cells 0 and 1. */
+export const TWO_TANKS = parseLayout('TT');
 
 // Systems are listed out of phase order on purpose: the core, not the list, decides the order.
 

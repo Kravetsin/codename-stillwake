@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { defineModule, event, withFuzz } from './module';
 import { command, defineSim } from './sim';
-import { crew, tanks, type Tanks } from './test-modules';
+import { crew, tanks, type Tanks, TWO_TANKS } from './test-modules';
 
 describe('module types', () => {
   it('gives a module only the dependencies it declared, and only their public API', () => {
@@ -80,12 +80,12 @@ describe('module types', () => {
   });
 
   it('types commands and queries for the client', () => {
-    const sim = defineSim([crew, tanks]).create(1);
+    const sim = defineSim([crew, tanks]).create(1, TWO_TANKS);
     const level: number = sim.query(tanks).level(0);
     expect(level).toBe(0);
 
     // @ts-expect-error a fill needs an amount
-    command(tanks, 'fill', { tank: 0 });
+    command(tanks, 'fill', { cell: 0 });
     // @ts-expect-error tanks has no such command
     command(tanks, 'drain', {});
     // @ts-expect-error queries take the arguments they declare

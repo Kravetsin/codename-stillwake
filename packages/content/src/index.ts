@@ -1,1 +1,1 @@
-export {};
+export { LEGEND, type LegendChar } from './legend';

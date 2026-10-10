@@ -1,3 +1,4 @@
+import type { Layout } from './layout';
 import type { Rng } from './rng';
 
 /** Systems run in these phases, in this order, after the tick's commands are applied. */
@@ -139,7 +140,8 @@ export interface Module<Id extends string, S, D extends Deps, Q, O, C, E> {
   readonly id: Id;
   /** Must list exactly the modules given to `defineModule<[...]>()`, in the same order. */
   readonly dependsOn: DepIds<D>;
-  readonly init: () => S;
+  /** Builds the starting slice; a module reads from the map only what concerns it. */
+  readonly init: (layout: Layout) => S;
   readonly events?: E;
   readonly queries?: Q;
   readonly operations?: O;
@@ -165,7 +167,8 @@ export function defineModule<D extends Deps = []>() {
   >(def: {
     readonly id: Id;
     readonly dependsOn: DepIds<D>;
-    readonly init: () => S;
+    /** Builds the starting slice; a module reads from the map only what concerns it. */
+    readonly init: (layout: Layout) => S;
     readonly events?: E;
     // Intersecting with the constraint is what gives `ctx` its type: a defaulted type parameter
     // alone is not used for contextual typing.
