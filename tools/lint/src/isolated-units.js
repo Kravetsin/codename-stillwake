@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+
+const FILE_EXTENSIONS = ['.ts', '.tsx', '.js'];
 
 /**
  * Each folder directly under `root` is a unit (a sim module, a client feature). A file inside one
@@ -47,8 +50,12 @@ export const isolatedUnits = {
      */
     const check = (node, source, typeOnly) => {
       if (typeof source !== 'string' || !source.startsWith('.')) return;
-      const target = locate(path.resolve(path.dirname(context.filename), source));
+      const resolved = path.resolve(path.dirname(context.filename), source);
+      const target = locate(resolved);
       if (!target || target.unit === self.unit) return;
+      // A file sitting directly in `root` (shared types, a registry) is not a unit.
+      if (target.rest.length === 0 && FILE_EXTENSIONS.some((ext) => existsSync(resolved + ext)))
+        return;
       const viaIndex =
         target.rest.length === 0 ||
         (target.rest.length === 1 && /^index(\.[jt]s)?$/.test(target.rest[0] ?? ''));

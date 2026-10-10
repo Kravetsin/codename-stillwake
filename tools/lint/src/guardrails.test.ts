@@ -158,6 +158,12 @@ describe('client features stay apart', () => {
     );
   });
 
+  it('allows a feature to import a shared file sitting in the features folder', async () => {
+    // `apps/game/src/features/feature.ts` exists on disk: shared types, not a feature.
+    const code = "import type { Feature } from '../feature';";
+    expect(await guardrailsHit(OVERLAY, code)).toEqual([]);
+  });
+
   it('allows a feature to use the sim and its own files', async () => {
     const code = "import { a } from '@stillwake/sim'; import { b } from './layer'; a; b;";
     expect(await guardrailsHit(OVERLAY, code)).toEqual([]);

@@ -88,9 +88,10 @@ Done when: a freshly scaffolded module passes lint, typecheck and tests untouche
 
 **P1-09 · Game shell** · M · after 05
 A full-window Pixi canvas on WebGL2 with a React overlay; a fixed-step sim loop and per-frame render;
-client features register their render layers, overlays, tools and panels, and
-`pnpm new:module <name> --client` adds a feature folder. A dev panel with FPS, tick,
-hash, save/load, creative mode, ×4 speed (single-player only) and a viewer of every module's state.
+client features register their render layers and panels, and `pnpm new:module <name> --client`
+adds a feature folder. A dev panel with FPS, tick, hash, save/load, ×4 speed (single-player only) and
+a viewer of every module's state. Tools join features in P1-25 and overlays in P1-36, once something
+uses them; the creative-mode switch arrives with `stock` in P1-26, the first rule it changes.
 Done when: the page shows an empty grid and the dev panel lists every registered module's state.
 
 **P1-10 · CI and ownership** · S · after 02
@@ -137,11 +138,12 @@ Done when: a closed door stops the hero and toggling goes through the pipeline.
 **P1-25 · Build mode** · M · client and sim `building` · after 20, 22
 A React toolbar: walls by material, floor, ladder, door, pipe, vent, valve, tank. A ghost coloured by
 validity, drag to lay lines, a deconstruct mode. Commands: place plan, cancel plan, deconstruct.
+Adds tools to the client feature interface: an input mode a feature owns while it is active.
 Done when: every type can be planned and cancelled, and an invalid placement shows the sim's reason.
 
 **P1-26 · `stock`** · S · sim and client · after 03
-One ship-wide stock of materials and canisters, with operations to spend and refund; creative mode
-ignores costs. HUD counters.
+One ship-wide stock of materials and canisters, with operations to spend and refund; creative mode,
+a world setting switched by a command from the dev panel, ignores costs. HUD counters.
 Done when: scenario tests cover spending, refunds and refusals for lack of stock.
 
 **P1-27 · Building by hand** · M · sim `building` · after 25, 26
@@ -194,7 +196,8 @@ Done when: a hit makes the room vent, and a valve or a repair stops it.
 
 **P1-36 · Overlays** · M · client · after 33
 Air: rooms tinted by state; hovering shows volume, leak per minute, the network's oxygen and how long
-it lasts. Pipes: every network in its own colour, valve states. Hotkeys switch views.
+it lasts. Pipes: every network in its own colour, valve states. Hotkeys switch views. Adds overlays to
+the client feature interface.
 Done when: a playtester answers "why am I losing air?" from the overlay alone.
 
 **P1-37 · Alerts** · S · client · after 33

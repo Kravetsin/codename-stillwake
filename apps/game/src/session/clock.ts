@@ -9,7 +9,7 @@ const TICK_MS = 1000 / TICKS_PER_SECOND;
 export function createClock(maxCatchUp = 5) {
   let carried = 0;
   return {
-    /** How many ticks are due after `elapsedMs` more of real time. */
+    /** How many ticks are due after `elapsedMs` more of game time. */
     advance(elapsedMs: number): number {
       carried += elapsedMs;
       const due = Math.floor(carried / TICK_MS);
@@ -17,6 +17,10 @@ export function createClock(maxCatchUp = 5) {
       if (due <= maxCatchUp) return due;
       carried = 0;
       return maxCatchUp;
+    },
+    /** How far game time is into the next tick, from 0 to 1, for smoothing what is drawn. */
+    progress(): number {
+      return carried / TICK_MS;
     },
   };
 }

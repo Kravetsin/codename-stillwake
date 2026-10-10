@@ -75,9 +75,11 @@ Files a module does not need are not created. Start one with `pnpm new:module <n
 
 ### Client features
 
-`apps/game/src/features/<name>/` mirrors a sim module: render layers, overlays, tools, panels. A
-feature reads the sim through public queries, changes it only by sending commands, and never imports
-another feature. Game rules live in the sim only; the client shows what the sim decided.
+`apps/game/src/features/<name>/` mirrors a sim module and exports a `Feature`: a `layer` drawn into
+the world every frame and a React `Panel`, listed in `FEATURES` (`pnpm new:module <name> --client`).
+Panels read on a timer, never every tick. A feature reads the sim through public queries, changes it
+only by sending commands, and never imports another feature. Game rules live in the sim only; the
+client shows what the sim decided.
 
 ### Co-op
 
