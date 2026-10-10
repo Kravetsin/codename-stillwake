@@ -64,7 +64,9 @@ Files a module does not need are not created. Start one with `pnpm new:module <n
 - Queries return read-only data; a caller never mutates what a query returned.
 - A tick runs in phases — commands, construction, derivation, simulation, events — and within a phase
   modules run in dependency order. A system that reads derived data runs after it is rebuilt.
-- Derived state (rooms, networks) is never saved; it is rebuilt on load and when its inputs change.
+- Derived state (rooms, networks) is declared in the module's `derived` (its keys and a `rebuild`).
+  It is never saved or hashed, so it may hold `Map`s and typed arrays; the core rebuilds it after
+  `init` and after a load, and the module keeps it current while the world runs.
 - Commands are validated when they apply, on their stamped tick, not when they are sent. A refused
   command returns a reason the player can read and leaves state untouched. Throwing is for broken
   invariants — our bugs.

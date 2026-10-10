@@ -15,6 +15,9 @@ import { rngOver, seedRng, type RngState } from './rng';
 
 export const TICKS_PER_SECOND = 20;
 
+/** Bumped whenever saved data changes shape; a save of another format is refused. */
+export const SAVE_FORMAT = 1;
+
 /** A player's intent, as it travels from the client through the host to every peer. */
 export interface Command {
   readonly module: string;
@@ -60,13 +63,18 @@ export interface Sim {
   /** Applies the commands stamped for the current tick, runs every phase, advances the tick. */
   step(commands: readonly Command[]): TickReport;
   query<M extends AnyModule>(module: M): QueryApi<M>;
+  /** A hash of what a save holds, compared between peers to catch a desync. */
   hash(): string;
+  /** Canonical JSON: the same world always gives the same text. */
+  save(): string;
 }
 
 export interface SimDefinition {
   /** Registered modules in run order: every module after the ones it depends on. */
   readonly modules: readonly AnyModule[];
   create(seed: number): Sim;
+  /** Restores a world from `Sim.save()`, rebuilding every module's derived state. */
+  load(text: string): Sim;
 }
 
 export function defineSim(modules: readonly AnyModule[]): SimDefinition {
@@ -78,7 +86,68 @@ export function defineSim(modules: readonly AnyModule[]): SimDefinition {
       for (const m of ordered) slices[m.id] = m.init();
       return instantiate(ordered, { tick: 0, rng: seedRng(seed), slices });
     },
+    load(text) {
+      return instantiate(ordered, readSave(ordered, text));
+    },
   };
+}
+
+interface SaveFile {
+  format: number;
+  world: WorldData;
+}
+
+/** The world as saved and hashed: every slice without its derived keys. */
+function savedForm(ordered: readonly AnyModule[], world: WorldData): WorldData {
+  const slices: Record<string, unknown> = {};
+  for (const m of ordered) {
+    const slice = world.slices[m.id];
+    const derived = new Set<string>(m.derived?.keys ?? []);
+    slices[m.id] =
+      derived.size === 0
+        ? slice
+        : Object.fromEntries(Object.entries(slice as object).filter(([k]) => !derived.has(k)));
+  }
+  return { tick: world.tick, rng: world.rng, slices };
+}
+
+function readSave(ordered: readonly AnyModule[], text: string): WorldData {
+  const file = JSON.parse(text) as Partial<SaveFile>;
+  if (file.format !== SAVE_FORMAT) {
+    throw new Error(
+      `A save of format ${String(file.format)} cannot be loaded by format ${SAVE_FORMAT}.`,
+    );
+  }
+  const world = file.world;
+  if (!world || !Number.isSafeInteger(world.tick) || !Number.isSafeInteger(world.rng?.s)) {
+    throw new Error('The save holds no valid world.');
+  }
+
+  const saved = Object.keys(world.slices ?? {});
+  const known = ordered.map((m) => m.id);
+  const extra = saved.filter((id) => !known.includes(id));
+  const missing = known.filter((id) => !saved.includes(id));
+  if (extra.length > 0 || missing.length > 0) {
+    // Accepted for now: saves are not migrated, so a save from another set of modules is refused.
+    throw new Error(
+      `The save does not fit these modules (extra: ${extra.join(', ') || 'none'}; missing: ${missing.join(', ') || 'none'}).`,
+    );
+  }
+
+  const slices: Record<string, unknown> = {};
+  for (const m of ordered) {
+    const slice = world.slices[m.id];
+    if (!m.derived) {
+      slices[m.id] = slice;
+      continue;
+    }
+    // Derived keys start from `init` and are rebuilt once every slice is in place.
+    const fresh = m.init() as Record<string, unknown>;
+    const restored = { ...(slice as Record<string, unknown>) };
+    for (const k of m.derived.keys) restored[k] = fresh[k];
+    slices[m.id] = restored;
+  }
+  return { tick: world.tick, rng: world.rng, slices };
 }
 
 /** Orders modules so each follows its dependencies; registration order breaks ties. */
@@ -177,6 +246,18 @@ function instantiate(ordered: readonly AnyModule[], world: WorldData): Sim {
 
   const byId = new Map(ordered.map((m) => [m.id, m]));
 
+  // In dependency order, so a rebuild can query what its dependencies rebuilt.
+  for (const m of ordered) {
+    if (!m.derived) continue;
+    const rebuildCtx = {
+      get state() {
+        return world.slices[m.id];
+      },
+      deps: (readCtxs.get(m.id) as AnyReadCtx).deps,
+    };
+    (m.derived.rebuild as (ctx: unknown) => void)(rebuildCtx);
+  }
+
   return {
     world,
 
@@ -221,7 +302,12 @@ function instantiate(ordered: readonly AnyModule[], world: WorldData): Sim {
     },
 
     hash() {
-      return hashText(canonicalJson(world));
+      return hashText(canonicalJson(savedForm(ordered, world)));
+    },
+
+    save() {
+      const file: SaveFile = { format: SAVE_FORMAT, world: savedForm(ordered, world) };
+      return canonicalJson(file);
     },
   };
 }

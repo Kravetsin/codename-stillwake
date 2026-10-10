@@ -11,9 +11,11 @@ export {
   type Phase,
   type QueryApi,
   type ReadCtx,
+  type RebuildCtx,
   type Refusal,
 } from './core/module';
 export {
+  SAVE_FORMAT,
   TICKS_PER_SECOND,
   command,
   defineSim,

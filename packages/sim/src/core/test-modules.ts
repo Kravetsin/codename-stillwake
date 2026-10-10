@@ -124,3 +124,30 @@ export const dice = defineModule()({
     },
   ],
 });
+
+/** Keeps a `Map` index next to its entries: derived, so out of saves and rebuilt on load. */
+export const ledger = defineModule()({
+  id: 'ledger',
+  dependsOn: [],
+  init: () => ({ entries: [] as number[], counts: new Map<number, number>() }),
+  derived: {
+    keys: ['counts'],
+    rebuild(ctx) {
+      ctx.state.counts = new Map();
+      for (const e of ctx.state.entries)
+        ctx.state.counts.set(e, (ctx.state.counts.get(e) ?? 0) + 1);
+    },
+  },
+  queries: { count: (ctx, value: number) => ctx.state.counts.get(value) ?? 0 },
+  commands: {
+    add: {
+      validate(ctx, p: { value: number }) {
+        if (!Number.isSafeInteger(p.value)) return refuse('ledger.badValue');
+      },
+      apply(ctx, p: { value: number }) {
+        ctx.state.entries.push(p.value);
+        ctx.state.counts.set(p.value, (ctx.state.counts.get(p.value) ?? 0) + 1);
+      },
+    },
+  },
+});

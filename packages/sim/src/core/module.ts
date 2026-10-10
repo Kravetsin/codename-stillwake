@@ -106,6 +106,22 @@ export interface SystemImpl<S, D extends Deps, E> {
   readonly run: (ctx: Ctx<S, D, E>) => void;
 }
 
+/**
+ * State a module can rebuild from the rest of its slice and its dependencies: indexes, caches.
+ * Kept out of saves and the hash, so it may hold `Map`s and typed arrays. Rebuilt after `init`
+ * and after a load; keeping it current while the world runs is the module's own job.
+ */
+export interface DerivedImpl<S, D extends Deps> {
+  readonly keys: readonly (keyof S & string)[];
+  readonly rebuild: (ctx: RebuildCtx<S, D>) => void;
+}
+
+/** Context for `derived.rebuild`: the module's own state and its dependencies' queries. */
+export interface RebuildCtx<S, D extends Deps> {
+  readonly state: S;
+  readonly deps: ReadDeps<D>;
+}
+
 type DepIds<D extends Deps> = { readonly [K in keyof D]: IdOf<D[K]> };
 
 export interface Module<Id extends string, S, D extends Deps, Q, O, C, E> {
@@ -118,6 +134,7 @@ export interface Module<Id extends string, S, D extends Deps, Q, O, C, E> {
   readonly operations?: O;
   readonly commands?: C;
   readonly systems?: readonly SystemImpl<S, D, E>[];
+  readonly derived?: DerivedImpl<S, D>;
 }
 
 /**
@@ -143,5 +160,6 @@ export function defineModule<D extends Deps = []>() {
     readonly operations?: O & Record<string, OperationImpl<S, D, E>>;
     readonly commands?: C & Record<string, CommandImpl<S, D, E>>;
     readonly systems?: readonly SystemImpl<S, D, E>[];
+    readonly derived?: DerivedImpl<S, D>;
   }): Module<Id, S, D, Q, O, C, E> => def;
 }
