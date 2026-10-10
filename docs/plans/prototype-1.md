@@ -96,7 +96,8 @@ Done when: the page shows an empty grid and the dev panel lists every registered
 
 **P1-10 · CI and ownership** · S · after 02
 GitHub Actions on every PR: typecheck, lint, tests with the fuzz test, build. CODEOWNERS on
-`packages/sim` and `packages/net`; `main` protected.
+`packages/sim`, `packages/net` and the guardrails. `main` takes only PRs with green CI and needs no
+approval: two people in their spare time should not wait on each other.
 Done when: a PR shows the checks and a sim or net change asks the core owner for review.
 
 **P1-11 · CLAUDE.md and agents meet the code** · S · after 10

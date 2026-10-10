@@ -1,0 +1,8 @@
+# The simulation and the netcode: where a careless change becomes a desync, so the core owner
+# reviews it. Takes effect as a requirement once main asks for code-owner review.
+/packages/sim/ @Kravetsin
+/packages/net/ @Kravetsin
+# The guardrails and the checks that enforce them.
+/tools/lint/ @Kravetsin
+/eslint.config.js @Kravetsin
+/.github/ @Kravetsin

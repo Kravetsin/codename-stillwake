@@ -129,10 +129,11 @@ running, and a sim tick under 2 ms.
 
 ## Workflow
 
-- One plan task, one branch, one PR. Its "Done when" holds and CI is green before review.
+- One plan task, one branch, one PR. `main` takes nothing but PRs with green CI; no approval is
+  required, so neither of us waits on the other. Its "Done when" holds before the PR opens.
 - A non-trivial feature: `design-author` → `design-reviewer` → a plan in `docs/plans/` → `/review-plan`
-  → implementation → `/review-implementation` → human review. Changes to `packages/sim` and
-  `packages/net` need the core owner's review (CODEOWNERS).
+  → implementation → `/review-implementation` → human review. A PR touching `packages/sim`,
+  `packages/net` or the guardrails asks the core owner for review (CODEOWNERS); wait for it.
 - Docs: decisions in `docs/decisions/` (numbered; a changed decision gets a new ADR that supersedes the
   old one), the game in `docs/concept.md`, plans in `docs/plans/` — deleted once done, after what stays
   true moves into an ADR, a module README or the concept.
