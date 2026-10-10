@@ -32,12 +32,23 @@ describe('keys', () => {
     expect(keys.take().jump).toBe(false);
   });
 
+  it('count a use once per press, apart from movement', () => {
+    const { keys, send } = setup();
+    send('keydown', 'KeyE');
+    send('keydown', 'KeyE', true);
+    expect(keys.take()).toEqual({ x: 0, y: 0, jump: false });
+    expect(keys.takeUse()).toBe(true);
+    expect(keys.takeUse()).toBe(false);
+  });
+
   it('let go of everything when the window loses focus', () => {
     const { keys, send } = setup();
     send('keydown', 'KeyD');
     send('keydown', 'Space');
+    send('keydown', 'KeyE');
     send('blur', '');
     expect(keys.take()).toEqual({ x: 0, y: 0, jump: false });
+    expect(keys.takeUse()).toBe(false);
   });
 
   it('stop listening once destroyed', () => {

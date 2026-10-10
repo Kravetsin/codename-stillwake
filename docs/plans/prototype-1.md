@@ -144,6 +144,9 @@ jump height. The hero wakes at the map's S, read by the client through `game.lay
 The cell under the cursor is highlighted, actions respect a reach radius, `E` toggles a door or a
 valve through `grid`'s commands.
 Done when: a closed door stops the hero and toggling goes through the pipeline.
+Built inside the client `crew` feature, since aiming needs the hero. Reach (`HERO.reach`) runs from
+the middle of the body to the middle of the cell. Left out: a valve in a door's cell cannot be worked
+with E, which works the door; a door may close on a hero, who then walks out of it.
 
 **P1-25 · Build mode** · M · client and sim `building` · after 20, 22
 A React toolbar: walls by material, floor, ladder, door, pipe, vent, valve, tank. A ghost coloured by

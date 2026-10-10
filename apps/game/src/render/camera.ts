@@ -15,6 +15,8 @@ export interface Camera {
    * until the point moves again.
    */
   follow(point: { x: number; y: number }, screen: Size): void;
+  /** The world point under the mouse, in cells; undefined while the mouse is off the canvas. */
+  pointer(): { x: number; y: number } | undefined;
   destroy(): void;
 }
 
@@ -32,6 +34,7 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
   let dragging: { x: number; y: number } | undefined;
   let looking = false;
   let followed = { x: NaN, y: NaN };
+  let mouse: { x: number; y: number } | undefined;
 
   const zoomAt = (factor: number, sx: number, sy: number) => {
     const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, world.scale.x * factor));
@@ -54,6 +57,8 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     canvas.setPointerCapture(e.pointerId);
   };
   const onMove = (e: PointerEvent) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     if (!dragging) return;
     world.position.set(world.x + e.clientX - dragging.x, world.y + e.clientY - dragging.y);
     dragging = { x: e.clientX, y: e.clientY };
@@ -63,12 +68,16 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     dragging = undefined;
     canvas.releasePointerCapture(e.pointerId);
   };
+  const onLeave = () => {
+    mouse = undefined;
+  };
   const noMenu = (e: Event) => e.preventDefault();
 
   canvas.addEventListener('wheel', onWheel, { passive: false });
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('contextmenu', noMenu);
 
   return {
@@ -96,11 +105,20 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
         screen.height / 2 - point.y * CELL * zoom,
       );
     },
+    pointer() {
+      if (!mouse) return undefined;
+      // Read when asked, not when the mouse moved: the camera may have moved since.
+      return {
+        x: (mouse.x - world.x) / world.scale.x / CELL,
+        y: (mouse.y - world.y) / world.scale.y / CELL,
+      };
+    },
     destroy() {
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('contextmenu', noMenu);
     },
   };
