@@ -43,12 +43,13 @@ the principle wins and the rule gets revisited.
 `packages/content` → `packages/sim` → `packages/net` → `apps/game` (→ `apps/desktop` later). Imports
 point one way only; lint enforces it.
 
-| Package     | Holds                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------- |
-| `content`   | game data as typed TS (`satisfies`): materials, machines, rates, ASCII maps; no logic |
-| `sim`       | the deterministic simulation, core and modules; no DOM, no Node APIs, no rendering    |
-| `net`       | transports, host and client: stamping and applying commands, snapshots, hash checks   |
-| `apps/game` | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
+| Package      | Holds                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `content`    | game data as typed TS (`satisfies`): materials, machines, rates, ASCII maps; no logic |
+| `sim`        | the deterministic simulation, core and modules; no DOM, no Node APIs, no rendering    |
+| `net`        | transports, host and client: stamping and applying commands, snapshots, hash checks   |
+| `apps/game`  | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
+| `tools/lint` | our ESLint rule and the tests proving every guardrail fires                           |
 
 ### Sim modules
 

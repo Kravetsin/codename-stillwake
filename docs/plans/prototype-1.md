@@ -47,7 +47,8 @@ Package direction as in 0004. A sim module imports another only as types from it
 client feature imports the sim only through its public API and no other feature. In `sim` and
 `content`: no `Math.random`, `Date`, `performance`, timers, async code, `Intl`, `localeCompare`,
 `toLocale*`, `Math.sin/cos/tan/atan2/pow/exp/log/hypot/cbrt` or `**` (`Math.imul` is fine).
-Done when: a fixture file breaking each rule fails `pnpm lint`.
+Done when: `tools/lint` tests show each rule rejecting a violating snippet and accepting the allowed
+shapes, and `pnpm lint` is green on the repo.
 
 **P1-03 · Sim core and module system** · L · after 01
 The world as a set of module slices; the module definition (`dependsOn`, initial slice, commands,
