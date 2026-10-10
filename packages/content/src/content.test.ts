@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
+import { STARTING_STOCK } from './stock';
 
 describe('materials', () => {
   const all = Object.values(MATERIALS);
@@ -57,5 +58,16 @@ describe('hero', () => {
     let rise = 0;
     for (let v = HERO.jump - HERO.gravity; v > 0; v -= HERO.gravity) rise += v;
     expect(rise).toBeGreaterThan(CELL);
+  });
+});
+
+describe('starting stock', () => {
+  it('holds a whole number of every material, none below zero', () => {
+    for (const [material, amount] of Object.entries(STARTING_STOCK)) {
+      expect({ [material]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({
+        [material]: true,
+      });
+    }
+    expect(Object.keys(STARTING_STOCK).sort()).toEqual(Object.keys(MATERIALS).sort());
   });
 });

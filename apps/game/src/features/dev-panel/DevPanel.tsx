@@ -1,3 +1,4 @@
+import { command, stock } from '@stillwake/sim';
 import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
 
@@ -11,6 +12,7 @@ interface Reading {
   fps: number;
   tick: number;
   hash: string;
+  creative: boolean;
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -26,6 +28,7 @@ function read(
     fps: game.fps,
     tick: sim.world.tick,
     hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
+    creative: sim.query(stock).creative(),
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -134,6 +137,16 @@ export function DevPanel({ game }: { readonly game: Game }) {
           }}
         >
           ×{speed === 1 ? 4 : 1}
+        </button>
+        <button
+          className={`rounded px-2 py-1 ${reading.creative ? 'bg-amber-700 hover:bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+          onClick={() => {
+            // Read now, not from the last reading: two quick clicks must switch it back.
+            const on = !game.client.sim.query(stock).creative();
+            game.client.send(command(stock, 'setCreative', { on }));
+          }}
+        >
+          creative
         </button>
       </div>
       {status && <p className="mb-2 text-slate-400">{status}</p>}

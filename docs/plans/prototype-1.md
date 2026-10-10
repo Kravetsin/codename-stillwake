@@ -161,6 +161,9 @@ first player-facing text arrived with the toolbar, in `apps/game/src/i18n/en.ts`
 One ship-wide stock of materials and canisters, with operations to spend and refund; creative mode,
 a world setting switched by a command from the dev panel, ignores costs. HUD counters.
 Done when: scenario tests cover spending, refunds and refusals for lack of stock.
+Built with grid's pattern: `shortOf(cost)` gives the refusal key, `spend` throws past the stock.
+Creative mode makes spending free; refunds still add. The start is `STARTING_STOCK` in content plus
+the map's canisters.
 
 **P1-27 · Building by hand** · M · sim `building` · after 25, 26
 `StartWork(hero, plan)` and `StopWork`: the sim advances a plan while a hero is on it and completes it

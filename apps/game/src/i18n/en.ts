@@ -25,6 +25,9 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.hint': 'Drag to lay a line · click the tool again or press Esc to put it away',
   'material.scrap': 'scrap',
   'material.steel': 'steel',
+  'item.canister': 'canisters',
+  'stock.notEnough': 'Not enough in stock',
+  'stock.creative': 'creative',
 };
 
 /** The text for `key`, or the key itself while it has none. */
