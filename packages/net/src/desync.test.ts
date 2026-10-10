@@ -1,0 +1,56 @@
+import { defineModule, defineSim, stillwake } from '@stillwake/sim';
+import { describe, expect, it } from 'vitest';
+import { fuzzDesync } from './testing/desync';
+import { board, drift } from './testing/fixtures';
+
+const SEEDS = [1, 2, 3, 42, 2026];
+
+describe('desync fuzz: the game', () => {
+  it.each(SEEDS)('keeps every client in sync on registered modules (seed %i)', (seed) => {
+    const run = fuzzDesync(stillwake, { seed });
+    expect(run.desync).toBeUndefined();
+    expect(run.ticks).toBe(600);
+  });
+});
+
+describe('desync fuzz: the harness itself', () => {
+  const fixtures = defineSim([drift, board]);
+
+  it.each(SEEDS)('keeps clients in sync under random commands (seed %i)', (seed) => {
+    const run = fuzzDesync(fixtures, { seed });
+    expect(run.desync).toBeUndefined();
+    expect(run.commands).toBeGreaterThan(500);
+    // Refusals go through the same path on every peer, so they are fuzzed too.
+    expect(run.refused).toBeGreaterThan(50);
+  });
+
+  it('catches a client whose world was changed behind the pipeline’s back', () => {
+    const run = fuzzDesync(fixtures, {
+      seed: 7,
+      tamper: (tick, clients) => {
+        if (tick !== 30) return;
+        const drifted = clients[2]?.sim.world.slices['drift'] as { position: number };
+        drifted.position += 1;
+      },
+    });
+    expect(run.desync?.tick).toBe(40);
+    expect(new Set(run.desync?.hashes).size).toBe(2);
+  });
+
+  it('refuses a module that has commands but no fuzz generator', () => {
+    const silent = defineModule()({
+      id: 'silent',
+      dependsOn: [],
+      init: () => ({ n: 0 }),
+      commands: { bump: { apply: (ctx, p: { by: number }) => void (ctx.state.n += p.by) } },
+    });
+    expect(() => fuzzDesync(defineSim([board, silent]), { seed: 1 })).toThrow(
+      "Modules with commands but no fuzz generator: 'silent'. Add one with withFuzz.",
+    );
+  });
+
+  it('does not ask a module without commands for a generator', () => {
+    const quiet = defineModule()({ id: 'quiet', dependsOn: [], init: () => ({}) });
+    expect(fuzzDesync(defineSim([board, quiet]), { seed: 1, ticks: 40 }).desync).toBeUndefined();
+  });
+});

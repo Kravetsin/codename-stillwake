@@ -1,7 +1,7 @@
 // Compile-time guarantees of the module system. Each `@ts-expect-error` fails `pnpm typecheck`
 // the day the mistake under it stops being a type error.
 import { describe, expect, it } from 'vitest';
-import { defineModule, event } from './module';
+import { defineModule, event, withFuzz } from './module';
 import { command, defineSim } from './sim';
 import { crew, tanks, type Tanks } from './test-modules';
 
@@ -49,6 +49,24 @@ describe('module types', () => {
       ],
     });
     expect(probe.id).toBe('probe');
+  });
+
+  it('checks fuzz generators against the module’s commands', () => {
+    const bumper = defineModule()({
+      id: 'bumper',
+      dependsOn: [],
+      init: () => ({ n: 0 }),
+      commands: { bump: { apply: (ctx, p: { by: number }) => void (ctx.state.n += p.by) } },
+    });
+    // @ts-expect-error the module has no 'drop' command
+    withFuzz(bumper, () => ({ type: 'drop', payload: { by: 1 } }));
+    // @ts-expect-error 'by' is a number
+    withFuzz(bumper, () => ({ type: 'bump', payload: { by: 'one' } }));
+    // @ts-expect-error the generator sees its state read-only
+    withFuzz(bumper, (state) => ({ type: 'bump', payload: { by: (state.n = 1) } }));
+    expect(withFuzz(bumper, () => ({ type: 'bump', payload: { by: 1 } })).fuzz).toBeTypeOf(
+      'function',
+    );
   });
 
   it('requires dependsOn to match the declared dependencies', () => {

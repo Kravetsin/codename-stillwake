@@ -2,11 +2,13 @@ export {
   defineModule,
   event,
   refuse,
+  withFuzz,
   type AnyModule,
   type CommandsOf,
   type Ctx,
   type DeepReadonly,
   type EventType,
+  type FuzzPick,
   type Module,
   type Phase,
   type QueryApi,
@@ -14,6 +16,7 @@ export {
   type RebuildCtx,
   type Refusal,
 } from './core/module';
+export { createRng, type Rng } from './core/rng';
 export {
   SAVE_FORMAT,
   TICKS_PER_SECOND,

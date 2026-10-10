@@ -100,7 +100,8 @@ Every peer must compute the same world from the same commands. In `sim` and `con
   ties broken by id.
 - Nothing reaches the sim except commands. A hero's position enters as "entered room" commands from
   `crew`; physics results enter as commands from the host.
-- Every command type has a generator in its module's `fuzz.ts`.
+- Every command type is drawn by the module's fuzz generator (`fuzz.ts`, attached with `withFuzz`);
+  the desync suite refuses a module with commands and no generator. Let it draw refused commands too.
 
 Lint catches the API bans; the desync fuzz test catches the rest.
 

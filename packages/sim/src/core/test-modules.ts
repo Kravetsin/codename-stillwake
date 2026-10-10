@@ -1,7 +1,7 @@
 // Test-only modules that exercise the core. Real modules live in `src/modules/`.
-import { defineModule, event, refuse } from './module';
+import { defineModule, event, refuse, withFuzz } from './module';
 
-export const tanks = defineModule()({
+const tanksModule = defineModule()({
   id: 'tanks',
   dependsOn: [],
   events: { emptied: event<{ tank: number }>() },
@@ -35,9 +35,15 @@ export const tanks = defineModule()({
   },
 });
 
+// One tank past the end and an amount of 0 come up often enough to fuzz the refusals too.
+export const tanks = withFuzz(tanksModule, (state, rng) => ({
+  type: 'fill',
+  payload: { tank: rng.below(state.levels.length + 1), amount: rng.below(6) },
+}));
+
 export type Tanks = typeof tanks;
 
-export const crew = defineModule<[Tanks]>()({
+const crewModule = defineModule<[Tanks]>()({
   id: 'crew',
   dependsOn: ['tanks'],
   events: { gasping: event<{ hero: number }>() },
@@ -68,6 +74,11 @@ export const crew = defineModule<[Tanks]>()({
     },
   ],
 });
+
+export const crew = withFuzz(crewModule, (_state, rng) => ({
+  type: 'join',
+  payload: { tank: rng.below(3) },
+}));
 
 // Systems are listed out of phase order on purpose: the core, not the list, decides the order.
 
@@ -126,7 +137,7 @@ export const dice = defineModule()({
 });
 
 /** Keeps a `Map` index next to its entries: derived, so out of saves and rebuilt on load. */
-export const ledger = defineModule()({
+const ledgerModule = defineModule()({
   id: 'ledger',
   dependsOn: [],
   init: () => ({ entries: [] as number[], counts: new Map<number, number>() }),
@@ -151,3 +162,8 @@ export const ledger = defineModule()({
     },
   },
 });
+
+export const ledger = withFuzz(ledgerModule, (_state, rng) => ({
+  type: 'add',
+  payload: { value: rng.below(5) },
+}));

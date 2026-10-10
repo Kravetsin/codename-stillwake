@@ -42,9 +42,9 @@ type PayloadOf<T> = T extends EventType<infer P> ? P : never;
 type Bound<F> = F extends (ctx: never, ...args: infer A) => infer R ? (...args: A) => R : never;
 
 type Parts<M> =
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- state and deps are not read here
-  M extends Module<infer Id, any, any, infer Q, infer O, infer C, any>
-    ? { id: Id; queries: Q; operations: O; commands: C }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- deps and events are not read here
+  M extends Module<infer Id, infer S, any, infer Q, infer O, infer C, any>
+    ? { id: Id; state: S; queries: Q; operations: O; commands: C }
     : never;
 
 export type IdOf<M> = Parts<M>['id'];
@@ -57,13 +57,24 @@ export type OperationApi<M> = {
   readonly [K in keyof Parts<M>['operations']]: Bound<Parts<M>['operations'][K]>;
 };
 
-export type CommandsOf<M> = {
-  readonly [K in keyof Parts<M>['commands']]: Parts<M>['commands'][K] extends {
-    apply: (ctx: never, payload: infer P) => void;
-  }
+type PayloadsOf<C> = {
+  readonly [K in keyof C]: C[K] extends { apply: (ctx: never, payload: infer P) => void }
     ? P
     : never;
 };
+
+export type CommandsOf<M> = PayloadsOf<Parts<M>['commands']>;
+
+/** One of a module's commands with its payload, as a fuzz generator returns it. */
+export type FuzzPick<C> = {
+  [K in keyof C & string]: { readonly type: K; readonly payload: PayloadsOf<C>[K] };
+}[keyof C & string];
+
+/**
+ * Draws a random command for the desync fuzz test from the module's current state. It should
+ * also draw commands the module refuses, so refusals are fuzzed too; `undefined` skips a turn.
+ */
+export type FuzzImpl<S, C> = (state: DeepReadonly<S>, rng: Rng) => FuzzPick<C> | undefined;
 
 /** What a module sees of a dependency while reading. */
 export type ReadDeps<D extends Deps> = {
@@ -135,6 +146,8 @@ export interface Module<Id extends string, S, D extends Deps, Q, O, C, E> {
   readonly commands?: C;
   readonly systems?: readonly SystemImpl<S, D, E>[];
   readonly derived?: DerivedImpl<S, D>;
+  /** Set with `withFuzz`; required whenever the module has commands. */
+  readonly fuzz?: FuzzImpl<S, C>;
 }
 
 /**
@@ -162,4 +175,15 @@ export function defineModule<D extends Deps = []>() {
     readonly systems?: readonly SystemImpl<S, D, E>[];
     readonly derived?: DerivedImpl<S, D>;
   }): Module<Id, S, D, Q, O, C, E> => def;
+}
+
+/**
+ * Attaches a module's fuzz generator (its `fuzz.ts`). A second step rather than a field of
+ * `defineModule`: the generator is typed by the commands, so they must be known first.
+ */
+export function withFuzz<M extends AnyModule>(
+  module: M,
+  fuzz: FuzzImpl<Parts<M>['state'], Parts<M>['commands']>,
+): M {
+  return { ...module, fuzz };
 }

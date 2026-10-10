@@ -1,29 +1,11 @@
-import { command, defineModule, defineSim, refuse } from '@stillwake/sim';
+import { command, defineSim } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { loopback } from './channel';
 import { createClient } from './client';
 import { createHost } from './host';
 import { localSession } from './local';
 import type { ToClient, ToHost } from './protocol';
-
-/** A shared log every player writes to; order of entries shows the order commands applied in. */
-const board = defineModule()({
-  id: 'board',
-  dependsOn: [],
-  init: () => ({ notes: [] as { tick: number; text: string }[], ticks: 0 }),
-  queries: { notes: (ctx) => ctx.state.notes.map((n) => `${n.tick}:${n.text}`) },
-  commands: {
-    write: {
-      validate(_ctx, p: { text: string }) {
-        if (p.text === '') return refuse('board.empty');
-      },
-      apply(ctx, p: { text: string }) {
-        ctx.state.notes.push({ tick: ctx.state.ticks, text: p.text });
-      },
-    },
-  },
-  systems: [{ phase: 'simulation', run: (ctx) => void (ctx.state.ticks += 1) }],
-});
+import { board } from './testing/fixtures';
 
 const game = defineSim([board]);
 const write = (text: string) => command(board, 'write', { text });

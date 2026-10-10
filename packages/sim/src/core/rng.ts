@@ -10,6 +10,11 @@ export interface Rng {
 
 const SPAN = 4294967296;
 
+/** A generator of its own, outside any world: for tests and tools, never for the sim. */
+export function createRng(seed: number): Rng {
+  return rngOver(seedRng(seed));
+}
+
 export function seedRng(seed: number): RngState {
   return { s: seed >>> 0 };
 }
