@@ -151,8 +151,11 @@ with E, which works the door; a door may close on a hero, who then walks out of 
 **P1-25 · Build mode** · M · client and sim `building` · after 20, 22
 A React toolbar: walls by material, floor, ladder, door, pipe, vent, valve, tank. A ghost coloured by
 validity, drag to lay lines, a deconstruct mode. Commands: place plan, cancel plan, deconstruct.
-Adds tools to the client feature interface: an input mode a feature owns while it is active.
 Done when: every type can be planned and cancelled, and an invalid placement shows the sim's reason.
+Built without an input mode in the feature interface: building is the only feature on the left
+button, and work in P1-27 starts with E, which `crew` already owns. Plans claim a solid slot
+(structure or machine) or a conduit slot per cell, so overlapping plans are refused up front. The
+first player-facing text arrived with the toolbar, in `apps/game/src/i18n/en.ts`.
 
 **P1-26 · `stock`** · S · sim and client · after 03
 One ship-wide stock of materials and canisters, with operations to spend and refund; creative mode,
@@ -161,7 +164,9 @@ Done when: scenario tests cover spending, refunds and refusals for lack of stock
 
 **P1-27 · Building by hand** · M · sim `building` · after 25, 26
 `StartWork(hero, plan)` and `StopWork`: the sim advances a plan while a hero is on it and completes it
-through `grid`'s operations; the client stops work when the hero leaves reach. Deconstruction works the
+through `grid`'s operations. E on a plan within reach starts work, in `crew`, which also stops it
+when the hero leaves reach; a plan sharing a cell with a door or valve takes E first or second, to be
+decided there. Deconstruction works the
 same way and refunds through `stock`. Progress bars.
 Done when: a plan completes only while a hero works on it, and never past the stock.
 

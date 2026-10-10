@@ -72,6 +72,14 @@ describe('the map builds the grid', () => {
     expect(w.query(grid).portsOf(1)).toEqual([14]);
   });
 
+  it("tells which cells a machine would cover, and none past the grid's edge", () => {
+    const w = scenario(world, ROOM);
+    expect(w.query(grid).footprint('tank', 8)).toEqual(w.cells('T'));
+    expect(w.query(grid).footprint('tank', 5)).toBeUndefined();
+    expect(w.query(grid).footprint('tank', 19)).toBeUndefined();
+    expect(w.query(grid).footprint('vent', 23)).toEqual([23]);
+  });
+
   it('splits side-by-side machines in reading order', () => {
     const w = scenario(world, `TTTT\nTTTT\n`);
     expect(
@@ -161,6 +169,31 @@ describe('other modules change the grid through its operations', () => {
       'grid.machineInTheWay',
       'grid.outOfBounds',
       'grid.blocked',
+    ]);
+  });
+
+  it('refuses a material or machine the catalogs do not have, inherited names included', () => {
+    const unknown = (name: string) => name as never;
+    const w = scenario(building, ROOM)
+      .do(builder, 'place', {
+        cell: 7,
+        placement: { layer: 'structure', kind: 'wall', material: unknown('toString') },
+      })
+      .do(builder, 'place', {
+        cell: 7,
+        placement: { layer: 'structure', kind: 'wall', material: unknown('gold') },
+      })
+      .do(builder, 'place', {
+        cell: 7,
+        placement: { layer: 'machine', kind: unknown('constructor') },
+      })
+      .do(builder, 'place', { cell: 7, placement: { layer: 'machine', kind: unknown('drill') } })
+      .run();
+    expect(w.refusals).toEqual([
+      'grid.noSuchMaterial',
+      'grid.noSuchMaterial',
+      'grid.noSuchMachine',
+      'grid.noSuchMachine',
     ]);
   });
 

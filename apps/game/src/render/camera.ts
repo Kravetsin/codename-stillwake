@@ -17,7 +17,14 @@ export interface Camera {
   follow(point: { x: number; y: number }, screen: Size): void;
   /** The world point under the mouse, in cells; undefined while the mouse is off the canvas. */
   pointer(): { x: number; y: number } | undefined;
+  /** Left-button presses and releases since the last call, in order, at their world points. */
+  takeLeft(): readonly LeftButton[];
   destroy(): void;
+}
+
+export interface LeftButton {
+  readonly down: boolean;
+  readonly at: { readonly x: number; readonly y: number };
 }
 
 interface Size {
@@ -27,7 +34,7 @@ interface Size {
 
 /**
  * Moves and scales `world`. The wheel zooms toward the cursor; the right or middle button drags.
- * The left button is left to the game: interaction and building. While following, the wheel zooms
+ * The left button is left to the game, which reads it with `takeLeft`: today, building. While following, the wheel zooms
  * around the followed point, since following puts it back in the middle every frame.
  */
 export function createCamera(world: Container, canvas: HTMLCanvasElement): Camera {
@@ -35,6 +42,17 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
   let looking = false;
   let followed = { x: NaN, y: NaN };
   let mouse: { x: number; y: number } | undefined;
+  let left: LeftButton[] = [];
+  let leftDown = false;
+
+  const toWorld = (sx: number, sy: number) => ({
+    x: (sx - world.x) / world.scale.x / CELL,
+    y: (sy - world.y) / world.scale.y / CELL,
+  });
+  const onCanvas = (e: PointerEvent) => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
 
   const zoomAt = (factor: number, sx: number, sy: number) => {
     const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, world.scale.x * factor));
@@ -50,23 +68,25 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     const rect = canvas.getBoundingClientRect();
     zoomAt(e.deltaY < 0 ? WHEEL_STEP : 1 / WHEEL_STEP, e.clientX - rect.left, e.clientY - rect.top);
   };
-  const onDown = (e: PointerEvent) => {
-    if (e.button !== 1 && e.button !== 2) return;
-    dragging = { x: e.clientX, y: e.clientY };
-    looking = true;
-    canvas.setPointerCapture(e.pointerId);
-  };
-  const onMove = (e: PointerEvent) => {
-    const rect = canvas.getBoundingClientRect();
-    mouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    if (!dragging) return;
-    world.position.set(world.x + e.clientX - dragging.x, world.y + e.clientY - dragging.y);
-    dragging = { x: e.clientX, y: e.clientY };
-  };
-  const onUp = (e: PointerEvent) => {
-    if (!dragging) return;
-    dragging = undefined;
-    canvas.releasePointerCapture(e.pointerId);
+  // One handler for presses, moves and releases, read from the buttons held: with a second button
+  // down, the browser reports pressing or releasing another as a move, not as a down or an up.
+  const onPointer = (e: PointerEvent) => {
+    mouse = onCanvas(e);
+    const leftHeld = (e.buttons & 1) !== 0;
+    const panHeld = (e.buttons & 6) !== 0;
+    if (dragging && panHeld) {
+      world.position.set(world.x + e.clientX - dragging.x, world.y + e.clientY - dragging.y);
+    }
+    dragging = panHeld ? { x: e.clientX, y: e.clientY } : undefined;
+    if (panHeld) looking = true;
+    if (leftHeld !== leftDown) {
+      leftDown = leftHeld;
+      left.push({ down: leftHeld, at: toWorld(mouse.x, mouse.y) });
+    }
+    // Captured while any button is held, so a release outside the canvas still arrives.
+    const captured = canvas.hasPointerCapture(e.pointerId);
+    if (e.buttons !== 0 && !captured) canvas.setPointerCapture(e.pointerId);
+    if (e.buttons === 0 && captured) canvas.releasePointerCapture(e.pointerId);
   };
   const onLeave = () => {
     mouse = undefined;
@@ -74,9 +94,9 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
   const noMenu = (e: Event) => e.preventDefault();
 
   canvas.addEventListener('wheel', onWheel, { passive: false });
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerup', onUp);
+  for (const type of ['pointerdown', 'pointermove', 'pointerup'] as const) {
+    canvas.addEventListener(type, onPointer);
+  }
   canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('contextmenu', noMenu);
 
@@ -106,18 +126,19 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
       );
     },
     pointer() {
-      if (!mouse) return undefined;
       // Read when asked, not when the mouse moved: the camera may have moved since.
-      return {
-        x: (mouse.x - world.x) / world.scale.x / CELL,
-        y: (mouse.y - world.y) / world.scale.y / CELL,
-      };
+      return mouse && toWorld(mouse.x, mouse.y);
+    },
+    takeLeft() {
+      const taken = left;
+      left = [];
+      return taken;
     },
     destroy() {
       canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('pointerdown', onDown);
-      canvas.removeEventListener('pointermove', onMove);
-      canvas.removeEventListener('pointerup', onUp);
+      for (const type of ['pointerdown', 'pointermove', 'pointerup'] as const) {
+        canvas.removeEventListener(type, onPointer);
+      }
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('contextmenu', noMenu);
     },

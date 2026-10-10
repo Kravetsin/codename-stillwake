@@ -197,8 +197,9 @@ check, lint, types, tests and build.
 
 ## Conventions
 
-- English in code, comments, commits and docs. Player-facing text will live in i18n files keyed like
-  refusal reasons; until the first player-facing UI adds them, show the key.
+- English in code, comments, commits and docs. Player-facing text lives in
+  `apps/game/src/i18n/en.ts`, shown with `t(key)`; refusal reasons use the sim's keys, and a test
+  fails when a refusal key has no text.
 - Comments only for a non-obvious why, at most two lines; never restate the code. Longer reasoning
   goes to `docs/`.
 - Commits follow Conventional Commits with the module as scope: `feat(atmosphere): vent rooms open to

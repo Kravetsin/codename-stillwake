@@ -33,13 +33,14 @@ export function placementProblem(
     case 'structure':
       if (state.structure[cell] !== STRUCTURE.empty) return 'grid.occupied';
       if (state.occupancy[cell] !== 0) return 'grid.machineInTheWay';
-      if (placement.kind === 'wall' && !(placement.material in MATERIALS))
+      // Own keys only: `in` would also take names every object inherits, such as 'toString'.
+      if (placement.kind === 'wall' && !Object.hasOwn(MATERIALS, placement.material))
         return 'grid.noSuchMaterial';
       return undefined;
     case 'conduit':
       return state.conduit[cell] === CONDUIT.none ? undefined : 'grid.occupied';
     case 'machine': {
-      if (!(placement.kind in MACHINES)) return 'grid.noSuchMachine';
+      if (!Object.hasOwn(MACHINES, placement.kind)) return 'grid.noSuchMachine';
       const cells = footprint(state, placement.kind, cell);
       if (!cells) return 'grid.outOfBounds';
       if (cells.some((c) => state.structure[c] !== STRUCTURE.empty)) return 'grid.blocked';

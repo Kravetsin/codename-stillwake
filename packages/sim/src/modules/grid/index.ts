@@ -1,4 +1,4 @@
-import { MACHINES, MATERIALS, type MaterialId } from '@stillwake/content';
+import { MACHINES, MATERIALS, type MachineKind, type MaterialId } from '@stillwake/content';
 import { defineModule, refuse, withFuzz } from '../../core/module';
 import { footprint, inBounds, placementProblem } from './cells';
 import { fuzzGrid } from './fuzz';
@@ -101,6 +101,8 @@ const gridModule = defineModule()({
       const y = Math.floor(m.cell / ctx.state.width);
       return MACHINES[m.kind].ports.map((p) => (y + p.y) * ctx.state.width + x + p.x);
     },
+    /** The cells a machine of `kind` would cover with its top-left at `cell`; none off the grid. */
+    footprint: (ctx, kind: MachineKind, cell: number) => footprint(ctx.state, kind, cell),
     /** Why `placement` cannot go at `cell`, as a refusal key; `undefined` when it can. */
     placementProblem: (ctx, cell: number, placement: Placement) =>
       placementProblem(ctx.state, cell, placement),
