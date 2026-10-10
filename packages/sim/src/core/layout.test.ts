@@ -19,6 +19,10 @@ describe('parseLayout', () => {
     expect(() => parseLayout(`#?#`)).toThrow("Map cell (1, 0): '?' is not in the legend.");
   });
 
+  it('reads rows as written, keeping the space around a ship', () => {
+    expect(parseLayout(['    ', ' ##', '   ']).rows).toEqual(['    ', ' ## ', '    ']);
+  });
+
   it('parses an empty map', () => {
     expect(parseLayout('')).toEqual({ width: 0, height: 0, rows: [] });
   });

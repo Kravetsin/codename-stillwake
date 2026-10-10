@@ -10,25 +10,31 @@ export interface Layout {
 export const EMPTY_LAYOUT: Layout = { width: 0, height: 0, rows: [] };
 
 /**
- * Parses a map written in a template literal: blank first and last lines are dropped, the
- * indentation common to all rows is removed, and short rows are padded with space.
+ * Parses a map. Written in a template literal, blank first and last lines are dropped and the
+ * indentation common to all rows is removed, which suits tests. Given as rows, it is read as written,
+ * so the space around a ship stays part of the grid. Short rows are padded with space either way.
  */
-export function parseLayout(ascii: string): Layout {
-  const lines = ascii.split('\n').map((line) => line.replace(/\r$/, ''));
+export function parseLayout(map: string | readonly string[]): Layout {
+  if (typeof map !== 'string') return checked(map);
+
+  const lines = map.split('\n').map((line) => line.replace(/\r$/, ''));
   while (lines.length > 0 && (lines[0] ?? '').trim() === '') lines.shift();
   while (lines.length > 0 && (lines[lines.length - 1] ?? '').trim() === '') lines.pop();
 
   const indent = Math.min(
     ...lines.map((l) => (l.trim() === '' ? Infinity : l.length - l.trimStart().length)),
   );
-  const cut = lines.map((l) => l.slice(Number.isFinite(indent) ? indent : 0).trimEnd());
+  return checked(lines.map((l) => l.slice(Number.isFinite(indent) ? indent : 0).trimEnd()));
+}
+
+function checked(cut: readonly string[]): Layout {
   const width = Math.max(0, ...cut.map((l) => l.length));
   const rows = cut.map((l) => l.padEnd(width, ' '));
-
   rows.forEach((row, y) => {
     [...row].forEach((char, x) => {
-      if (!(char in LEGEND))
+      if (!(char in LEGEND)) {
         throw new Error(`Map cell (${x}, ${y}): '${char}' is not in the legend.`);
+      }
     });
   });
   return { width, height: rows.length, rows };

@@ -15,6 +15,8 @@ export const LEGEND = {
   x: 'valve, closed',
   T: 'oxygen tank: draw its whole footprint',
   V: 'vent',
+  c: 'oxygen canister lying loose, for the starting stock',
+  S: 'where the hero wakes',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type LegendChar = keyof typeof LEGEND;

@@ -164,7 +164,8 @@ A flood fill over open cells bounded by walls and closed doors; a region that re
 space. A room's id is the index of its first cell in scan order. Per room: volume, outer hull cells
 with their materials, openings to space. Rebuilt only when the structure changes or a door moves.
 Done when: scenario tests for a sealed room, an open door joining two rooms, a hole exposing a room to
-space; an invariant test that every open cell is in exactly one room or in space.
+space; an invariant test that every open cell is in exactly one room or in space. On the wreck: three
+rooms, and room C exposed to space through its breach.
 
 **P1-31 · `pipes`** · M · sim · after 20
 Pipe networks as connected components, rebuilt when a pipe, valve or machine changes; a closed valve

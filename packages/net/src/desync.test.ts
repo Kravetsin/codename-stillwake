@@ -1,4 +1,4 @@
-import { defineModule, defineSim, stillwake } from '@stillwake/sim';
+import { defineModule, defineSim, stillwake, wreck } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { fuzzDesync } from './testing/desync';
 import { board, drift } from './testing/fixtures';
@@ -6,8 +6,8 @@ import { board, drift } from './testing/fixtures';
 const SEEDS = [1, 2, 3, 42, 2026];
 
 describe('desync fuzz: the game', () => {
-  it.each(SEEDS)('keeps every client in sync on registered modules (seed %i)', (seed) => {
-    const run = fuzzDesync(stillwake, { seed });
+  it.each(SEEDS)('keeps every client in sync on the starting wreck (seed %i)', (seed) => {
+    const run = fuzzDesync(stillwake, { seed, layout: wreck });
     expect(run.desync).toBeUndefined();
     expect(run.ticks).toBe(600);
   });

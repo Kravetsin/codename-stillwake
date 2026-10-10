@@ -1,4 +1,4 @@
-import { createRng, type AnyModule, type SimDefinition } from '@stillwake/sim';
+import { createRng, type AnyModule, type Layout, type SimDefinition } from '@stillwake/sim';
 import { loopback } from '../channel';
 import { createClient, type Client } from '../client';
 import { createHost } from '../host';
@@ -9,6 +9,8 @@ export interface DesyncOptions {
   readonly ticks?: number;
   readonly clients?: number;
   readonly checkEvery?: number;
+  /** The map every client's world starts from; empty when there is none. */
+  readonly layout?: Layout;
   /** Runs after every tick; tests use it to break a client on purpose. */
   readonly tamper?: (tick: number, clients: readonly Client[]) => void;
 }
@@ -27,7 +29,7 @@ export interface DesyncRun {
  * their state hashes compared at every check.
  */
 export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): DesyncRun {
-  const { seed, ticks = 600, clients: count = 3, checkEvery = 20, tamper } = options;
+  const { seed, ticks = 600, clients: count = 3, checkEvery = 20, tamper, layout } = options;
 
   const unfuzzed = definition.modules.filter(hasCommands).filter((m) => !m.fuzz);
   if (unfuzzed.length > 0) {
@@ -39,7 +41,7 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   const clients = Array.from({ length: count }, () => {
     const [toClient, toHost] = loopback<ToClient, ToHost>();
     host.connect(toClient);
-    return createClient(definition.create(seed), toHost);
+    return createClient(definition.create(seed, layout), toHost);
   });
   const fuzzable = definition.modules.filter((m) => m.fuzz);
   const rng = createRng(seed ^ 0x5eed);

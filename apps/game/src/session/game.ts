@@ -1,5 +1,5 @@
 import { localSession, type Client, type Host } from '@stillwake/net';
-import type { SimDefinition, TickReport } from '@stillwake/sim';
+import type { Layout, SimDefinition, TickReport } from '@stillwake/sim';
 import type { Platform } from '../platform/platform';
 import { createClock } from './clock';
 
@@ -24,8 +24,13 @@ export interface Game {
   onSwap(listener: () => void): () => void;
 }
 
-export function createGame(definition: SimDefinition, platform: Platform, seed: number): Game {
-  let session = localSession(definition.create(seed));
+export function createGame(
+  definition: SimDefinition,
+  platform: Platform,
+  seed: number,
+  layout: Layout,
+): Game {
+  let session = localSession(definition.create(seed, layout));
   const clock = createClock();
   const listeners = new Set<() => void>();
   let speed = 1;

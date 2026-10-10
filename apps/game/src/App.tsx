@@ -1,4 +1,4 @@
-import { stillwake } from '@stillwake/sim';
+import { stillwake, wreck } from '@stillwake/sim';
 import { Application } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import { FEATURES } from './features';
@@ -14,7 +14,7 @@ export function App() {
     let ready = false;
     let disposed = false;
     // The game reaches the sim only through its host and client, as every co-op peer does.
-    const created = createGame(stillwake, browserPlatform(), Date.now() >>> 0);
+    const created = createGame(stillwake, browserPlatform(), Date.now() >>> 0, wreck);
 
     void app
       .init({ resizeTo: window, preference: 'webgl', background: '#0b0f17', antialias: true })

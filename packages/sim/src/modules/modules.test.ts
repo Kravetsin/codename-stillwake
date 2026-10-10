@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnyModule } from '../core/module';
 import { createRng, type Rng } from '../core/rng';
 import type { Command, Sim } from '../core/sim';
-import { stillwake } from './index';
+import { stillwake, wreck } from './index';
 
 type Fuzz = (state: unknown, rng: Rng) => { type: string; payload: unknown } | undefined;
 
@@ -19,10 +19,10 @@ function randomCommands(sim: Sim, rng: Rng): Command[] {
   return commands;
 }
 
-describe('every registered module', () => {
+describe('every registered module, on the starting wreck', () => {
   it.each([1, 7, 2026])('saves, loads and plays on the same (seed %i)', (seed) => {
     const rng = createRng(seed);
-    const played = stillwake.create(seed);
+    const played = stillwake.create(seed, wreck);
     for (let i = 0; i < 100; i++) played.step(randomCommands(played, rng));
 
     const loaded = stillwake.load(played.save());
