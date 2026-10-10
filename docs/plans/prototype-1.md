@@ -82,13 +82,14 @@ queries; fast-check wired in for invariant tests.
 Done when: a scenario test over the test-only modules reads like a game situation.
 
 **P1-08 · Module scaffold** · S · after 03, 07
-`pnpm new:module <name>` writes the module's files, a scenario test, its README and its registration,
-and optionally the matching client feature folder.
+`pnpm new:module <name>` writes the module's files, a scenario test, its README and its registration.
+The matching client feature folder waits for P1-09, which defines what a feature registers.
 Done when: a freshly scaffolded module passes lint, typecheck and tests untouched.
 
 **P1-09 · Game shell** · M · after 05
 A full-window Pixi canvas on WebGL2 with a React overlay; a fixed-step sim loop and per-frame render;
-client features register their render layers, overlays, tools and panels. A dev panel with FPS, tick,
+client features register their render layers, overlays, tools and panels, and
+`pnpm new:module <name> --client` adds a feature folder. A dev panel with FPS, tick,
 hash, save/load, creative mode, ×4 speed (single-player only) and a viewer of every module's state.
 Done when: the page shows an empty grid and the dev panel lists every registered module's state.
 

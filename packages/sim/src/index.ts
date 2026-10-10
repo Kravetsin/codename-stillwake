@@ -31,4 +31,4 @@ export {
   type TickReport,
   type WorldData,
 } from './core/sim';
-export { MODULES, stillwake } from './modules';
+export * from './modules';

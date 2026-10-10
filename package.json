@@ -13,7 +13,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "new:module": "node tools/scaffold/new-module.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
