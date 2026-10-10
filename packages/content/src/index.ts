@@ -1,3 +1,4 @@
+export { BUILDS, DECONSTRUCT_SPEEDUP, type Build, type BuildCost } from './builds';
 export { HERO } from './hero';
 export { LEGEND, type LegendChar } from './legend';
 export { MACHINES, type MachineKind, type MachineSpec } from './machines';

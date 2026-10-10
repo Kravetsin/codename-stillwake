@@ -11,6 +11,8 @@ const PLAN = 0x5fd0ff;
 const MARK = 0xe05555;
 const FITS = 0x7fe08a;
 const REFUSED = 0xe05555;
+const BAR = 0xf2f5fa;
+const BAR_BACK = 0x0b0f17;
 
 /**
  * Plans and marks drawn over the ship, and the selected tool at work: a ghost along the drag,
@@ -50,10 +52,13 @@ export const buildingFeature: Feature = {
 
         const plans = q.building.plans();
         // Ids alone would miss a load that brings other plans under the same ids.
-        const key = plans.map((p) => `${p.id}:${p.cell}:${'place' in p ? p.place.kind : p.clear}`);
+        // Progress is in the key, so bars grow as work goes on.
+        const key = plans.map(
+          (p) => `${p.id}:${p.cell}:${'place' in p ? p.place.kind : p.clear}:${p.progress}`,
+        );
         if (key.join() !== drawn) {
           drawn = key.join();
-          drawPlans(plansView, plans, size.width, q.grid);
+          drawPlans(plansView, plans, size.width, q);
         }
 
         const tool = selected.get();
@@ -115,47 +120,41 @@ function boxOf(cells: readonly number[], width: number) {
   };
 }
 
-/** Plans as translucent shapes by layer; marks as red crosses over what they take out. */
+/**
+ * Plans as translucent shapes by layer, marks as red crosses over what they take out, and a bar
+ * along the bottom of each plan with work done on it.
+ */
 function drawPlans(
   g: Graphics,
   plans: readonly Plan[],
   width: number,
-  gridQuery: QueryApi<typeof grid>,
+  q: { readonly grid: QueryApi<typeof grid>; readonly building: QueryApi<typeof building> },
 ) {
   g.clear();
   for (const p of plans) {
+    const machine =
+      'place' in p
+        ? p.place.layer === 'machine' && { kind: p.place.kind, cell: p.cell }
+        : p.clear === 'machine' && q.grid.machineAt(p.cell);
+    const cells = machine ? (q.grid.footprint(machine.kind, machine.cell) ?? [p.cell]) : [p.cell];
+    const { x, y, w, h } = boxOf(cells, width);
     if ('clear' in p) {
-      const machine = p.clear === 'machine' ? gridQuery.machineAt(p.cell) : undefined;
-      const cells = machine
-        ? (gridQuery.footprint(machine.kind, machine.cell) ?? [p.cell])
-        : [p.cell];
-      const { x, y, w, h } = boxOf(cells, width);
       g.moveTo(x + 4, y + 4)
         .lineTo(x + w - 4, y + h - 4)
         .moveTo(x + w - 4, y + 4)
         .lineTo(x + 4, y + h - 4)
         .stroke({ width: 2, color: MARK });
-      continue;
+    } else if (p.place.layer === 'conduit') {
+      g.rect(x, y + h / 2 - 2, w, 4).fill({ color: PLAN, alpha: 0.7 });
+    } else {
+      g.rect(x + 2, y + 2, w - 4, h - 4)
+        .fill({ color: PLAN, alpha: p.place.layer === 'machine' ? 0.15 : 0.25 })
+        .stroke({ width: p.place.layer === 'machine' ? 2 : 1, color: PLAN });
     }
-    const cells =
-      p.place.layer === 'machine'
-        ? (gridQuery.footprint(p.place.kind, p.cell) ?? [p.cell])
-        : [p.cell];
-    const { x, y, w, h } = boxOf(cells, width);
-    switch (p.place.layer) {
-      case 'structure':
-        g.rect(x + 2, y + 2, w - 4, h - 4)
-          .fill({ color: PLAN, alpha: 0.25 })
-          .stroke({ width: 1, color: PLAN });
-        break;
-      case 'conduit':
-        g.rect(x, y + h / 2 - 2, w, 4).fill({ color: PLAN, alpha: 0.7 });
-        break;
-      case 'machine':
-        g.rect(x + 2, y + 2, w - 4, h - 4)
-          .fill({ color: PLAN, alpha: 0.15 })
-          .stroke({ width: 2, color: PLAN });
-        break;
+    const ticks = q.building.ticksFor(p.id);
+    if (p.progress > 0 && ticks) {
+      g.rect(x + 2, y + h - 5, w - 4, 3).fill({ color: BAR_BACK });
+      g.rect(x + 2, y + h - 5, ((w - 4) * p.progress) / ticks, 3).fill({ color: BAR });
     }
   }
 }

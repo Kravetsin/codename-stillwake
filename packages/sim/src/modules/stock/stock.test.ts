@@ -6,11 +6,11 @@ import { defineSim } from '../../core/sim';
 import { scenario } from '../../testing/scenario';
 import { stock, type Cost, type Item, type StockModule } from './index';
 
-/** Stands in for `building` (P1-27): pays through the stock, refusing what it cannot pay. */
+/** Pays through the stock as `building` does, refusing what it cannot pay; keeps each receipt. */
 const spender = defineModule<[StockModule]>()({
   id: 'spender',
   dependsOn: ['stock'],
-  init: () => ({}),
+  init: () => ({ paid: [] as Cost[] }),
   commands: {
     buy: {
       validate(ctx, p: { cost: Cost }) {
@@ -18,7 +18,7 @@ const spender = defineModule<[StockModule]>()({
         if (why) return refuse(why);
       },
       apply(ctx, p: { cost: Cost }) {
-        ctx.deps.stock.op.spend(p.cost);
+        ctx.state.paid.push(ctx.deps.stock.op.spend(p.cost));
       },
     },
     takeApart: {
@@ -55,6 +55,7 @@ describe('stock', () => {
       scrap: start.scrap - 10,
       steel: start.steel - 5,
     });
+    expect(w.sim.world.slices.spender).toEqual({ paid: [{ scrap: 10, steel: 5 }] });
   });
 
   it('spends down to nothing, and refuses one unit more without touching the stock', () => {
@@ -89,6 +90,8 @@ describe('stock', () => {
       .run();
     expect(w.refusals).toEqual([]);
     expect(w.query(stock).items()).toEqual({ ...start, scrap: start.scrap + 2 });
+    // Nothing was paid, so a refund of what was paid gives nothing back.
+    expect(w.sim.world.slices.spender).toEqual({ paid: [{}] });
     expect(w.query(stock).shortOf({ steel: 9999 })).toBeUndefined();
     w.do(stock, 'setCreative', { on: false }).run();
     expect(w.query(stock).shortOf({ steel: 9999 })).toBe('stock.notEnough');

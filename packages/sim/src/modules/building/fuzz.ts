@@ -22,10 +22,13 @@ const BUILT: readonly number[] = WRECK.flatMap((row, y) =>
   [...row].flatMap((char, x) => ('#=HDd-vxTV'.includes(char) ? [y * WIDTH + x] : [])),
 );
 
-/** Draws every command, refused ones included: off the grid, on nothing, twice on one thing. */
+/**
+ * Draws every command, refused ones included: off the grid, on nothing, twice on one thing, work on
+ * a plan that is gone or that the ship cannot pay for.
+ */
 export function fuzzBuilding(state: DeepReadonly<BuildingState>, rng: Rng) {
   const anywhere = () => rng.below(CELLS + 2) - 1;
-  switch (rng.below(3)) {
+  switch (rng.below(5)) {
     case 0:
       return {
         type: 'placePlan',
@@ -48,7 +51,21 @@ export function fuzzBuilding(state: DeepReadonly<BuildingState>, rng: Rng) {
         payload: { cell, layer: LAYERS[rng.below(LAYERS.length)] as Layer },
       } as const;
     }
-    default:
+    case 2:
       return { type: 'cancelPlan', payload: { id: rng.below(state.nextPlanId + 2) } } as const;
+    default: {
+      // Mostly on the oldest plan, so work piles up on one and plans complete within a run; often
+      // on one not begun, so payments drain the stock and its refusal is drawn too.
+      const oldest = state.plans[0];
+      const unbegun = state.plans.filter((p) => p.progress === 0);
+      const pick = rng.below(8);
+      const plan =
+        oldest && pick < 5
+          ? oldest.id
+          : unbegun.length > 0 && pick < 7
+            ? (unbegun[rng.below(unbegun.length)]?.id ?? 0)
+            : rng.below(state.nextPlanId + 2);
+      return { type: 'work', payload: { plan } } as const;
+    }
   }
 }

@@ -1,39 +1,43 @@
 import { HERO } from '@stillwake/content';
-import { cellsOf, grid } from '@stillwake/sim';
-import { Container, Graphics } from 'pixi.js';
+import { building, cellsOf, grid } from '@stillwake/sim';
+import { Container, Graphics, Text } from 'pixi.js';
+import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import type { Feature } from '../feature';
-import { aimAt, type Aim } from './aim';
+import { aimAt, usesOf, type Aim } from './aim';
 import { heroAt, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
 
 const BODY = 0xe8b04a;
 const VISOR = 0x2b3a4a;
 const AIM_READY = 0x7fe08a;
+const AIM_REFUSED = 0xe05555;
 // Neutral, so neither outline is lost against an orange door or a red valve.
 const AIM_FAR = 0xc8d0dc;
 const AIM_IDLE = 0xffffff;
 
-/** Outlines the cell under the pointer: green when E would work it, grey when out of reach. */
+/**
+ * Outlines the cell under the pointer: green when E would work it, red when the sim would refuse
+ * the work, grey when out of reach, faint when there is nothing to use.
+ */
 function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
   g.clear();
   if (!aim) return;
   const x = (aim.cell % width) * CELL;
   const y = Math.floor(aim.cell / width) * CELL;
-  if (!aim.use) {
+  if (!aim.toggle && !aim.work) {
     g.rect(x, y, CELL, CELL).stroke({ width: 1, color: AIM_IDLE, alpha: 0.35 });
     return;
   }
-  g.rect(x + 1, y + 1, CELL - 2, CELL - 2).stroke({
-    width: 2,
-    color: aim.inReach ? AIM_READY : AIM_FAR,
-  });
+  const colour = !aim.inReach ? AIM_FAR : aim.work?.problem ? AIM_REFUSED : AIM_READY;
+  g.rect(x + 1, y + 1, CELL - 2, CELL - 2).stroke({ width: 2, color: colour });
 }
 
 /**
  * This machine's hero: moved by the keyboard against the ship's cells, outside the sim, and
- * followed by the camera. E works the door or valve under the pointer, through `grid`'s commands.
+ * followed by the camera. E under the pointer, within reach, toggles a door or valve when pressed,
+ * and works a plan while held: one `work` command for every tick the host releases.
  */
 export const crewFeature: Feature = {
   id: 'crew',
@@ -48,17 +52,28 @@ export const crewFeature: Feature = {
     const figure = new Container();
     figure.addChild(body);
     const aimView = new Graphics();
+    const reason = new Text({
+      text: '',
+      style: {
+        fontFamily: 'monospace',
+        fontSize: 10,
+        fill: 0xffe4e4,
+        stroke: { color: 0x0b0f17, width: 3 },
+      },
+    });
     const view = new Container();
-    view.addChild(aimView, figure);
+    view.addChild(aimView, figure, reason);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
     let hero: { previous: Hero; current: Hero } | undefined;
+    let workedOnTick = -1;
 
     return {
       view,
       update({ game, camera, screen, elapsedMs }) {
-        const ship = game.client.sim.query(grid).layers();
+        const { sim } = game.client;
+        const ship = sim.query(grid).layers();
         if (!hero) {
           const [spawn] = cellsOf(game.layout, 'S');
           if (spawn === undefined)
@@ -72,19 +87,26 @@ export const crewFeature: Feature = {
         const { previous, current } = hero;
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
-        const t = clock.progress();
-        const x = previous.x + (current.x - previous.x) * t;
-        const y = previous.y + (current.y - previous.y) * t;
+        const between = clock.progress();
+        const x = previous.x + (current.x - previous.x) * between;
+        const y = previous.y + (current.y - previous.y) * between;
         figure.position.set((x / UNIT) * CELL, (y / UNIT) * CELL);
         body.scale.x = current.facing;
         camera.follow({ x: x / UNIT, y: (y - HERO.height / 2) / UNIT }, screen);
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
-        const aim = pointer && aimAt(ship, current, pointer);
+        const aim = pointer && aimAt(ship, sim.query(building), current, pointer);
         drawAim(aimView, ship.width, aim);
-        // Taken every frame, so a press out of reach is spent rather than kept for later.
-        if (keys.takeUse() && aim?.use && aim.inReach) game.client.send(aim.use);
+        reason.text = aim?.work?.problem ? t(aim.work.problem) : '';
+        // A line below where the build tool writes its reason, so the two never overlap.
+        if (pointer) reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 26);
+
+        // The press is taken every frame, so one made out of reach is spent rather than kept.
+        const e = { pressed: keys.takeUse(), held: keys.holdsUse() };
+        const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
+        workedOnTick = uses.workedOnTick;
+        for (const c of uses.commands) game.client.send(c);
       },
       destroy() {
         keys.destroy();

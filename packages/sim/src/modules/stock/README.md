@@ -13,7 +13,7 @@ building costs nothing.
 - **Queries:** `items()`; `creative()`; `shortOf(cost)` — `stock.notEnough` when the stock cannot pay
   `cost`, never in creative mode. A caller refuses with that key.
 - **Operations:** `spend(cost)` — the caller checks `shortOf` first, and paying past the stock throws;
-  free in creative mode. `refund(cost)` — adds, in creative mode too: what is taken apart is still
+  free in creative mode. It returns what it took, so a caller refunds exactly that. `refund(cost)` — adds, in creative mode too: what is taken apart is still
   there.
 - **Commands:** `setCreative { on }`, from the dev panel. It has no refusals.
 

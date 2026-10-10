@@ -172,6 +172,13 @@ when the hero leaves reach; a plan sharing a cell with a door or valve takes E f
 decided there. Deconstruction works the
 same way and refunds through `stock`. Progress bars.
 Done when: a plan completes only while a hero works on it, and never past the stock.
+Built without a sender in commands or workers in the sim: `work { plan }` is one tick of one hero's
+work, sent every released tick while E is held on the plan within reach, so a plan advances only while
+someone works it and two heroes build twice as fast. The first tick pays the whole cost, or is refused
+with `stock.notEnough`; a plan keeps what it paid and a cancel refunds exactly that, so cancelling a
+plan begun in creative mode gives nothing back. Taking apart what was built in creative mode does
+refund it: creative mode is a dev switch, and the stock it inflates is accepted. Plans take E before doors and valves in their cell. Costs and times are in content
+(`BUILDS`, `MACHINES`, `MATERIALS`, `DECONSTRUCT_SPEEDUP`). `SAVE_FORMAT` is 2.
 
 ## M2 — Rooms and air
 

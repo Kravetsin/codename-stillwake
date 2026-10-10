@@ -37,6 +37,17 @@ const OPEN = `
 `;
 const at = (x: number, y: number) => y * 9 + x;
 
+/** A plan to place as `plans()` shows it before any work. */
+const placed = (id: number, cell: number, place: Placement) => ({
+  id,
+  cell,
+  progress: 0,
+  place,
+  paid: {},
+});
+/** A mark as `plans()` shows it before any work. */
+const marked = (id: number, cell: number, clear: Layer) => ({ id, cell, progress: 0, clear });
+
 describe('building', () => {
   it('plans every kind of thing the toolbar offers', () => {
     const placements: Placement[] = [
@@ -68,7 +79,7 @@ describe('building', () => {
     const w = scenario(world, OPEN)
       .do(building, 'placePlan', { cell: at(1, 1), placement: wall })
       .run();
-    expect(w.query(building).plans()).toEqual([{ id: 1, cell: at(1, 1), place: wall }]);
+    expect(w.query(building).plans()).toEqual([placed(1, at(1, 1), wall)]);
     expect(w.query(grid).structureAt(at(1, 1))).toEqual({ kind: 'empty' });
   });
 
@@ -90,7 +101,7 @@ describe('building', () => {
       })
       .run();
     expect(w.refusals).toEqual(['building.planned']);
-    expect(w.query(building).plans()).toEqual([{ id: 1, cell: at(2, 1), place: wall }]);
+    expect(w.query(building).plans()).toEqual([placed(1, at(2, 1), wall)]);
   });
 
   it('asks the grid first, so its reason wins over a clash with a plan', () => {
@@ -151,10 +162,10 @@ describe('building', () => {
       .run();
     expect(w.refusals).toEqual(['building.planned']);
     expect(w.query(building).plans()).toEqual([
-      { id: 1, cell: at(1, 1), place: wall },
-      { id: 2, cell: at(1, 1), place: pipe },
-      { id: 3, cell: at(3, 1), place: tank },
-      { id: 4, cell: at(4, 2), place: pipe },
+      placed(1, at(1, 1), wall),
+      placed(2, at(1, 1), pipe),
+      placed(3, at(3, 1), tank),
+      placed(4, at(4, 2), pipe),
     ]);
   });
 
@@ -185,8 +196,8 @@ describe('building', () => {
         .run();
       expect(w.refusals).toEqual(['building.planned']);
       expect(w.query(building).plans()).toEqual([
-        { id: 1, cell: cell(0, 0), clear: 'structure' },
-        { id: 2, cell: cell(4, 1), clear: 'conduit' },
+        marked(1, cell(0, 0), 'structure'),
+        marked(2, cell(4, 1), 'conduit'),
       ]);
     });
 
@@ -204,7 +215,7 @@ describe('building', () => {
         .do(building, 'deconstruct', { cell: cell(1, 1), layer: 'machine' })
         .run();
       expect(w.refusals).toEqual(['building.planned']);
-      expect(w.query(building).plans()).toEqual([{ id: 1, cell: cell(1, 1), clear: 'machine' }]);
+      expect(w.query(building).plans()).toEqual([marked(1, cell(1, 1), 'machine')]);
       expect(
         w
           .query(building)

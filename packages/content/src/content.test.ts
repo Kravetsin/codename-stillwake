@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
@@ -69,5 +70,28 @@ describe('starting stock', () => {
       });
     }
     expect(Object.keys(STARTING_STOCK).sort()).toEqual(Object.keys(MATERIALS).sort());
+  });
+});
+
+describe('builds', () => {
+  const all = [...Object.values(BUILDS), ...Object.values(MACHINES)];
+
+  it('cost whole units of real materials, something for each, and take whole ticks', () => {
+    for (const build of all) {
+      const amounts = Object.entries(build.cost);
+      expect(amounts.length).toBeGreaterThan(0);
+      for (const [material, amount] of amounts) {
+        expect(Object.keys(MATERIALS)).toContain(material);
+        expect(Number.isSafeInteger(amount)).toBe(true);
+        expect(amount).toBeGreaterThan(0);
+      }
+      expect(Number.isSafeInteger(build.buildTicks)).toBe(true);
+      expect(build.buildTicks).toBeGreaterThan(0);
+    }
+  });
+
+  it('come apart faster than they go up, by a whole factor', () => {
+    expect(Number.isSafeInteger(DECONSTRUCT_SPEEDUP)).toBe(true);
+    expect(DECONSTRUCT_SPEEDUP).toBeGreaterThan(1);
   });
 });

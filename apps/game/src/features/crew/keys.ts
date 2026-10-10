@@ -49,6 +49,8 @@ export function createKeys(target: Window) {
       jump = false;
       return input;
     },
+    /** Whether the use key is held down now: work goes on while it is. */
+    holdsUse: () => held.has(USE),
     /** Whether the use key was pressed since the last call. */
     takeUse(): boolean {
       const pressed = use;

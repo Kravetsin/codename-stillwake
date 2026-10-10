@@ -41,6 +41,16 @@ describe('keys', () => {
     expect(keys.takeUse()).toBe(false);
   });
 
+  it('tell whether the use key is held, for work that goes on while it is', () => {
+    const { keys, send } = setup();
+    expect(keys.holdsUse()).toBe(false);
+    send('keydown', 'KeyE');
+    keys.takeUse();
+    expect(keys.holdsUse()).toBe(true);
+    send('keyup', 'KeyE');
+    expect(keys.holdsUse()).toBe(false);
+  });
+
   it('let go of everything when the window loses focus', () => {
     const { keys, send } = setup();
     send('keydown', 'KeyD');

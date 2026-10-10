@@ -37,13 +37,17 @@ const stockModule = defineModule()({
   },
 
   operations: {
-    /** Pays `cost`; creative mode pays nothing. The caller checks `shortOf` first. */
-    spend(ctx, cost: Cost): void {
+    /**
+     * Pays `cost` and returns what it took: all of it, or nothing in creative mode, so a refund of
+     * what was paid never makes anything out of nothing. The caller checks `shortOf` first.
+     */
+    spend(ctx, cost: Cost): Cost {
       // Amounts are checked in creative mode too, so a caller's bug shows in either mode.
       const paid = entries(cost);
-      if (ctx.state.creative) return;
+      if (ctx.state.creative) return {};
       if (short(ctx.state, cost)) throw new Error('stock.spend: not enough; check shortOf first');
       for (const [item, amount] of paid) ctx.state.items[item] -= amount;
+      return Object.fromEntries(paid);
     },
     /** Gives `cost` back, in creative mode too: what is taken apart is still there. */
     refund(ctx, cost: Cost): void {
