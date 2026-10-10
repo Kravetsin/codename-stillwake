@@ -229,7 +229,8 @@ Done when: both heroes move smoothly in both tabs.
 
 **P1-43 · Live hash checks** · M · net · after 41
 Clients report hashes every 20 ticks. On a mismatch the host sends a snapshot and the client writes a
-desync report: a diff of the two states, module by module.
+desync report: a diff of the two states, module by module. A hash of the reference world costs about
+9 ms (measured in P1-22): once a second fits the budget, more often would not.
 Done when: an injected desync is caught, reported and repaired.
 
 ## Stretch

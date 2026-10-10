@@ -12,6 +12,7 @@ import {
   type Placement,
 } from './state';
 
+export { CONDUIT, STRUCTURE } from './state';
 export type { GridState, Layer, Machine, Placement } from './state';
 
 export type StructureView =
@@ -47,6 +48,14 @@ const gridModule = defineModule()({
 
   queries: {
     size: (ctx) => ({ width: ctx.state.width, height: ctx.state.height }),
+    /** The raw cell codes, live and read-only: for drawing every cell without an object per cell. */
+    layers: (ctx) => ({
+      width: ctx.state.width,
+      height: ctx.state.height,
+      structure: ctx.state.structure,
+      material: ctx.state.material,
+      conduit: ctx.state.conduit,
+    }),
     structureAt(ctx, cell: number): StructureView {
       switch (ctx.state.structure[cell]) {
         case STRUCTURE.wall:

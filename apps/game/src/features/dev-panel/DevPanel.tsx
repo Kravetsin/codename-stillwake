@@ -2,27 +2,44 @@ import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
 
 const REFRESH_MS = 250;
+/** Hashing a big world costs milliseconds, so the readout hashes once a second, not every refresh. */
+const HASH_EVERY = 4;
+/** A whole grid is megabytes of JSON; the viewer shows the start of it. */
+const MAX_JSON = 20_000;
 
 interface Reading {
   fps: number;
   tick: number;
   hash: string;
-  slices: [string, string][];
+  /** Every module id, with its JSON only for the modules whose entry is open. */
+  slices: [string, string | undefined][];
 }
 
-function read(game: Game): Reading {
+function read(
+  game: Game,
+  previous: Reading | undefined,
+  refresh: number,
+  open: ReadonlySet<string>,
+): Reading {
   const { sim } = game.client;
   return {
     fps: game.fps,
     tick: sim.world.tick,
-    hash: sim.hash(),
-    slices: Object.entries(sim.world.slices).map(([id, slice]) => [id, show(slice)]),
+    hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
+    slices: Object.entries(sim.world.slices).map(([id, slice]) => [
+      id,
+      open.has(id) ? show(slice) : undefined,
+    ]),
   };
 }
 
 /** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */
 function show(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) => plain(v), 2);
+  const json = JSON.stringify(value, (_key, v: unknown) => plain(v), 2);
+  return json.length > MAX_JSON
+    ? `${json.slice(0, MAX_JSON)}
+… ${json.length - MAX_JSON} more characters`
+    : json;
 }
 
 function plain(v: unknown): unknown {
@@ -34,17 +51,35 @@ function plain(v: unknown): unknown {
   return entries;
 }
 
-/** Development readouts and controls. Refreshed a few times a second, never every tick. */
+/**
+ * Development readouts and controls. Refreshed a few times a second, never every tick, and not at
+ * all while hidden: on a big world the readouts themselves would cost frames.
+ */
 export function DevPanel({ game }: { readonly game: Game }) {
-  const [reading, setReading] = useState(() => read(game));
   const [open, setOpen] = useState(true);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [reading, setReading] = useState<Reading>(() => read(game, undefined, 0, expanded));
   const [status, setStatus] = useState('');
   const [speed, setSpeed] = useState(game.speed);
 
   useEffect(() => {
-    const timer = setInterval(() => setReading(read(game)), REFRESH_MS);
+    if (!open) return;
+    let refresh = 0;
+    setReading((previous) => read(game, previous, refresh++, expanded));
+    const timer = setInterval(
+      () => setReading((previous) => read(game, previous, refresh++, expanded)),
+      REFRESH_MS,
+    );
     return () => clearInterval(timer);
-  }, [game]);
+  }, [game, open, expanded]);
+
+  const toggleModule = (id: string, isOpen: boolean) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (isOpen) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   useEffect(() => {
     const toggle = (e: KeyboardEvent) => {
@@ -103,10 +138,15 @@ export function DevPanel({ game }: { readonly game: Game }) {
       <p className="mb-1 text-slate-400">modules</p>
       {reading.slices.length === 0 && <p className="text-slate-500">none registered yet</p>}
       {reading.slices.map(([id, json]) => (
-        <details key={id} className="mb-1">
+        <details
+          key={id}
+          className="mb-1"
+          open={expanded.has(id)}
+          onToggle={(e) => toggleModule(id, e.currentTarget.open)}
+        >
           <summary className="cursor-pointer">{id}</summary>
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-[11px] text-slate-400">
-            {json}
+            {json ?? '…'}
           </pre>
         </details>
       ))}

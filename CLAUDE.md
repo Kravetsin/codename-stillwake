@@ -132,8 +132,11 @@ Lint catches the API bans; the desync fuzz test catches the rest.
 
 ## Budgets
 
-On the reference world (256×128 cells, every layer filled) on a mid-range PC: 60 fps with the sim
-running, and a sim tick under 2 ms.
+On the reference world (256×128 cells, every layer filled; open the game with `?perf`) on a mid-range
+PC: 60 fps with the sim running, and a sim tick under 2 ms. Measure CPU time with `performance.now()`
+around the work itself (`window.__game` and Vite's `/src/...` modules are reachable from the page in
+dev). Frame intervals in Claude's built-in browser are throttled even on an empty page, so they say
+nothing about the game.
 
 ## Tests
 

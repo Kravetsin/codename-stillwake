@@ -215,6 +215,9 @@ importers:
 
   apps/game:
     dependencies:
+      '@stillwake/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@stillwake/net':
         specifier: workspace:*
         version: link:../../packages/net

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@stillwake/content": "workspace:*",
     "@stillwake/net": "workspace:*",
     "@stillwake/sim": "workspace:*",
     "pixi.js": "^8.22.0",
