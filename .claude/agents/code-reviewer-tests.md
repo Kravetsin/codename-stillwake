@@ -15,6 +15,9 @@ You check **what is actually tested and how**, not coverage percentage. Read the
 - **Refusals tested for the wrong reason** — a test that expects a refusal but not its reason, so it
   stays green when the command is refused for something else.
 - **Missing invariants** — an amount, set or mapping that must always hold with no fast-check test.
+- **Invariants that never reach a limit** — fast-check draws small data by default (`size: 'small'`),
+  so arrays and strings may never get near a capacity or a length limit. Measure what the generators
+  really produce, or break the rule and check the invariant fails.
 - **Fuzz gaps** — a new command with no generator, or a generator that never produces the new branches.
 - **Tests of the test** — assertions that restate the setup; checking that a mock was called instead of
   what the world became.

@@ -83,8 +83,14 @@ export const rooms = withFuzz(roomsModule, fuzzRooms);   // fuzzRooms lives in f
   It is never saved or hashed, so it may hold `Map`s and typed arrays; the core rebuilds it after
   `init` and after a load, and the module keeps it current while the world runs.
 - Commands are validated when they apply, on their stamped tick, not when they are sent. A refused
-  command returns a reason the player can read and leaves state untouched. Throwing is for broken
+  command returns a reason, an i18n key `<moduleId>.<why>`, and leaves state untouched. Validate game
+  rules, not payload shapes: peers run one build and types guard the shape. Throwing is for broken
   invariants — our bugs.
+- A command does not yet say who sent it, and modules have no clock: `ctx` holds `state`, `rng`,
+  `deps` and `emit`. Both arrive with their first real caller (heroes, P1-34); until then a module
+  that needs time counts ticks in its own slice.
+- Queries may hand out live state, typed read-only. A client that needs to notice a change compares the
+  content or the world's tick, never the reference.
 - A module's `README.md` is the source of truth for what it owns, depends on and guarantees. Keep it
   current in the same PR.
 
@@ -117,6 +123,8 @@ Every peer must compute the same world from the same commands. In `sim` and `con
   ties broken by id.
 - Nothing reaches the sim except commands. A hero's position enters as "entered room" commands from
   `crew`; physics results enter as commands from the host.
+- Strings are fine: every peer runs the same build, so built-in methods such as `trim` agree. Measure
+  text in code points; grapheme counting would need `Intl`.
 - Every command type is drawn by the module's fuzz generator (`fuzz.ts`, attached with `withFuzz`);
   the desync suite refuses a module with commands and no generator. Let it draw refused commands too.
 
@@ -131,10 +139,13 @@ running, and a sim tick under 2 ms.
 
 - **Scenario tests** are the default: `scenario(definition, map)` from `packages/sim/src/testing`
   builds a world from an ASCII map (characters per `LEGEND` in `content`), then `.do(...)`, `.run(ticks)`
-  and assertions through `.query(...)`, `.refusals` and `.events`. Every rule of a module and every
-  refusal reason gets one. Modules read the map in `init(layout)`.
+  and assertions through `.query(...)`, `.refusals` and `.events`; the map may be left out for a
+  module that has no cells. Every rule of a module and every refusal reason gets one. Modules read the
+  map in `init(layout)`.
 - **Invariant tests** (fast-check) for what must always hold: no tank below zero, every open cell in
-  exactly one room.
+  exactly one room. The pattern to copy is in `packages/sim/src/testing/scenario.test.ts`. fast-check
+  draws small data by default: pass `size: 'max'` or bounds that reach every limit, and prove the test
+  bites by breaking the rule once and watching it fail.
 - **Generic suites** cover every registered module on their own: save, load and play on
   (`src/modules/modules.test.ts`) and the desync fuzz (`fuzzDesync` in `packages/net`). Do not copy them
   per module.
@@ -159,27 +170,32 @@ running, and a sim tick under 2 ms.
 
 **Add a module.** `pnpm new:module <name>` (add `--client` if it has visuals or UI). Write its README
 first: what it owns, `dependsOn`, invariants. Then replace the example: state and `init`, commands,
-systems in their phase, and only the queries and operations that have a caller. Make `fuzz.ts` draw
-every command. Scenario tests for every rule, invariant tests for what must always hold.
+systems in their phase, and only the queries and operations that have a caller. Its tunable numbers go
+in `packages/content/src/<name>.ts` as one upper-case constant with `satisfies`, imported directly,
+with a content test. Make `fuzz.ts` draw every command. Scenario tests for every rule, invariant tests
+for what must always hold.
 
 **Add a command.** In the module's `commands`: `validate(ctx, payload)` returning `refuse('<id>.<why>')`
 for every refusal, and `apply(ctx, payload)` changing its own slice only (other modules through
 `ctx.deps.<id>.op`). Annotate the payload type in both. Draw it in `fuzz.ts`, refused cases included.
-Scenario tests for acceptance and for each refusal. The client sends it as `game.client.send(command(module, type, payload))`.
+Scenario tests for acceptance and for each refusal. The client sends it as
+`game.client.send(command(module, type, payload))`.
 
-**Add content.** Typed data in `packages/content` with `satisfies`, no functions; the sim refers to it
-by id. A content test checks what must hold across entries: capacities above zero, unique ids.
+**Add content.** Typed data in `packages/content` with `satisfies`, no functions. Catalogs (materials,
+machines) are referred to by id; a module's own limits are a constant it imports. A content test checks
+what must hold across entries: capacities above zero, unique ids.
 
 ## Scripts
 
 `pnpm dev` (the game in a browser, dev panel on `` ` ``), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
 `pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm new:module <name> [--client]`. One package:
-`pnpm --filter @stillwake/sim test`. CI runs format check, lint, types, tests and build.
+`pnpm --filter @stillwake/sim test`. Run `pnpm format` before `pnpm format:check`. CI runs format
+check, lint, types, tests and build.
 
 ## Conventions
 
-- English in code, comments, commits and docs. Player-facing text lives in the game's i18n files,
-  never inline.
+- English in code, comments, commits and docs. Player-facing text will live in i18n files keyed like
+  refusal reasons; until the first player-facing UI adds them, show the key.
 - Comments only for a non-obvious why, at most two lines; never restate the code. Longer reasoning
   goes to `docs/`.
 - Commits follow Conventional Commits with the module as scope: `feat(atmosphere): vent rooms open to

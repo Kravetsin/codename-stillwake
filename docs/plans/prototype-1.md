@@ -35,6 +35,8 @@ Steam, art and sound, planets.
 
 ## M0 — Foundation
 
+Done on 2026-10-10.
+
 **P1-01 · Monorepo skeleton** · S
 pnpm workspace, strict TypeScript, ESLint and Prettier, Vitest. Packages: `packages/content` (data),
 `packages/sim` (deterministic simulation), `packages/net` (transports, host and client),

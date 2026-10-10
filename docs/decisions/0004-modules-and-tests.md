@@ -19,7 +19,8 @@ shape the easy one and catch the wrong one automatically.
 ### Simulation modules
 
 Every gameplay feature is a module under `packages/sim/src/modules/<name>/`, all of one shape. Files a
-module does not need are not created.
+module does not need are not created, and a small module keeps state, queries, operations, commands
+and systems inside `index.ts` until it outgrows one file.
 
 | File            | Holds                                                                                |
 | --------------- | ------------------------------------------------------------------------------------ |
