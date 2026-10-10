@@ -65,11 +65,13 @@ export function DevPanel({ game }: { readonly game: Game }) {
   useEffect(() => {
     if (!open) return;
     let refresh = 0;
-    setReading((previous) => read(game, previous, refresh++, expanded));
-    const timer = setInterval(
-      () => setReading((previous) => read(game, previous, refresh++, expanded)),
-      REFRESH_MS,
-    );
+    // Counted outside the updater: StrictMode runs updaters twice, which would skip every hash.
+    const update = () => {
+      const count = refresh++;
+      setReading((previous) => read(game, previous, count, expanded));
+    };
+    update();
+    const timer = setInterval(update, REFRESH_MS);
     return () => clearInterval(timer);
   }, [game, open, expanded]);
 
