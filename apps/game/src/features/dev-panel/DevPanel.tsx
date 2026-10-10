@@ -20,12 +20,13 @@ function read(game: Game): Reading {
   };
 }
 
-/** Pretty JSON that also shows derived `Map`s and `Set`s instead of `{}`. */
+/** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */
 function show(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) => plain(v), 2);
 }
 
 function plain(v: unknown): unknown {
+  if (ArrayBuffer.isView(v)) return `${v.constructor.name}(${(v as Int32Array).length})`;
   if (v instanceof Set) return [...(v as Set<unknown>)];
   if (!(v instanceof Map)) return v;
   const entries: Record<string, unknown> = {};

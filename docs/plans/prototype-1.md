@@ -121,6 +121,8 @@ Done when: scenario tests cover every layer and both toggles.
 **P1-21 · Starting wreck** · S · content · after 07, 20
 The wreck drawn in the scenario kit's ASCII legend: three small rooms, one breach, a few canisters, a
 spawn point.
+The generic suites (save, load and play on; desync fuzz) switch from an empty map to the wreck, so
+every registered module is fuzzed on a real ship.
 Done when: a new game builds the wreck with a stable hash.
 
 **P1-22 · Graybox renderer** · M · client `grid` · after 09, 20

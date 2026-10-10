@@ -1,0 +1,14 @@
+export interface MachineSpec {
+  /** Footprint in cells, from the machine's top-left cell. */
+  readonly width: number;
+  readonly height: number;
+  /** Where conduits connect, as offsets inside the footprint. */
+  readonly ports: readonly { readonly x: number; readonly y: number }[];
+}
+
+export const MACHINES = {
+  tank: { width: 2, height: 2, ports: [{ x: 0, y: 1 }] },
+  vent: { width: 1, height: 1, ports: [{ x: 0, y: 0 }] },
+} as const satisfies Readonly<Record<string, MachineSpec>>;
+
+export type MachineKind = keyof typeof MACHINES;
