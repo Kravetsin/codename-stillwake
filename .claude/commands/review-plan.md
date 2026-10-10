@@ -6,6 +6,7 @@ argument-hint: <path-to-plan.md> [lens ...]
 User arguments: `$ARGUMENTS`
 
 Argument shape:
+
 - **First** — path to the plan or design
 - **Second and beyond (optional)** — lens names. If absent, run all 3.
 
@@ -40,15 +41,19 @@ Execute strictly in one message:
 # Plan review: <file name>
 
 ## Critical (must-fix before implementation)
+
 | # | Plan section | Problem | Lens | Action |
 
 ## Major
+
 | # | ... |
 
 ## Minor / Nit
+
 | # | ... |
 
 ## Meta
+
 - Lenses run: <list>
 - Total findings: N
 - By lens: <breakdown>
@@ -59,6 +64,7 @@ Execute strictly in one message:
    present → recommend revision.
 
 Important:
+
 - Don't invoke `code-reviewer-*` agents — this is plan review.
 - Don't narrate the process — go straight to the result.
 - **Write the final report in the user's language.**

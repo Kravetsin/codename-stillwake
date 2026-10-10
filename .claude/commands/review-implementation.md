@@ -6,6 +6,7 @@ argument-hint: <plan-path> <code-path-or-module> [lens ...]
 User arguments: `$ARGUMENTS`
 
 Argument shape:
+
 - **First** — path to the plan (markdown file)
 - **Second** — the code to review: a directory, a file or a module (e.g.
   `packages/sim/src/modules/atmosphere/`)
@@ -48,18 +49,23 @@ Execute strictly in one message:
 # Implementation review: <code-path> against <plan-path>
 
 ## Critical
+
 | # | file:line | Problem | Lens(es) | Action |
 
 ## Major
+
 | # | ... |
 
 ## Minor
+
 | # | ... |
 
 ## Nit
+
 | # | ... |
 
 ## Meta
+
 - Lenses run: <list>
 - Total findings: N
 - By lens: <breakdown>
@@ -73,6 +79,7 @@ Execute strictly in one message:
    - major in `plan-conformance` → say whether the plan or the code should change
 
 Important:
+
 - Don't invoke `plan-reviewer-*` agents — this is implementation review.
 - For `plan-conformance` findings always give the direction (plan→code / code→plan / semantic).
 - **Write the final report in the user's language.**

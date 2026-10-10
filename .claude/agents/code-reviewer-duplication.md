@@ -30,6 +30,7 @@ it are not duplication.
 ## Verification — required
 
 For each finding:
+
 - Grep to confirm N ≥ 3 occurrences (N ≥ 2 for a sim rule repeated in the client).
 - Tell accidental ("same shape, same meaning") from coincidental ("same shape, different meaning").
   Only flag accidental.

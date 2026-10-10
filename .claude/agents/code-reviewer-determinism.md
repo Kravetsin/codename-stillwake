@@ -70,10 +70,12 @@ particular areas or files to check, each one appears either as a finding or in t
 ## Output
 
 Format per finding:
+
 ```
 [severity] category: api|number|order|random|input|timing|hidden-state|save|fuzz
 file:line — how two peers diverge — quote (1–3 lines) — minimal fix
 ```
+
 No length cap, but no padding either: every sentence carries a finding, its evidence, or its fix. Do
 not quote code back at length. If clean: "No determinism risks found."
 Respond in the user's language.

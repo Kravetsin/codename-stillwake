@@ -58,10 +58,12 @@ particular areas or files to check, each one appears either as a finding or in t
 ## Output
 
 Format per finding:
+
 ```
 [severity] category: tick|grid|amount|state|command|lookup|async|resource|semantic
 file:line — problem — quote (1–3 lines) — what breaks — minimal fix
 ```
+
 No length cap, but no padding either: every sentence carries a finding, its evidence, or its fix. Do
 not quote code back at length. If clean: "No correctness bugs found."
 Respond in the user's language.

@@ -27,6 +27,7 @@ the current plan in `docs/plans/` — something that looks unused may have its c
 ## Verification — required
 
 For each finding:
+
 1. Grep confirms 0 usages (or 1 usage for "an option with one value").
 2. Check the current plan: a caller named by a specific task there (cite the task id) keeps the code.
 3. Confirm removal won't break a public API another package uses.
@@ -40,7 +41,7 @@ For each finding:
   - a second implementation in an open PR (the user names it);
   - a caller named by a task in the current plan (cite it);
   - an external contract mandates the shape (Steamworks, Pixi, Rapier).
-  Otherwise, flag it.
+    Otherwise, flag it.
 - **"Just in case" without a concrete player action or a measured cost is speculative** — flag it.
 - Duplication is another lens; here only dead, premature or unused.
 - Severity: **major** = unused public API (an exported query, operation, command or event); **minor** =

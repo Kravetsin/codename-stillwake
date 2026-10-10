@@ -1,0 +1,9 @@
+# LF everywhere, so Windows and Linux checkouts produce no line-ending diffs.
+* text=auto eol=lf
+
+*.png binary
+*.webp binary
+*.jpg binary
+*.ogg binary
+*.wav binary
+*.woff2 binary

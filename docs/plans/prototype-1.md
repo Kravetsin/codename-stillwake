@@ -22,16 +22,16 @@ Steam, art and sound, planets.
 
 ## Modules in this prototype
 
-| Module       | Owns                                            | Depends on              |
-| ------------ | ----------------------------------------------- | ----------------------- |
-| `grid`       | cells and their layers, doors and valves        | —                       |
-| `stock`      | the ship's materials and canisters              | —                       |
-| `building`   | plans and the work on them                      | `grid`, `stock`         |
-| `rooms`      | rooms, derived from the grid                    | `grid`                  |
-| `pipes`      | pipe networks, derived from the grid            | `grid`                  |
-| `atmosphere` | oxygen in tanks, the air state of every room    | `grid`, `rooms`, `pipes` |
-| `crew`       | heroes inside the sim: room, breathing, suit    | `rooms`, `atmosphere`   |
-| `hazards`    | meteor hits                                     | `grid`                  |
+| Module       | Owns                                         | Depends on               |
+| ------------ | -------------------------------------------- | ------------------------ |
+| `grid`       | cells and their layers, doors and valves     | —                        |
+| `stock`      | the ship's materials and canisters           | —                        |
+| `building`   | plans and the work on them                   | `grid`, `stock`          |
+| `rooms`      | rooms, derived from the grid                 | `grid`                   |
+| `pipes`      | pipe networks, derived from the grid         | `grid`                   |
+| `atmosphere` | oxygen in tanks, the air state of every room | `grid`, `rooms`, `pipes` |
+| `crew`       | heroes inside the sim: room, breathing, suit | `rooms`, `atmosphere`    |
+| `hazards`    | meteor hits                                  | `grid`                   |
 
 ## M0 — Foundation
 

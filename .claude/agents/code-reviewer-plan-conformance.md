@@ -62,10 +62,12 @@ particular areas or files to check, each one appears either as a finding or in t
 ## Output
 
 Format per finding:
+
 ```
 [severity] direction: plan→code | code→plan | semantic
 Plan (quote/section) — Code (file:line) — divergence — action: fix code | update plan | discuss
 ```
+
 No length cap, but no padding either: every sentence carries a finding, its evidence, or its fix. Do
 not quote code back at length. If clean: "Code conforms to plan — no deviations."
 Respond in the user's language.
