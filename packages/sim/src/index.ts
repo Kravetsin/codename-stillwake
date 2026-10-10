@@ -1,1 +1,27 @@
-export {};
+export {
+  defineModule,
+  event,
+  refuse,
+  type AnyModule,
+  type CommandsOf,
+  type Ctx,
+  type DeepReadonly,
+  type EventType,
+  type Module,
+  type Phase,
+  type QueryApi,
+  type ReadCtx,
+  type Refusal,
+} from './core/module';
+export {
+  TICKS_PER_SECOND,
+  command,
+  defineSim,
+  type Command,
+  type Refused,
+  type Sim,
+  type SimDefinition,
+  type SimEvent,
+  type TickReport,
+  type WorldData,
+} from './core/sim';
