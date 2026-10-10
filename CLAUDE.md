@@ -4,9 +4,8 @@ A 2D side-view space game: an always-moving ship salvages debris and turns it in
 production. PC (Steam), online co-op for 4+ players in host-owned worlds. The game is described in
 `docs/concept.md`; why things are the way they are, in `docs/decisions/`.
 
-**Status: pre-code.** The structure below is the target that M0 of
-[`docs/plans/prototype-1.md`](docs/plans/prototype-1.md) builds. Until a path exists, do not assume it
-does — check, and follow the plan.
+Work follows [`docs/plans/prototype-1.md`](docs/plans/prototype-1.md): its M0 built the foundation
+described here; the next task is the first open one there.
 
 ## Stack
 
@@ -43,20 +42,36 @@ the principle wins and the rule gets revisited.
 `packages/content` → `packages/sim` → `packages/net` → `apps/game` (→ `apps/desktop` later). Imports
 point one way only; lint enforces it.
 
-| Package      | Holds                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------- |
-| `content`    | game data as typed TS (`satisfies`): materials, machines, rates, ASCII maps; no logic |
-| `sim`        | the deterministic simulation, core and modules; no DOM, no Node APIs, no rendering    |
-| `net`        | transports, host and client: stamping and applying commands, snapshots, hash checks   |
-| `apps/game`  | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
-| `tools/lint` | our ESLint rule and the tests proving every guardrail fires                           |
+| Package          | Holds                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `content`        | game data as typed TS (`satisfies`): materials, machines, rates, ASCII maps; no logic |
+| `sim`            | the deterministic simulation, core and modules; no DOM, no Node APIs, no rendering    |
+| `net`            | transports, host and client: stamping and applying commands, snapshots, hash checks   |
+| `apps/game`      | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
+| `tools/lint`     | our ESLint rule and the tests proving every guardrail fires                           |
+| `tools/scaffold` | `pnpm new:module`: writes a module, its tests and README, and registers it            |
 
 ### Sim modules
 
 Every gameplay feature is a module in `packages/sim/src/modules/<name>/`
-([0004](docs/decisions/0004-modules-and-tests.md)): `index.ts` (definition and public API), `state.ts`,
-`commands.ts`, `systems.ts`, `queries.ts`, `operations.ts`, `events.ts`, `fuzz.ts`, `README.md`, tests.
-Files a module does not need are not created. Start one with `pnpm new:module <name>`.
+([0004](docs/decisions/0004-modules-and-tests.md)), started with `pnpm new:module <name>` and
+registered in `MODULES`. It begins as `index.ts`, `fuzz.ts`, `README.md` and `<name>.test.ts`; move
+commands, systems or queries into files of their own (`commands.ts`, `systems.ts`, …) once `index.ts`
+stops reading in one go. The shape, with the example module in `src/core/test-modules.ts`:
+
+```ts
+const roomsModule = defineModule<[GridModule]>()({   // dependencies as types: no import of their code
+  id: 'rooms', dependsOn: ['grid'],
+  events: { vented: event<{ room: number }>() },
+  init: (layout) => ({ ... }),                       // the starting slice, from the ASCII map
+  derived: { keys: ['byCell'], rebuild(ctx) { ... } },
+  queries: { roomAt: (ctx, cell: number) => ... },   // ctx.state is read-only here
+  operations: { ... },                               // how other modules may change this slice
+  commands: { seal: { validate(ctx, p: {...}) { ... }, apply(ctx, p: {...}) { ... } } },
+  systems: [{ phase: 'derivation', run(ctx) { ctx.deps.grid.query.cellAt(...) } }],
+});
+export const rooms = withFuzz(roomsModule, fuzzRooms);   // fuzzRooms lives in fuzz.ts
+```
 
 - A module writes only its own slice. Others read it through its queries and change it only through
   its operations; it receives nothing it did not declare in `dependsOn`.
@@ -92,7 +107,7 @@ the sim as commands. Details: [0002](docs/decisions/0002-coop-model.md).
 
 Every peer must compute the same world from the same commands. In `sim` and `content`:
 
-- No `Math.random` (use the world PRNG), `Date`, `performance`, timers, async code, `Intl`,
+- No `Math.random` or `crypto` (use the world PRNG), `Date`, `performance`, timers, async code, `Intl`,
   `localeCompare` or `toLocale*`.
 - No `Math.sin/cos/tan/atan2/pow/exp/log/hypot/cbrt` or `**`: they may differ between CPUs. Plain
   arithmetic is fine.
@@ -120,8 +135,9 @@ running, and a sim tick under 2 ms.
   refusal reason gets one. Modules read the map in `init(layout)`.
 - **Invariant tests** (fast-check) for what must always hold: no tank below zero, every open cell in
   exactly one room.
-- **Generic suites** — save round trip, state hash, desync fuzz — cover every registered module on
-  their own. Do not copy them per module.
+- **Generic suites** cover every registered module on their own: save, load and play on
+  (`src/modules/modules.test.ts`) and the desync fuzz (`fuzzDesync` in `packages/net`). Do not copy them
+  per module.
 - **Client:** unit tests for logic such as the hero controller; Playwright smoke tests for flows. No
   pixel snapshots.
 - A bug fix starts with a failing scenario test.
@@ -141,21 +157,24 @@ running, and a sim tick under 2 ms.
 
 ### Recipes
 
-**Add a module.** `pnpm new:module <name>`. Write its README first: what it owns, `dependsOn`,
-invariants. Then state, commands with fuzz generators, systems in their phase, and only the queries and
-operations that have a caller. Scenario and invariant tests. A client feature folder if it has visuals.
+**Add a module.** `pnpm new:module <name>` (add `--client` if it has visuals or UI). Write its README
+first: what it owns, `dependsOn`, invariants. Then replace the example: state and `init`, commands,
+systems in their phase, and only the queries and operations that have a caller. Make `fuzz.ts` draw
+every command. Scenario tests for every rule, invariant tests for what must always hold.
 
-**Add a command.** In `commands.ts`: its type, `validate` (a reason for every refusal) and `apply` (own
-slice only; other modules through their operations). A generator in `fuzz.ts`. Scenario tests for
-acceptance and for each refusal. The client sends it only through the command pipeline.
+**Add a command.** In the module's `commands`: `validate(ctx, payload)` returning `refuse('<id>.<why>')`
+for every refusal, and `apply(ctx, payload)` changing its own slice only (other modules through
+`ctx.deps.<id>.op`). Annotate the payload type in both. Draw it in `fuzz.ts`, refused cases included.
+Scenario tests for acceptance and for each refusal. The client sends it as `game.client.send(command(module, type, payload))`.
 
 **Add content.** Typed data in `packages/content` with `satisfies`, no functions; the sim refers to it
 by id. A content test checks what must hold across entries: capacities above zero, unique ids.
 
 ## Scripts
 
-Defined by P1-01: `pnpm dev` (the game in a browser), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
-`pnpm build`, `pnpm new:module <name>`.
+`pnpm dev` (the game in a browser, dev panel on `` ` ``), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
+`pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm new:module <name> [--client]`. One package:
+`pnpm --filter @stillwake/sim test`. CI runs format check, lint, types, tests and build.
 
 ## Conventions
 
@@ -165,7 +184,8 @@ Defined by P1-01: `pnpm dev` (the game in a browser), `pnpm test`, `pnpm typeche
   goes to `docs/`.
 - Commits follow Conventional Commits with the module as scope: `feat(atmosphere): vent rooms open to
 space`. Imperative, subject under 72 characters.
-- Files and folders in kebab-case; React components in PascalCase; a module's folder is its id.
+- Files and folders in kebab-case; React components in PascalCase. A module's folder is its name
+  (`life-support`); its id and export are the same in camelCase (`lifeSupport`).
 
 ## Out of scope
 
