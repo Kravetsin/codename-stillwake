@@ -56,6 +56,8 @@ const gridModule = defineModule()({
       material: ctx.state.material,
       conduit: ctx.state.conduit,
     }),
+    /** The stored codes of each layer, for a module reading `layers()` without importing grid's code. */
+    codes: () => ({ structure: STRUCTURE, conduit: CONDUIT }),
     structureAt(ctx, cell: number): StructureView {
       switch (ctx.state.structure[cell]) {
         case STRUCTURE.wall:

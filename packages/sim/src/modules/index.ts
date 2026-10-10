@@ -5,10 +5,11 @@ import { defineSim } from '../core/sim';
 // `pnpm new:module` adds a module's import below this line and its id to MODULES.
 import { building } from './building';
 import { grid } from './grid';
+import { rooms } from './rooms';
 import { stock } from './stock';
 
 /** Every gameplay module. Registration order only breaks ties; dependencies decide the rest. */
-export const MODULES: readonly AnyModule[] = [grid, building, stock];
+export const MODULES: readonly AnyModule[] = [grid, building, stock, rooms];
 
 export const stillwake = defineSim(MODULES);
 
@@ -21,3 +22,4 @@ export { building };
 export type { Action, Plan } from './building';
 export { stock };
 export type { Cost, Item } from './stock';
+export { rooms };

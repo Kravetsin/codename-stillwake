@@ -20,7 +20,8 @@ of structure and of other machines. Conduits need only a free conduit slot.
 
 ## API
 
-- **Queries:** `size`, `layers` (raw codes for drawing), `structureAt(cell)`, `conduitAt(cell)`, `machineAt(cell)`, `machines`,
+- **Queries:** `size`, `layers` (raw codes, for drawing and for modules that scan every cell),
+  `codes` (what those codes mean), `structureAt(cell)`, `conduitAt(cell)`, `machineAt(cell)`, `machines`,
   `portsOf(machineId)`, `footprint(kind, cell)`, `placementProblem(cell, placement)`.
 - **Operations:** `place(cell, placement)` — the caller checks `placementProblem` first, a problem here
   throws; `clear(cell, layer)` — for machines, removes the whole machine covering the cell.

@@ -189,6 +189,12 @@ with their materials, openings to space. Rebuilt only when the structure changes
 Done when: scenario tests for a sealed room, an open door joining two rooms, a hole exposing a room to
 space; an invariant test that every open cell is in exactly one room or in space. On the wreck: three
 rooms, and room C exposed to space through its breach.
+Built with openings: an open cell in a wall line (an open door, or walls on both sides) lets air
+through without merging a room into space, so a breach exposes room C instead of dissolving it; a
+hole two cells wide does dissolve a room, unless the room is one cell tall or wide; a one-cell gap
+between solid cells out in space is a tiny room open to space. Rooms are derived and found again whenever the structure
+layer differs from the copy they were built from: about 1 ms on the reference world. Ids are smallest
+cells and carry nothing across a rebuild; atmosphere keys its state on cells it owns.
 
 **P1-31 · `pipes`** · M · sim · after 20
 Pipe networks as connected components, rebuilt when a pipe, valve or machine changes; a closed valve
