@@ -134,6 +134,11 @@ Done when: 60 fps on a 256×128 grid with every layer filled.
 Client-side, outside the sim: a box against cells. Walk, jump, gravity inside the ship, ladders (grab,
 climb, step off at the top), floors passable from below; walls and closed doors block.
 Done when: the hero crosses the whole wreck; tests cover corners and ladder exits.
+Built with a hero of 0.6×0.9 cells, so one-cell doors and gaps let them through, and an open door in
+line with a ladder is a hatch it climbs through. Left out: gravity holds everywhere in the grid and its
+edges are walls, so a hero who drops out through the breach stays below the wreck until spacewalks
+(reload to get back); no dropping through floors, since ladders lead down; no coyote time or variable
+jump height. The hero wakes at the map's S, read by the client through `game.layout`.
 
 **P1-24 · Interaction** · S · client · after 23
 The cell under the cursor is highlighted, actions respect a reach radius, `E` toggles a door or a
@@ -191,7 +196,7 @@ fuzz generator covers the new commands.
 The client sends its hero's cell whenever the hero enters another room as the client sees it; the sim
 resolves the room from that cell every tick. In an aired room a hero breathes through `drawOxygen` and
 refills the suit; anywhere else from the suit. An empty suit means passing out and respawning at the
-spawn point.
+spawn point, which `crew` now reads from the map instead of the client.
 Done when: a hero can run out of air and the HUD shows it coming.
 
 **P1-35 · `hazards`** · S · sim · after 33

@@ -3,6 +3,7 @@ import { Application, Container } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import { perfLayout } from './dev/perf-map';
 import { FEATURES } from './features';
+import type { Layer } from './features/feature';
 import { browserPlatform } from './platform/browser';
 import { createCamera } from './render/camera';
 import { createGame, type Game } from './session/game';
@@ -16,6 +17,7 @@ export function App() {
     let ready = false;
     let disposed = false;
     let destroyCamera = () => {};
+    let layers: Layer[] = [];
     // `?perf` swaps the wreck for the reference world the budgets in CLAUDE.md are measured on.
     const layout = new URLSearchParams(location.search).has('perf') ? perfLayout() : wreck;
     // The game reaches the sim only through its host and client, as every co-op peer does.
@@ -39,12 +41,12 @@ export function App() {
         const { width, height } = created.client.sim.query(grid).size();
         camera.fit({ x: 0, y: 0, width, height }, app.screen);
 
-        const layers = FEATURES.flatMap((f) => (f.layer ? [f.layer()] : []));
+        layers = FEATURES.flatMap((f) => (f.layer ? [f.layer()] : []));
         for (const layer of layers) world.addChild(layer.view);
 
         app.ticker.add((ticker) => {
           created.frame(ticker.deltaMS);
-          const frame = { game: created, screen: app.screen };
+          const frame = { game: created, screen: app.screen, camera, elapsedMs: ticker.deltaMS };
           for (const layer of layers) layer.update(frame);
         });
         setGame(created);
@@ -53,6 +55,7 @@ export function App() {
     return () => {
       disposed = true;
       destroyCamera();
+      for (const layer of layers) layer.destroy?.();
       if (ready) app.destroy(true, { children: true });
     };
   }, []);

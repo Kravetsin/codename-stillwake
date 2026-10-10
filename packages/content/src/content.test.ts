@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
 
@@ -29,5 +30,32 @@ describe('machines', () => {
         expect(p.x >= 0 && p.x < m.width && p.y >= 0 && p.y < m.height).toBe(true);
       }
     }
+  });
+});
+
+describe('hero', () => {
+  const CELL = 1000;
+
+  it('has positive whole-number stats', () => {
+    for (const [stat, value] of Object.entries(HERO)) {
+      expect({ [stat]: Number.isSafeInteger(value) && value > 0 }).toEqual({ [stat]: true });
+    }
+  });
+
+  it('fits through a one-cell door and centres on a ladder', () => {
+    expect(HERO.height).toBeLessThan(CELL);
+    expect(HERO.width).toBeLessThan(CELL);
+    expect(HERO.width % 2).toBe(0);
+  });
+
+  it('moves less than a cell per step', () => {
+    for (const speed of [HERO.walk, HERO.climb, HERO.jump, HERO.maxFall])
+      expect(speed).toBeLessThan(CELL);
+  });
+
+  it('jumps onto a ledge one cell high', () => {
+    let rise = 0;
+    for (let v = HERO.jump - HERO.gravity; v > 0; v -= HERO.gravity) rise += v;
+    expect(rise).toBeGreaterThan(CELL);
   });
 });

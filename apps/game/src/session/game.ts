@@ -1,5 +1,5 @@
 import { localSession, type Client, type Host } from '@stillwake/net';
-import type { Layout, SimDefinition, TickReport } from '@stillwake/sim';
+import { TICKS_PER_SECOND, type Layout, type SimDefinition, type TickReport } from '@stillwake/sim';
 import type { Platform } from '../platform/platform';
 import { createClock } from './clock';
 
@@ -9,6 +9,8 @@ const DEV_SLOT = 'dev';
 export interface Game {
   readonly host: Host;
   readonly client: Client;
+  /** The map the game started from. The hero wakes at its S until `crew` (P1-34) owns spawning. */
+  readonly layout: Layout;
   /** How many game seconds pass per real second. Single-player only: a host's speed is everyone's. */
   speed: number;
   /** Fraction of the way to the next tick, for drawing between ticks. */
@@ -31,7 +33,7 @@ export function createGame(
   layout: Layout,
 ): Game {
   let session = localSession(definition.create(seed, layout));
-  const clock = createClock();
+  const clock = createClock(1000 / TICKS_PER_SECOND);
   const listeners = new Set<() => void>();
   let speed = 1;
   let fps = 0;
@@ -43,6 +45,7 @@ export function createGame(
     get client() {
       return session.client;
     },
+    layout,
     get speed() {
       return speed;
     },

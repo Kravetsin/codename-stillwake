@@ -10,6 +10,11 @@ const WHEEL_STEP = 1.15;
 export interface Camera {
   /** Frames a world rectangle, in cells, with some margin. */
   fit(cells: { x: number; y: number; width: number; height: number }, screen: Size): void;
+  /**
+   * Centres a world point, in cells, called every frame. Dragging the view looks around freely
+   * until the point moves again.
+   */
+  follow(point: { x: number; y: number }, screen: Size): void;
   destroy(): void;
 }
 
@@ -20,10 +25,13 @@ interface Size {
 
 /**
  * Moves and scales `world`. The wheel zooms toward the cursor; the right or middle button drags.
- * The left button is left to the game: interaction and building.
+ * The left button is left to the game: interaction and building. While following, the wheel zooms
+ * around the followed point, since following puts it back in the middle every frame.
  */
 export function createCamera(world: Container, canvas: HTMLCanvasElement): Camera {
   let dragging: { x: number; y: number } | undefined;
+  let looking = false;
+  let followed = { x: NaN, y: NaN };
 
   const zoomAt = (factor: number, sx: number, sy: number) => {
     const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, world.scale.x * factor));
@@ -42,6 +50,7 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
   const onDown = (e: PointerEvent) => {
     if (e.button !== 1 && e.button !== 2) return;
     dragging = { x: e.clientX, y: e.clientY };
+    looking = true;
     canvas.setPointerCapture(e.pointerId);
   };
   const onMove = (e: PointerEvent) => {
@@ -75,6 +84,16 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
       world.position.set(
         screen.width / 2 - (cells.x + cells.width / 2) * CELL * zoom,
         screen.height / 2 - (cells.y + cells.height / 2) * CELL * zoom,
+      );
+    },
+    follow(point, screen) {
+      if (dragging || (looking && point.x === followed.x && point.y === followed.y)) return;
+      looking = false;
+      followed = { x: point.x, y: point.y };
+      const zoom = world.scale.x;
+      world.position.set(
+        screen.width / 2 - point.x * CELL * zoom,
+        screen.height / 2 - point.y * CELL * zoom,
       );
     },
     destroy() {

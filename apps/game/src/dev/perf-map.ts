@@ -20,5 +20,7 @@ export function perfLayout(): Layout {
   ];
   const rows: string[] = [];
   for (let y = 0; y < height; y++) rows.push((tile[y % 8] ?? '').repeat(width / 8));
+  // The hero wakes in the first tile, above a closed door.
+  rows[1] = `#TTS${(rows[1] ?? '').slice(4)}`;
   return parseLayout(rows);
 }
