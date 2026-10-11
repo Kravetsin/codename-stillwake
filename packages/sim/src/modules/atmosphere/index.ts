@@ -103,9 +103,10 @@ const atmosphereModule = defineModule<Deps>()({
       // A tank taken apart takes its oxygen with it; ids are never reused, so this is only tidying.
       phase: 'construction',
       run(ctx) {
-        const grid = ctx.deps.grid.query;
-        if (ctx.state.tanks.every((t) => isTank(grid, t.tank))) return;
-        ctx.state.tanks = ctx.state.tanks.filter((t) => isTank(grid, t.tank));
+        // One pass over the machines, not one per tank: a big ship has hundreds of both.
+        const live = new Set(ctx.deps.grid.query.machines().map((m) => m.id));
+        if (ctx.state.tanks.every((t) => live.has(t.tank))) return;
+        ctx.state.tanks = ctx.state.tanks.filter((t) => live.has(t.tank));
       },
     },
     {

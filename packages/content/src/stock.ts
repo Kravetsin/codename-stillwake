@@ -5,6 +5,6 @@ import type { MaterialId } from './materials';
  * the map come on top. Enough for the first few rooms before salvage pays for more.
  */
 export const STARTING_STOCK = {
-  scrap: 120,
-  steel: 20,
+  scrap: 360,
+  steel: 60,
 } as const satisfies Readonly<Record<MaterialId, number>>;

@@ -255,8 +255,8 @@ describe('rooms', () => {
   it('finds three rooms on the wreck, and room C open to space through its breach', () => {
     const found = world.create(1, wreck).query(rooms).rooms();
     const at = (x: number, y: number) => y * wreck.width + x;
-    expect(found.map((r) => r.id)).toEqual([at(16, 7), at(20, 7), at(20, 10)]);
-    expect(found.map((r) => r.openings)).toEqual([[], [], [at(26, 11)]]);
+    expect(found.map((r) => r.id)).toEqual([at(31, 17), at(40, 17), at(40, 24)]);
+    expect(found.map((r) => r.openings)).toEqual([[], [], [at(56, 28)]]);
   });
 
   it('puts every open cell in one closed room or in space, and finds the same after a load', () => {

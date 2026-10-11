@@ -1,4 +1,4 @@
-import { CREW } from '@stillwake/content';
+import { AIR, CREW } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
@@ -21,8 +21,8 @@ const at = (x: number, y: number) => y * 9 + x;
 const OUTSIDE = at(0, 0);
 
 /** A world from ROOM in creative mode, its vent piped to its tank, with `canisters` loaded. */
-function setUp(canisters = 0): { w: Scenario; tank: number; room: number } {
-  const w = scenario(world, ROOM).do(stock, 'setCreative', { on: true });
+function setUp(canisters = 0, map = ROOM): { w: Scenario; tank: number; room: number } {
+  const w = scenario(world, map).do(stock, 'setCreative', { on: true });
   for (const cell of [at(1, 1), at(1, 2), at(1, 3)]) {
     w.do(builder, 'place', { cell, placement: { layer: 'conduit', kind: 'pipe' } });
   }
@@ -103,7 +103,12 @@ describe('crew', () => {
   });
 
   it('falls back on the suit in an aired room whose network has run dry', () => {
-    const { w, tank, room } = setUp(1);
+    // ROOM made as deep as one canister airs whole, so little is left after the fill.
+    const rows = Math.floor(AIR.canister / (7 * AIR.perCell));
+    const deep = ['#########', '#V..S...#', '#TT.....#', '#TT.....#']
+      .concat(Array<string>(rows - 3).fill('#.......#'), ['#########'])
+      .join('\n');
+    const { w, tank, room } = setUp(1, deep);
     airUp(w, room);
     w.do(crew, 'enter', { cell: at(4, 1) }).run();
     // What is left after the fill goes on breaths; then the room is still aired until its leak.

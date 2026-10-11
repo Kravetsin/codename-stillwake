@@ -31,6 +31,15 @@ const TANK = `
 `;
 const at = (x: number, y: number) => y * 9 + x;
 
+/** As many steel walls as the starting stock pays for. */
+const AFFORDABLE = Math.floor(STARTING_STOCK.steel / MATERIALS.steel.cost);
+/** OPEN with rows enough inside for one more plan than the stock pays for. */
+const HALL = ['#########']
+  .concat(Array<string>(Math.ceil((AFFORDABLE + 1) / 7)).fill('#.......#'), ['#########'])
+  .join('\n');
+/** The `i`-th cell inside HALL, row by row. */
+const inside = (i: number) => at(1 + (i % 7), 1 + Math.floor(i / 7));
+
 /** `ticks` ticks, each with one `work` on `plan`. */
 function work(w: Scenario, plan: number, ticks: number): Scenario {
   for (let i = 0; i < ticks; i++) w.do(building, 'work', { plan }).run();
@@ -75,10 +84,10 @@ describe('building by hand', () => {
   });
 
   it('refuses to begin a plan the ship cannot pay for, leaving it untouched', () => {
-    const affordable = Math.floor(STARTING_STOCK.steel / MATERIALS.steel.cost);
-    let w = scenario(world, OPEN);
+    const affordable = AFFORDABLE;
+    let w = scenario(world, HALL);
     for (let i = 0; i <= affordable; i++) {
-      w = w.do(building, 'placePlan', { cell: at(1 + i, 1), placement: steelWall });
+      w = w.do(building, 'placePlan', { cell: inside(i), placement: steelWall });
     }
     w.run();
     for (let id = 1; id <= affordable + 1; id++) work(w, id, 1);
@@ -91,10 +100,10 @@ describe('building by hand', () => {
 
   it('goes on with a begun plan without paying again, however low the stock', () => {
     // Begin enough steel walls that less steel is left than one more would cost.
-    const affordable = Math.floor(STARTING_STOCK.steel / MATERIALS.steel.cost);
-    let w = scenario(world, OPEN);
+    const affordable = AFFORDABLE;
+    let w = scenario(world, HALL);
     for (let i = 0; i < affordable; i++) {
-      w = w.do(building, 'placePlan', { cell: at(1 + i, 1), placement: steelWall });
+      w = w.do(building, 'placePlan', { cell: inside(i), placement: steelWall });
     }
     w.run();
     for (let id = 1; id <= affordable; id++) work(w, id, 1);

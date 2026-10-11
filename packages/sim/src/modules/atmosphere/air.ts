@@ -193,27 +193,33 @@ export function stepAir(air: Air, world: World, clock: number): void {
 
   if (clock % AIR.ticksPerCell === 0) {
     // The rooms that air a cell this beat, each paid for from the first vent that can pay.
-    const wanting = new Set<number>();
+    // Flags by room id, not a Set: the walk below asks once per cell of the grid, every tick.
+    const wanting = new Uint8Array(roomOf.length);
+    let count = 0;
     for (const room of rooms.rooms()) {
       if (!s.ventsIn.has(room.id) || status(s, room) !== 'filling') continue;
       const network = (s.ventsIn.get(room.id) ?? []).find((n) => oxygenOn(s, n) >= AIR.perCell);
       if (network === undefined) continue;
       draw(s, network, AIR.perCell);
-      wanting.add(room.id);
+      wanting[room.id] = 1;
+      count++;
     }
-    if (wanting.size > 0) {
+    if (count > 0) {
       // Each wanting room's smallest unaired cell, found in one walk alongside the sorted list.
       const added: number[] = [];
+      const aired = air.aired;
       let next = 0;
-      for (let cell = 0; cell < roomOf.length && wanting.size > 0; cell++) {
-        while (next < air.aired.length && (air.aired[next] as number) < cell) next++;
-        const room = roomOfCell(cell);
-        if (!wanting.has(room) || air.aired[next] === cell) continue;
+      for (let cell = 0; cell < roomOf.length && count > 0; cell++) {
+        const room = roomOf[cell] as number;
+        if (room < 0 || wanting[room] === 0) continue;
+        while (next < aired.length && (aired[next] as number) < cell) next++;
+        if (aired[next] === cell) continue;
         added.push(cell);
-        wanting.delete(room);
+        wanting[room] = 0;
+        count--;
         s.airedIn[room] = (s.airedIn[room] ?? 0) + 1;
       }
-      air.aired = merge(air.aired, added);
+      air.aired = merge(aired, added);
     }
   }
 

@@ -270,6 +270,10 @@ The numbers of 0005: oxygen × 9, leaks × 3, build ticks ÷ 3, `ticksPerCell` 1
 The wreck redrawn on a 96 × 48 grid with three-tall doorways and a one-wide hatch over a ladder.
 `SAVE_FORMAT` 6; perf measured on the reference world with every room filling.
 Done when: the generic suites run on the new wreck and the reference world stays under 2 ms a tick.
+Built as planned; tests that leaned on the old numbers now work theirs out from the tunables. With
+a fill beat every tick the reference world measured 2.2 ms a tick while every room filled: a
+quadratic tidy of taken-apart tanks cost 0.3 ms of it. Fixed, filling takes 0.8 ms (1.6 at worst)
+and aired rooms 0.6 ms (1.5 at worst). The old hero still plays the new wreck until P1-35c.
 
 **P1-35c · Scale in the client** · M · client `crew` and render · after 35b
 `HERO` at 0.95 × 2.625 cells with movement × 3; a cell drawn at 16 px; the camera starts at zoom 2.

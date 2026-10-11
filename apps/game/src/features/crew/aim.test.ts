@@ -1,4 +1,4 @@
-import { HERO } from '@stillwake/content';
+import { HERO, MACHINES, MATERIALS, STARTING_STOCK } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
@@ -28,6 +28,15 @@ function heroOn(x: number, y: number): Hero {
 }
 
 const centre = (x: number, y: number) => ({ x: x + 0.5, y: y + 0.5 });
+
+const steelWall = { layer: 'structure', kind: 'wall', material: 'steel' } as const;
+/** A hall nine wide with rows enough inside for `cells` cells, seven to a row. */
+const hall = (cells: number) =>
+  ['#########']
+    .concat(Array<string>(Math.ceil(cells / 7)).fill('#.......#'), ['#########'])
+    .join('\n');
+/** The `i`-th cell inside a hall, row by row. */
+const inside = (i: number) => (1 + Math.floor(i / 7)) * 9 + 1 + (i % 7);
 
 describe('aiming', () => {
   const world = worldFrom(`
@@ -120,48 +129,43 @@ describe('aiming', () => {
   });
 
   it("carries the sim's reason when work on a plan would be refused", () => {
-    // Nine wide, seven open cells in a row: twenty steel begins six steel walls, not seven.
-    const poor = worldFrom(`
-      #########
-      #.......#
-      #########
-    `);
-    const steel = { layer: 'structure', kind: 'wall', material: 'steel' } as const;
-    for (let x = 1; x <= 7; x++) {
-      poor.step([command(building, 'placePlan', { cell: 9 + x, placement: steel })]);
+    // One steel wall more than the starting steel begins, laid row by row in a hall nine wide.
+    const affordable = Math.floor(STARTING_STOCK.steel / MATERIALS.steel.cost);
+    const poor = worldFrom(hall(affordable + 1));
+    for (let i = 0; i <= affordable; i++) {
+      poor.step([command(building, 'placePlan', { cell: inside(i), placement: steelWall })]);
     }
-    for (let id = 1; id <= 6; id++) poor.step([command(building, 'work', { plan: id })]);
-    const aim = aimAt(poor, heroOn(6, 1), centre(7, 1));
-    expect(aim?.work).toEqual({ plan: 7, problem: 'stock.notEnough' });
-    expect(aimAt(poor, heroOn(6, 1), centre(6, 1))?.work).toEqual({ plan: 6, problem: undefined });
+    for (let id = 1; id <= affordable; id++) poor.step([command(building, 'work', { plan: id })]);
+    const [x, y] = [1 + (affordable % 7), 1 + Math.floor(affordable / 7)];
+    const aim = aimAt(poor, heroOn(x - 1, y), centre(x, y));
+    expect(aim?.work).toEqual({ plan: affordable + 1, problem: 'stock.notEnough' });
+    expect(aimAt(poor, heroOn(x - 1, y), centre(x - 1, y))?.work).toEqual({
+      plan: affordable,
+      problem: undefined,
+    });
   });
 
   it('works a plan the ship can pay for before an older one it cannot', () => {
     // Nine wide. A tank is planned over a pipe, and the pipe is marked: two plans in cell 15.
-    const tight = worldFrom(`
-      #########
-      #.....-.#
-      #.......#
-      #.......#
-      #########
-    `);
-    const steel = { layer: 'structure', kind: 'wall', material: 'steel' } as const;
-    // Six steel walls begun leave too little steel for a tank.
-    for (let x = 1; x <= 6; x++) {
-      tight.step([command(building, 'placePlan', { cell: 27 + x, placement: steel })]);
+    // Below the tank's rows, enough steel walls are begun to leave too little steel for it.
+    const walls =
+      Math.floor((STARTING_STOCK.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
+    const tight = worldFrom(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
+    for (let i = 0; i < walls; i++) {
+      tight.step([command(building, 'placePlan', { cell: 18 + inside(i), placement: steelWall })]);
     }
-    for (let id = 1; id <= 6; id++) tight.step([command(building, 'work', { plan: id })]);
+    for (let id = 1; id <= walls; id++) tight.step([command(building, 'work', { plan: id })]);
     tight.step([
       command(building, 'placePlan', { cell: 15, placement: { layer: 'machine', kind: 'tank' } }),
       command(building, 'deconstruct', { cell: 15, layer: 'conduit' }),
     ]);
     const q = tight.query(building);
     expect(q.plansAt(15).map((p) => [p.id, q.workProblem(p.id)])).toEqual([
-      [7, 'stock.notEnough'],
-      [8, undefined],
+      [walls + 1, 'stock.notEnough'],
+      [walls + 2, undefined],
     ]);
     const aim = aimAt(tight, heroOn(5, 1), centre(6, 1));
-    expect(aim?.work).toEqual({ plan: 8, problem: undefined });
+    expect(aim?.work).toEqual({ plan: walls + 2, problem: undefined });
   });
 
   it('aims at nothing off the grid', () => {
@@ -197,20 +201,21 @@ describe('the wreck, worked with E', () => {
     if (spawn === undefined) throw new Error('the wreck has no S');
 
     // Up the ladder from room C: the closed hatch stops the hero's head.
-    let h = run(heroAt(ship(), spawn), left, 35);
-    expect(Math.floor(h.x / UNIT)).toBe(21);
+    let h = heroAt(ship(), spawn);
+    for (let i = 0; i < 400 && Math.floor(h.x / UNIT) !== 42; i++) h = stepHero(h, left, ship());
+    expect(Math.floor(h.x / UNIT)).toBe(42);
+    h = run(h, up, 300);
+    expect(h.y - HERO.height).toBe(24 * UNIT);
+    use(h, 42, 23);
     h = run(h, up, 120);
-    expect(h.y - HERO.height).toBe(10 * UNIT);
-    use(h, 21, 9);
-    h = run(h, up, 120);
-    expect(h.y).toBe(9 * UNIT);
+    expect(h.y).toBe(23 * UNIT);
 
-    // Along room B: the closed door to room A stops the hero, until it is opened.
+    // Along room B: the closed doorway to room A stops the hero, until it is opened.
     h = run(h, left, 120);
-    expect(h.x).toBe(20 * UNIT + HERO.width / 2);
-    use(h, 19, 8);
-    h = run(h, left, 120);
-    expect(h.x).toBe(16 * UNIT + HERO.width / 2);
+    expect(h.x).toBe(40 * UNIT + HERO.width / 2);
+    use(h, 39, 22);
+    h = run(h, left, 300);
+    expect(h.x).toBe(31 * UNIT + HERO.width / 2);
   });
 });
 

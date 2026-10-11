@@ -5,11 +5,11 @@
  * `doorLeak`. A vent in a room open to space, or in space, drains its network by `ventDrain` a tick.
  */
 export const AIR = {
-  tankCapacity: 1000,
-  canister: 250,
+  tankCapacity: 9000,
+  canister: 2250,
   perCell: 10,
-  ticksPerCell: 4,
+  ticksPerCell: 1,
   leakEvery: 1200,
-  doorLeak: 2,
-  ventDrain: 25,
+  doorLeak: 6,
+  ventDrain: 225,
 } as const satisfies Readonly<Record<string, number>>;

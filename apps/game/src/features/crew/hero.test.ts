@@ -376,21 +376,21 @@ describe('hero controller', () => {
     if (spawn === undefined) throw new Error('the wreck has no S');
 
     // From room C up the ladder, through the hatch into room B, then through the door into room A.
-    let h = until(opened, heroAt(opened, spawn), left, (x) => column(x) === 21);
+    let h = until(opened, heroAt(opened, spawn), left, (x) => column(x) === 42);
     h = settle(opened, stepHero(h, up, opened), up);
-    expect(h.y).toBe(9 * UNIT);
+    expect(h.y).toBe(23 * UNIT);
     h = settle(opened, h, left);
-    expect(h.x).toBe(16 * UNIT + HALF);
-    expect(h.y).toBe(9 * UNIT);
+    expect(h.x).toBe(31 * UNIT + HALF);
+    expect(h.y).toBe(23 * UNIT);
 
     // And back down through the hatch to room C's floor.
-    h = until(opened, h, right, (x) => column(x) === 21);
+    h = until(opened, h, right, (x) => column(x) === 42);
     h = settle(opened, stepHero(h, down, opened), down);
-    expect(h.y).toBe(13 * UNIT);
+    expect(h.y).toBe(32 * UNIT);
 
     // With the hatch closed, room C keeps the hero.
-    const shut = until(ship, heroAt(ship, spawn), left, (x) => column(x) === 21);
-    expect(settle(ship, stepHero(shut, up, ship), up).y).toBe(10 * UNIT + HERO.height);
+    const shut = until(ship, heroAt(ship, spawn), left, (x) => column(x) === 42);
+    expect(settle(ship, stepHero(shut, up, ship), up).y).toBe(24 * UNIT + HERO.height);
   });
 
   it('never ends a step inside a wall, a closed door or past the edge', () => {

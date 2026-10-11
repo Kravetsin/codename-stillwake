@@ -50,7 +50,9 @@ describe('air machines', () => {
     expect(w.query(atmosphere).roomStatus(room)).toBe('vacuum');
     w.do(atmosphere, 'loadCanister', { tank }).run();
     expect(w.refusals).toEqual([]);
-    expect(w.query(atmosphere).oxygenIn(tank)).toBe(AIR.canister);
+    // Less what the room's first cells cost, if a fill beat came on the same tick.
+    const paid = (w.sim.world.slices.atmosphere as { aired: number[] }).aired.length * AIR.perCell;
+    expect(w.query(atmosphere).oxygenIn(tank)).toBe(AIR.canister - paid);
     expect(w.query(stock).items().canister).toBe(2);
     expect(w.query(atmosphere).roomStatus(room)).toBe('filling');
   });

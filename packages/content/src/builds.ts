@@ -14,10 +14,10 @@ export interface Build {
  * (`MACHINES`). Kept by the names the grid gives them.
  */
 export const BUILDS = {
-  floor: { cost: { scrap: 1 }, buildTicks: 20 },
-  ladder: { cost: { scrap: 1 }, buildTicks: 20 },
-  door: { cost: { scrap: 2, steel: 1 }, buildTicks: 60 },
-  pipe: { cost: { scrap: 1 }, buildTicks: 20 },
+  floor: { cost: { scrap: 1 }, buildTicks: 7 },
+  ladder: { cost: { scrap: 1 }, buildTicks: 7 },
+  door: { cost: { scrap: 2, steel: 1 }, buildTicks: 20 },
+  pipe: { cost: { scrap: 1 }, buildTicks: 7 },
   valve: { cost: { scrap: 1, steel: 1 }, buildTicks: 40 },
 } as const satisfies Readonly<Record<string, Build>>;
 

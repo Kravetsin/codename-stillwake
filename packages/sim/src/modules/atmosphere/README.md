@@ -35,7 +35,8 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
   apart takes its oxygen with it.
 - One pass per tick gathers vents by room, tanks by network and aired cells by room, and every walk
   over cells covers all rooms at once (`rooms.roomOfCells`). On the reference world with every room
-  piped and aired (512 rooms, 18k aired cells): 0.8 ms a tick, 1.9 ms at worst, a leak beat 1–1.4 ms.
+  piped (512 rooms, 18k aired cells), with `ticksPerCell` 1: 0.8 ms a tick while every room fills
+  (1.6 ms at worst), 0.6 ms once all are aired (1.5 ms at worst, on a leak beat).
 
 ## API
 
