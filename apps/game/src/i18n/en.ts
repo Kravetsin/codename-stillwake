@@ -64,7 +64,7 @@ export const EN: Readonly<Record<string, string>> = {
   'air.leak': 'Leaks {leak} every {time} through its hull',
   'air.holds': 'Its pipes hold {oxygen}',
   'air.lasts': 'Its pipes hold {oxygen}: enough for {time}',
-  'air.lastsNot': 'Its pipes hold {oxygen}: not enough for the next leak',
+  'air.lastsNot': 'Its pipes are dry: its air goes through the hull',
   'air.drains': 'Its pipes hold {oxygen}: drained in {time}',
   'atmosphere.noVent': 'No vent in this room',
   'atmosphere.notPiped': 'Its vent has no pipe to a tank',

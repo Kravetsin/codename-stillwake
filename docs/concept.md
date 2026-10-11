@@ -24,15 +24,19 @@ A living document: what is decided about the game and what is still open. Techni
 - **Graybox first.** Plain blocks without textures until the core mechanics are fun; art comes after.
 - **Look: simple textures carried by light.** Light also tells the ship's state: an unpowered room is
   dark but for helmet lamps, a venting room flashes red, starlight comes in through windows.
-- **Oxygen works like a power grid.** A pipe network holds one pool of oxygen, and a room has air
-  when a vent of a network with oxygen in it stands inside. A room is a space closed by walls and
-  closed doors around it and back walls behind it, recomputed only when something is built, broken
-  or a door moves; rooms hold a status (air, venting, vacuum), not amounts. A breach or a door left
-  open to space makes a room vent: its network drains fast until a valve cuts the room off or the
-  hole is patched. A door opened onto an empty room joins the two into one that has to be filled
-  again. Growth is held back by a one-off fill per room by volume, a leak through every outer hull
-  cell of an aired room (its material decides how much) and breathing. Without air a hero breathes
-  from the suit tank. Power and wires run on the same network system.
+- **Oxygen works like a power grid.** A pipe network holds one pool of oxygen; a vent of a network
+  with oxygen in it fills its room cell by cell, a unit of oxygen a cell, outward from the vent. A
+  room is a space closed by walls and closed doors around it and back walls behind it, recomputed
+  only when something is built, broken or a door moves; a cell holds air or not, and a room's air
+  always lies in one patch around its vents ([0011](decisions/0011-air-lies-around-the-vents.md)).
+  A hero breathes room air in any room holding some, and the suit refills there; the tanks behind
+  the room's vents pay for each breath, and without them the breath takes a cell from the patch's
+  far edge. A breach or a door left open to space makes a room vent: its air goes and its network
+  drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty
+  room joins the two: their air spreads over both and the vents fill the rest. Growth is held back by
+  the fill, a leak through every outer hull cell (its material decides how much), paid from the
+  tanks, and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
+  same network system.
 - **Building is cell by cell, in layers.** Structure: hull walls of different materials, floors,
   ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.
   Conduits: pipes and wires run through walls, one of each per cell. Machines stand on floors and

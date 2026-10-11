@@ -180,6 +180,28 @@ P2-04c
   opening of its room; `SAVE_FORMAT` bumped; `?perf` stays under 2 ms a tick while four heroes
   paint back walls.
 
+**P2-04e · Air lies around the vents** · M · sim `atmosphere`, `crew`, content, client, ADR 0011 ·
+after P2-04d
+
+- `atmosphere` derives each room's order of cells: breadth first from the vents standing in it, in vent
+  id order, or from its middle with none; found again for the rooms a door, a wall or a vent moves.
+  A room's aired cells are always the start of its order; when the order changes, each room keeps its
+  count of aired cells, laid out again.
+- Vents fill the next cell of the order, paying one unit (`AIR.perCell` goes). A room open to space
+  loses `AIR.ventLoss` cells a tick from the far edge. The hull leak is paid once a minute by the
+  tanks as far as they can, by any room holding air; what they cannot pay is not taken from the room.
+- `breathe(cell, amount)` takes up to `amount` in a room holding any air, none otherwise: paid by
+  the room's vents' networks, and what they cannot pay taken as the last aired cells. The client is
+  unchanged: it reports the room.
+- The overlay's words follow.
+  Done when: scenarios: a room fills outward from its vent; a breath with no supply takes the far
+  cell; a hero breathes while its room holds a cell of air, then from the suit; a room keeps its air
+  when its leak goes unpaid; a door onto an empty room keeps the count and lays it out on the joined
+  room, and closing it leaves each part its own; a breach empties a room over a few ticks;
+  invariant: each room's aired cells are the start of its order, and the orders kept room by room
+  are those found afresh; `SAVE_FORMAT` bumped; a door toggled on the reference world stays near
+  what it cost before.
+
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
 inventory, sent each tick the left button is held with that slot selected. Progress per hero (slot,

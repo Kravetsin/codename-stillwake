@@ -11,17 +11,55 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { ItemsModule } from '../items';
-import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, type Air } from './air';
+import { breathe, holds, oxygenIn, pack, roomsAir, statusOf, stepAir, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
+import { changedRooms, orderRooms } from './order';
 
 export type { RoomAir, RoomStatus } from './air';
 
 export interface AtmosphereState extends Air {
   /** Ticks the air has run: fill and leak beats are this modulo their rates. */
   clock: number;
+  /** Derived: each room's cells in the order its air lies in, by room id. */
+  orders: Map<number, Int32Array>;
+  /** Derived: the rooms per cell and the vents' cells, in id order, the orders were found from. */
+  orderedRooms: Int32Array;
+  orderedVents: number[];
 }
 
 type Deps = [GridModule, ItemsModule, RoomsModule, PipesModule];
+type ReadDeps = { grid: QueryApi<GridModule>; rooms: QueryApi<RoomsModule> };
+
+/** The cells of the vents, in machine id order: where each room's air lies around. */
+function ventCells(grid: QueryApi<GridModule>): number[] {
+  return grid
+    .machines()
+    .filter((m) => m.kind === 'vent')
+    .map((m) => m.cell);
+}
+
+/**
+ * Finds the orders again: of every room, or only of the `changed` ones, dropping those of rooms
+ * gone. A door moves one or two rooms of hundreds.
+ */
+function order(
+  state: AtmosphereState,
+  deps: ReadDeps,
+  vents: number[],
+  changed?: ReadonlySet<number>,
+): void {
+  const roomOf = deps.rooms.roomOfCells();
+  const width = deps.grid.size().width;
+  if (!changed) state.orders = orderRooms(roomOf, width, deps.rooms.rooms(), vents);
+  else {
+    const rooms = deps.rooms.rooms().filter((r) => changed.has(r.id));
+    // A room gone is among the changed: its cells were in it before.
+    for (const id of changed) state.orders.delete(id);
+    for (const [id, cells] of orderRooms(roomOf, width, rooms, vents)) state.orders.set(id, cells);
+  }
+  state.orderedRooms = Int32Array.from(roomOf);
+  state.orderedVents = vents;
+}
 
 /**
  * The tanks the map under the map fills: a canister's worth in each tank drawn over an `o`. Ids
@@ -62,7 +100,21 @@ function canisterProblem(
 const atmosphereModule = defineModule<Deps>()({
   id: 'atmosphere',
   dependsOn: ['grid', 'items', 'rooms', 'pipes'],
-  init: (layout): AtmosphereState => ({ tanks: startingTanks(layout), aired: [], clock: 0 }),
+  init: (layout): AtmosphereState => ({
+    tanks: startingTanks(layout),
+    aired: [],
+    clock: 0,
+    orders: new Map(),
+    orderedRooms: new Int32Array(0),
+    orderedVents: [],
+  }),
+  derived: {
+    keys: ['orders', 'orderedRooms', 'orderedVents'],
+    rebuild(ctx) {
+      const deps = { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query };
+      order(ctx.state, deps, ventCells(deps.grid));
+    },
+  },
 
   queries: {
     /** The oxygen in tank `id`; none for a tank never filled, or no tank at all. */
@@ -96,13 +148,14 @@ const atmosphereModule = defineModule<Deps>()({
 
   operations: {
     /**
-     * Takes up to `amount` of oxygen for a hero at `cell`, from the room's vents if the room is aired;
-     * returns what it took, nothing outside an aired room.
+     * Takes up to `amount` cells of air for a hero whose head is in `cell`, from the far edge of
+     * its room's air, if `cell` holds air; returns how many, none anywhere else.
      */
     breathe: (ctx, cell: number, amount: number) =>
       breathe(
         ctx.state,
         { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query, pipes: ctx.deps.pipes.query },
+        ctx.state.orders,
         cell,
         amount,
       ),
@@ -149,11 +202,20 @@ const atmosphereModule = defineModule<Deps>()({
       phase: 'simulation',
       run(ctx) {
         ctx.state.clock += 1;
-        stepAir(
-          ctx.state,
-          { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query, pipes: ctx.deps.pipes.query },
-          ctx.state.clock,
-        );
+        const world = {
+          grid: ctx.deps.grid.query,
+          rooms: ctx.deps.rooms.query,
+          pipes: ctx.deps.pipes.query,
+        };
+        // Rooms or vents moved: each room's air is laid out again on its new order.
+        const vents = ventCells(world.grid);
+        const { orderedRooms, orderedVents } = ctx.state;
+        const changed = changedRooms(orderedRooms, world.rooms.roomOfCells(), orderedVents, vents);
+        if (changed.size > 0) {
+          order(ctx.state, world, vents, changed);
+          pack(ctx.state, world, ctx.state.orders, changed);
+        }
+        stepAir(ctx.state, world, ctx.state.orders, ctx.state.clock);
       },
     },
   ],

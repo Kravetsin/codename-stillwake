@@ -22,15 +22,15 @@ describe('what the air overlay says', () => {
     expect(span(6 * minute + 30 * TICKS_PER_SECOND)).toBe('6 min');
   });
 
-  it('tells an aired room its leak and how long its pipes hold it, or that they will not', () => {
+  it('tells an aired room its leak and how long its pipes hold it, or that they are dry', () => {
     const aired = room({ status: 'aired', aired: 96, leak: 198, oxygen: 1280, lasts: 6 * minute });
     expect(explain(aired, 96)).toEqual([
       'Aired · 96 cells',
       `Leaks 198 every ${span(AIR.leakEvery)} through its hull`,
       'Its pipes hold 1280: enough for 6 min',
     ]);
-    expect(explain({ ...aired, oxygen: 50, lasts: 0 }, 96)[2]).toBe(
-      'Its pipes hold 50: not enough for the next leak',
+    expect(explain({ ...aired, oxygen: 0, lasts: 0 }, 96)[2]).toBe(
+      'Its pipes are dry: its air goes through the hull',
     );
   });
 

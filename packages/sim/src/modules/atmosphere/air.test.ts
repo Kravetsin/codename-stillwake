@@ -2,10 +2,12 @@ import { AIR, MATERIALS } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
+import { leaked } from '../../testing/air';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, grid, MODULES, rooms, items } from '../index';
+import { atmosphere, crew, grid, MODULES, rooms, items } from '../index';
+import { orderRooms } from './order';
 
 const world = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -22,14 +24,13 @@ const ROOM = `
 const at = (x: number, y: number) => y * 9 + x;
 const VOLUME = 21;
 const HULL = 20;
+const LEAK = HULL * MATERIALS.scrap.leak;
 
 /** ROOM with `rows` rows inside: 7 cells a row, a hull of 14 + 2 × `rows` cells. */
 const deep = (rows: number) =>
   ['#########', '#V......#', '#TT.....#', '#TT.....#']
     .concat(Array<string>(rows - 3).fill('#.......#'), ['#########'])
     .join('\n');
-/** The most rows of a deep room that one canister airs whole. */
-const PAID_ROWS = Math.floor(AIR.canister / (7 * AIR.perCell));
 
 /** A world from `map` in creative mode, its vent piped to its tank through `valve` if asked. */
 function setUp(map = ROOM, valve = false) {
@@ -53,9 +54,52 @@ function setUp(map = ROOM, valve = false) {
   return { w, room, tanks, fill };
 }
 
-const aired = (w: Scenario) => w.sim.world.slices.atmosphere as { aired: number[]; clock: number };
+const air = (w: Scenario) =>
+  w.sim.world.slices.atmosphere as {
+    aired: number[];
+    clock: number;
+    orders: Map<number, Int32Array>;
+  };
 const status = (w: Scenario, room: number) => w.query(atmosphere).roomStatus(room);
 const oxygen = (w: Scenario, tank: number) => w.query(atmosphere).oxygenIn(tank);
+const airedIn = (w: Scenario, room: number) =>
+  air(w).aired.filter((cell) => w.query(rooms).roomAt(cell) === room);
+
+/** Whether every room's aired cells are the start of its order: one patch, never with holes. */
+function packed(w: Scenario): boolean {
+  const { aired, orders } = air(w);
+  const holding = new Set(aired);
+  let counted = 0;
+  for (const room of w.query(rooms).rooms()) {
+    const order = orders.get(room.id) ?? new Int32Array(0);
+    const n = order.filter((cell) => holding.has(cell)).length;
+    for (let i = 0; i < order.length; i++)
+      if (holding.has(order[i] as number) !== i < n) return false;
+    counted += n;
+  }
+  return counted === aired.length;
+}
+
+/** Whether the orders kept room by room are those found afresh for the whole ship, as after a load. */
+function freshOrders(w: Scenario): boolean {
+  const vents = w
+    .query(grid)
+    .machines()
+    .filter((m) => m.kind === 'vent')
+    .map((m) => m.cell);
+  const fresh = orderRooms(w.query(rooms).roomOfCells(), 9, w.query(rooms).rooms(), vents);
+  const kept = air(w).orders;
+  if (fresh.size !== kept.size) return false;
+  for (const [room, order] of fresh) {
+    const other = kept.get(room);
+    if (!other || other.length !== order.length || other.some((c, i) => c !== order[i]))
+      return false;
+  }
+  return true;
+}
+
+/** Steps along rows and columns from the vent at (1, 1) of ROOM, the same as through the room. */
+const fromVent = (cell: number) => Math.abs((cell % 9) - 1) + Math.abs(Math.floor(cell / 9) - 1);
 
 /** Runs until the room is aired, at most `limit` ticks. */
 function airUp(w: Scenario, room: number, limit = 1000): void {
@@ -63,30 +107,47 @@ function airUp(w: Scenario, room: number, limit = 1000): void {
   expect(status(w, room)).toBe('aired');
 }
 
+/** Runs until the tank is empty, at most `limit` ticks. */
+function dryOut(w: Scenario, tank: number, limit = 20000): void {
+  for (let i = 0; i < limit && oxygen(w, tank) > 0; i++) w.run();
+  expect(oxygen(w, tank)).toBe(0);
+}
+
 describe('air', () => {
-  it('fills a room cell by cell, smallest first, one every few ticks, paying for each', () => {
+  it('fills a room outward from its vent, a cell a beat, a unit each', () => {
     const { w, room, tanks, fill } = setUp();
     fill(1);
-    const { clock } = aired(w);
-    const first = aired(w).aired.length;
+    const { clock } = air(w);
+    const first = air(w).aired.length;
     expect(status(w, room)).toBe('filling');
     w.run(10 * AIR.ticksPerCell);
     const beats =
-      first + Math.floor(aired(w).clock / AIR.ticksPerCell) - Math.floor(clock / AIR.ticksPerCell);
-    expect(aired(w).aired).toHaveLength(beats);
-    expect(aired(w).aired[0]).toBe(room);
-    expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - beats * AIR.perCell);
+      first + Math.floor(air(w).clock / AIR.ticksPerCell) - Math.floor(clock / AIR.ticksPerCell);
+    const cells = air(w).aired;
+    expect(cells).toHaveLength(beats);
+    expect(cells).toContain(at(1, 1));
+    // Every aired cell is as near the vent as any cell still empty, or nearer.
+    const empty = [...(air(w).orders.get(room) ?? [])].filter((c) => !cells.includes(c));
+    expect(Math.max(...cells.map(fromVent))).toBeLessThanOrEqual(Math.min(...empty.map(fromVent)));
+    // Each cell costs a unit, and the room uses its leak from the tick after its first cell.
+    expect(oxygen(w, tanks[0] as number)).toBe(
+      AIR.canister - beats - leaked(LEAK, clock, air(w).clock),
+    );
   });
 
-  it('is aired once every cell is paid for: its volume times the price of a cell', () => {
+  it('is aired once every cell is paid for, then uses only its leak', () => {
     const { w, room, tanks, fill } = setUp();
     fill(1);
+    const { clock } = air(w);
     airUp(w, room);
-    expect(aired(w).aired).toHaveLength(VOLUME);
-    expect(w.query(atmosphere).airedCells()).toEqual(aired(w).aired);
-    expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - VOLUME * AIR.perCell);
+    expect(air(w).aired).toHaveLength(VOLUME);
+    expect(w.query(atmosphere).airedCells()).toEqual(air(w).aired);
+    const now = air(w).clock;
+    expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - VOLUME - leaked(LEAK, clock, now));
     w.run(AIR.ticksPerCell * 3);
-    expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - VOLUME * AIR.perCell);
+    expect(oxygen(w, tanks[0] as number)).toBe(
+      AIR.canister - VOLUME - leaked(LEAK, clock, air(w).clock),
+    );
   });
 
   it('draws from the tanks of a network one by one, in id order', () => {
@@ -130,24 +191,11 @@ describe('air', () => {
     w.run();
     fill(1, wet);
     w.run(4 * AIR.ticksPerCell);
-    const filled = aired(w).aired.length;
+    const filled = air(w).aired.length;
     expect(filled).toBeGreaterThan(0);
-    expect(oxygen(w, wet)).toBe(AIR.canister - filled * AIR.perCell);
+    expect(oxygen(w, wet)).toBeLessThanOrEqual(AIR.canister - filled);
     expect(oxygen(w, dry)).toBe(0);
     expect(status(w, room)).toBe('filling');
-  });
-
-  it('stalls when the network runs dry and goes on when a canister comes', () => {
-    const { w, room, fill } = setUp(deep(PAID_ROWS + 1));
-    fill(1);
-    w.run(AIR.canister);
-    const paid = AIR.canister / AIR.perCell;
-    expect(aired(w).aired).toHaveLength(paid);
-    expect(status(w, room)).toBe('vacuum');
-    fill(1);
-    expect(status(w, room)).toBe('filling');
-    w.run(10 * AIR.ticksPerCell);
-    expect(aired(w).aired.length).toBeGreaterThan(paid);
   });
 
   it('leaks once a minute through each hull cell by its material, and a door by its own', () => {
@@ -169,61 +217,59 @@ describe('air', () => {
     fill(2);
     airUp(w, room);
     const before = oxygen(w, tanks[0] as number);
-    const nextLeak = AIR.leakEvery - (aired(w).clock % AIR.leakEvery);
+    const nextLeak = AIR.leakEvery - (air(w).clock % AIR.leakEvery);
     w.run(nextLeak - 1);
     expect(oxygen(w, tanks[0] as number)).toBe(before);
     w.run();
     const leak = (HULL - 4) * MATERIALS.scrap.leak + 3 * MATERIALS.steel.leak + AIR.doorLeak;
     expect(oxygen(w, tanks[0] as number)).toBe(before - leak);
+    expect(air(w).aired).toHaveLength(VOLUME);
   });
 
-  it('is not filling on a network holding less than one cell of air', () => {
-    // A door leaks an odd amount, so venting afterwards leaves a scrap of oxygen in the tank.
-    const { w, room, tanks, fill } = setUp(`
-      #########
-      #V......#
-      #TT.....D
-      #TT.....#
-      #########
-    `);
-    const tank = tanks[0] as number;
-    fill(2);
-    airUp(w, room);
-    w.run(AIR.leakEvery);
-    w.do(builder, 'clear', { cell: at(8, 1), layer: 'structure' }).run();
-    while (oxygen(w, tank) >= AIR.ventDrain) w.run();
-    w.do(builder, 'place', { cell: at(8, 1), placement: wall }).run();
-    // Sealed, the room airs what the rest pays for, down to less than a cell.
-    for (let i = 0; i < VOLUME && status(w, room) === 'filling'; i++) w.run();
-    expect(oxygen(w, tank)).toBeGreaterThan(0);
-    expect(oxygen(w, tank)).toBeLessThan(AIR.perCell);
-    expect(status(w, room)).toBe('vacuum');
-  });
-
-  it('loses all its air when its network cannot pay the leak', () => {
-    const { w, room, tanks, fill } = setUp(deep(PAID_ROWS));
+  it('keeps its air when the tanks cannot pay its leak', () => {
+    const { w, room, tanks, fill } = setUp(deep(40));
     fill(1);
-    airUp(w, room);
-    // What is left after the fill is less than a minute's leak.
-    const hull = 14 + 2 * PAID_ROWS;
-    expect(oxygen(w, tanks[0] as number)).toBeLessThan(hull * MATERIALS.scrap.leak);
+    airUp(w, room, 2000);
+    dryOut(w, tanks[0] as number);
+    const held = [...air(w).aired];
     w.run(AIR.leakEvery);
-    expect(aired(w).aired).toEqual([]);
-    expect(oxygen(w, tanks[0] as number)).toBe(0);
-    expect(status(w, room)).toBe('vacuum');
+    expect(air(w).aired).toEqual(held);
+    expect(status(w, room)).toBe('aired');
   });
 
-  it('vents through a breach: the air is lost and the vent drains its network', () => {
+  it('stalls when the network runs dry and goes on when a canister comes', () => {
+    // Bigger than a canister fills, with a minute's leak to pay on top.
+    const { w, room, tanks, fill } = setUp(deep(330));
+    fill(1);
+    dryOut(w, tanks[0] as number, 3000);
+    const held = air(w).aired.length;
+    expect(held).toBeLessThan(330 * 7);
+    expect(status(w, room)).toBe('vacuum');
+    w.run(10 * AIR.ticksPerCell);
+    expect(air(w).aired).toHaveLength(held);
+    expect(packed(w)).toBe(true);
+    fill(1);
+    expect(status(w, room)).toBe('filling');
+    w.run(10 * AIR.ticksPerCell);
+    expect(air(w).aired.length).toBeGreaterThan(held);
+  });
+
+  it('vents through a breach: the air goes over a few ticks and the vent drains its network', () => {
     const { w, room, tanks, fill } = setUp(ROOM, true);
     fill(3);
     airUp(w, room);
     const before = oxygen(w, tanks[0] as number);
     w.do(builder, 'clear', { cell: at(8, 2), layer: 'structure' }).run();
     expect(status(w, room)).toBe('venting');
-    expect(aired(w).aired).toEqual([]);
+    // The breach is a cell of the room now, with air or without.
+    expect(airedIn(w, room).length).toBeLessThanOrEqual(VOLUME + 1 - AIR.ventLoss);
+    expect(airedIn(w, room).length).toBeGreaterThan(0);
+    expect(packed(w)).toBe(true);
     expect(oxygen(w, tanks[0] as number)).toBe(before - AIR.ventDrain);
     w.run(2);
     expect(oxygen(w, tanks[0] as number)).toBe(before - 3 * AIR.ventDrain);
+    w.run(Math.ceil(VOLUME / AIR.ventLoss));
+    expect(air(w).aired).toEqual([]);
   });
 
   it('stops venting from a network once a valve cuts the vent off', () => {
@@ -232,9 +278,11 @@ describe('air', () => {
     airUp(w, room);
     w.do(grid, 'toggleValve', { cell: at(1, 2) })
       .do(builder, 'clear', { cell: at(8, 2), layer: 'structure' })
-      .run(5);
+      .run();
+    const cut = oxygen(w, tanks[0] as number);
+    w.run(5);
     expect(status(w, room)).toBe('venting');
-    expect(oxygen(w, tanks[0] as number)).toBe(3 * AIR.canister - VOLUME * AIR.perCell);
+    expect(oxygen(w, tanks[0] as number)).toBe(cut);
   });
 
   it('fills again once the breach is sealed', () => {
@@ -260,38 +308,64 @@ describe('air', () => {
     expect(oxygen(w, tanks[0] as number)).toBe(before - AIR.ventDrain);
   });
 
-  it('fills the empty part of two rooms joined by a door, and each keeps its cells apart', () => {
-    const two = `
+  describe('two rooms and a door', () => {
+    const TWO = `
       ############
       #V......#..#
       #TT.....D..#
       #TT.....#..#
       ############
     `;
-    const w = scenario(world, two).do(items, 'setCreative', { on: true });
     const at12 = (x: number, y: number) => y * 12 + x;
-    for (const cell of [at12(1, 1), at12(1, 2), at12(1, 3)]) {
-      w.do(builder, 'place', { cell, placement: pipe });
+
+    /** TWO with its left room aired from three canisters; its vent's pipe cut after if asked. */
+    function twoRooms(cut = false) {
+      const w = scenario(world, TWO).do(items, 'setCreative', { on: true });
+      for (const cell of [at12(1, 1), at12(1, 2), at12(1, 3)]) {
+        w.do(builder, 'place', { cell, placement: pipe });
+      }
+      w.run();
+      const tank =
+        w
+          .query(grid)
+          .machines()
+          .find((m) => m.kind === 'tank')?.id ?? 0;
+      for (let i = 0; i < 3; i++) w.do(atmosphere, 'loadCanister', { tank });
+      w.run();
+      const left = w.query(rooms).roomAt(at12(4, 2)) as number;
+      airUp(w, left);
+      if (cut) w.do(builder, 'clear', { cell: at12(1, 2), layer: 'conduit' }).run();
+      return { w, left, door: at12(8, 2), right: at12(10, 2) };
     }
-    w.run();
-    const tank =
-      w
-        .query(grid)
-        .machines()
-        .find((m) => m.kind === 'tank')?.id ?? 0;
-    for (let i = 0; i < 3; i++) w.do(atmosphere, 'loadCanister', { tank });
-    w.run();
-    const left = w.query(rooms).roomAt(at12(4, 2)) as number;
-    airUp(w, left);
-    w.do(grid, 'toggleDoor', { cell: at12(8, 2) }).run();
-    const joined = w.query(rooms).roomAt(at12(4, 2)) as number;
-    expect(status(w, joined)).toBe('filling');
-    w.run(3 * AIR.ticksPerCell);
-    w.do(grid, 'toggleDoor', { cell: at12(8, 2) }).run();
-    expect(status(w, left)).toBe('aired');
-    const right = w.query(rooms).roomAt(at12(10, 2)) as number;
-    expect(status(w, right)).toBe('vacuum');
-    expect(aired(w).aired.some((cell) => w.query(rooms).roomAt(cell) === right)).toBe(true);
+
+    it('spreads the air of one over both when the door opens, keeping how much there is', () => {
+      const { w, left, door, right } = twoRooms(true);
+      const held = air(w).aired.length;
+      w.do(grid, 'toggleDoor', { cell: door }).run();
+      const joined = w.query(rooms).roomAt(at12(4, 2)) as number;
+      expect(joined).toBe(left);
+      expect(w.query(rooms).roomAt(right)).toBe(joined);
+      // Unpiped, nothing fills and nothing is lost: the same air, over both.
+      expect(air(w).aired).toHaveLength(held);
+      expect(packed(w)).toBe(true);
+      expect(status(w, joined)).toBe('vacuum');
+    });
+
+    it('fills the rest of the joined room, and shut, each part keeps its air, vent or none', () => {
+      const { w, left, door, right } = twoRooms();
+      w.do(grid, 'toggleDoor', { cell: door }).run();
+      expect(status(w, left)).toBe('filling');
+      airUp(w, left);
+      w.do(grid, 'toggleDoor', { cell: door }).run();
+      const shut = w.query(rooms).roomAt(right) as number;
+      expect(airedIn(w, shut)).toHaveLength(w.query(rooms).room(shut)?.volume ?? -1);
+      expect(status(w, shut)).toBe('aired');
+      expect(packed(w)).toBe(true);
+      airUp(w, left);
+      // No tank pays the right room's leak, and its air stays: only breaths and breaches take it.
+      w.run(AIR.leakEvery);
+      expect(airedIn(w, shut)).toHaveLength(w.query(rooms).room(shut)?.volume ?? -1);
+    });
   });
 
   it('takes the air out of a cell a wall is built on', () => {
@@ -299,20 +373,34 @@ describe('air', () => {
     fill(1);
     airUp(w, room);
     w.do(builder, 'place', { cell: at(5, 2), placement: wall }).run();
-    expect(aired(w).aired).not.toContain(at(5, 2));
+    expect(air(w).aired).not.toContain(at(5, 2));
+    expect(packed(w)).toBe(true);
   });
 
-  it('keeps tanks within their capacity and air only in rooms, whatever happens', () => {
+  it('lays a room out around a vent built in it, and from its middle with none', () => {
+    const w = scenario(world, '#########\n#.......#\n#.......#\n#.......#\n#########');
+    const room = w.query(rooms).rooms()[0]?.id ?? -1;
+    expect(air(w).orders.get(room)?.[0]).toBe(at(4, 2));
+    w.do(builder, 'place', { cell: at(1, 1), placement: { layer: 'machine', kind: 'vent' } }).run();
+    expect(air(w).orders.get(room)?.[0]).toBe(at(1, 1));
+  });
+
+  it('keeps tanks within their capacity and air in rooms, in one patch each, whatever happens', () => {
     const step = fc.oneof(
       fc.record({ type: fc.constant('load' as const) }),
       fc.record({ type: fc.constant('valve' as const) }),
       fc.record({
         type: fc.constant('breach' as const),
-        cell: fc.constantFrom(at(8, 2), at(8, 1), at(0, 2)),
+        cell: fc.constantFrom(at(8, 2), at(8, 1), at(0, 2), at(5, 2)),
       }),
       fc.record({
         type: fc.constant('seal' as const),
-        cell: fc.constantFrom(at(8, 2), at(8, 1), at(0, 2)),
+        cell: fc.constantFrom(at(8, 2), at(8, 1), at(0, 2), at(5, 1), at(5, 2), at(5, 3)),
+      }),
+      fc.record({ type: fc.constant('vent' as const), cell: fc.constantFrom(at(6, 1), at(4, 3)) }),
+      fc.record({
+        type: fc.constant('breathe' as const),
+        cell: fc.constantFrom(at(3, 1), at(7, 3)),
       }),
       fc.record({ type: fc.constant('wait' as const), ticks: fc.integer({ min: 1, max: 1300 }) }),
     );
@@ -325,6 +413,15 @@ describe('air', () => {
           else if (s.type === 'valve') w.do(grid, 'toggleValve', { cell: at(1, 2) });
           else if (s.type === 'breach')
             w.do(builder, 'clear', { cell: s.cell, layer: 'structure' });
+          else if (s.type === 'breathe') w.do(crew, 'enter', { cell: s.cell });
+          else if (s.type === 'vent')
+            w.do(
+              builder,
+              w.query(grid).machineAt(s.cell) ? 'clear' : 'place',
+              w.query(grid).machineAt(s.cell)
+                ? { cell: s.cell, layer: 'machine' }
+                : { cell: s.cell, placement: { layer: 'machine', kind: 'vent' } },
+            );
           else if (s.type === 'seal' && w.query(grid).structureAt(s.cell).kind === 'empty')
             w.do(builder, 'place', { cell: s.cell, placement: wall });
           w.run(s.type === 'wait' ? s.ticks : 1);
@@ -334,11 +431,13 @@ describe('air', () => {
           // Only tanks holding oxygen are listed.
           const listed = (w.sim.world.slices.atmosphere as { tanks: { oxygen: number }[] }).tanks;
           for (const t of listed) expect(t.oxygen).toBeGreaterThan(0);
-          const cells = aired(w).aired;
+          const cells = air(w).aired;
           for (const [i, cell] of cells.entries()) {
             expect(typeof w.query(rooms).roomAt(cell)).toBe('number');
             if (i > 0) expect(cell).toBeGreaterThan(cells[i - 1] as number);
           }
+          expect(packed(w)).toBe(true);
+          expect(freshOrders(w)).toBe(true);
         }
         // Loaded between beats, a world plays on exactly as the one that never stopped.
         const loaded = world.load(w.sim.save());
@@ -365,7 +464,7 @@ describe('rooms air', () => {
     fill(1);
     airUp(w, room);
     const held = oxygen(w, tanks[0] as number);
-    const leak = HULL * MATERIALS.scrap.leak;
+    const leak = LEAK;
     expect(of(w, room)).toEqual({
       room,
       status: 'aired',

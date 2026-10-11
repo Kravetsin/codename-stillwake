@@ -1,9 +1,9 @@
 # crew
 
-Heroes inside the sim: where each one is, as its client says, and how it breathes — room air in an
-aired room, the suit anywhere else, passing out when the suit runs dry.
+Heroes inside the sim: where each one is, as its client says, and how it breathes — room air in a room
+holding any, the suit anywhere else, passing out when the suit runs dry.
 
-- **Depends on:** `atmosphere` (its `breathe` operation decides whether a cell has air and pays for it).
+- **Depends on:** `atmosphere` (its `breathe` operation decides whether a cell's room has air and takes it).
 - **State:** `spawn` — the map's first `S`, or cell 0 on a map without one; `clock` — ticks run, for
   the breath beat; `heroes` — by peer id, in id order: cell, suit, ticks left passed out. All saved.
 
@@ -17,8 +17,9 @@ aired room, the suit anywhere else, passing out when the suit runs dry.
   out, a hero's client sends no other command.
 - Every `CREW.breathEvery` ticks, in hero id order, each conscious hero draws through
   `atmosphere.breathe` one unit for the breath and up to `CREW.refill` more for what its suit lacks.
-  Anything taken pays the breath and the rest tops up the suit; nothing taken (no aired room, or its
-  networks dry) takes the breath from the suit.
+  Anything taken pays the breath and the rest tops up the suit; nothing taken (a room with no air,
+  or none) takes the breath from the suit. Room air is taken as `atmosphere` says: paid by its
+  tanks, or from the far edge of the room's air, so a room without supply runs out under its heroes.
 - A suit at zero passes the hero out for `CREW.passOut` ticks; then it wakes at the spawn with a full
   suit. The client moves its hero there when the passing out ends.
 
@@ -37,6 +38,4 @@ aired room, the suit anywhere else, passing out when the suit runs dry.
 - The sim trusts the client's cell: heroes move on the client, and friends trust each other.
 - Peer ids last a session but are saved: after a load a hero belongs to whoever connects in its slot,
   until lasting player ids arrive with joining (P1-41). Heroes of peers who leave stay.
-- An aired room whose networks are dry still counts as aired until its leak: a hero there breathes
-  from the suit.
 - A spawn in vacuum makes a hero pass out again and again.

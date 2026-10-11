@@ -1,7 +1,8 @@
-import { AIR, CREW } from '@stillwake/content';
+import { CREW, MATERIALS } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
+import { leaked } from '../../testing/air';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
 import { atmosphere, crew, grid, MODULES, rooms, items } from '../index';
@@ -40,6 +41,10 @@ function setUp(canisters = 0, map = ROOM): { w: Scenario; tank: number; room: nu
 }
 
 const hero = (w: Scenario, id = 0) => w.query(crew).hero(id);
+const aired = (w: Scenario) => w.query(atmosphere).airedCells();
+const airClock = (w: Scenario) => (w.sim.world.slices.atmosphere as { clock: number }).clock;
+/** ROOM's leak a minute: twenty scrap hull cells. */
+const LEAK = 20 * MATERIALS.scrap.leak;
 
 /** Runs until room `room` is aired. */
 function airUp(w: Scenario, room: number): void {
@@ -68,7 +73,7 @@ describe('crew', () => {
     expect(hero(w, 2)).toMatchObject({ cell: at(6, 2), suit: CREW.suit - 3 });
   });
 
-  it('breathes from the suit, a unit a breath, outside an aired room', () => {
+  it('breathes from the suit, a unit a breath, in a room with no air or none at all', () => {
     const { w } = setUp();
     w.do(crew, 'enter', { cell: at(4, 1) }).run();
     breaths(w, 5);
@@ -86,7 +91,7 @@ describe('crew', () => {
     expect(hero(w)).toEqual({ hero: 0, cell: at(4, 1), suit: CREW.suit, out: 0 });
   });
 
-  it('breathes room air in an aired room, refilling the suit from the tank', () => {
+  it('breathes room air in a room holding any, refilling the suit, paid by the tank', () => {
     const { w, tank, room } = setUp(3);
     w.do(crew, 'enter', { cell: OUTSIDE }).run();
     breaths(w, 10);
@@ -94,29 +99,43 @@ describe('crew', () => {
     w.do(crew, 'enter', { cell: at(4, 1) }).run();
     const suit = hero(w)?.suit ?? 0;
     const oxygen = w.query(atmosphere).oxygenIn(tank);
+    const clock = airClock(w);
     breaths(w, 2);
     expect(hero(w)?.suit).toBe(suit + 2 * CREW.refill);
-    expect(w.query(atmosphere).oxygenIn(tank)).toBe(oxygen - 2 * (1 + CREW.refill));
+    // The tank pays for the breaths, and its leak on a leak beat; the room stays whole.
+    expect(w.query(atmosphere).oxygenIn(tank)).toBe(
+      oxygen - 2 * (1 + CREW.refill) - leaked(LEAK, clock, airClock(w)),
+    );
+    expect(aired(w)).toHaveLength(21);
     // Full, it takes only its breath.
     breaths(w, 10);
     expect(hero(w)?.suit).toBe(CREW.suit);
   });
 
-  it('falls back on the suit in an aired room whose network has run dry', () => {
-    // ROOM made as deep as one canister airs whole, so little is left after the fill.
-    const rows = Math.floor(AIR.canister / (7 * AIR.perCell));
-    const deep = ['#########', '#V..S...#', '#TT.....#', '#TT.....#']
-      .concat(Array<string>(rows - 3).fill('#.......#'), ['#########'])
-      .join('\n');
-    const { w, tank, room } = setUp(1, deep);
+  it('breathes the far edge of the air when no tank pays, wherever it stands', () => {
+    const { w, room } = setUp(1);
     airUp(w, room);
+    // The vent's pipe cut: nothing pays, nothing fills.
+    w.do(builder, 'clear', { cell: at(1, 2), layer: 'conduit' }).run();
     w.do(crew, 'enter', { cell: at(4, 1) }).run();
-    // What is left after the fill goes on breaths; then the room is still aired until its leak.
-    for (let i = 0; i < 200 && w.query(atmosphere).oxygenIn(tank) > 0; i++) breaths(w, 1);
-    expect(w.query(atmosphere).roomStatus(room)).toBe('aired');
-    const suit = hero(w)?.suit ?? 0;
-    breaths(w, 3);
-    expect(hero(w)?.suit).toBe(suit - 3);
+    breaths(w, 1);
+    expect(hero(w)?.suit).toBe(CREW.suit);
+    // The corner farthest from the vent went first.
+    expect(aired(w)).not.toContain(at(7, 3));
+    expect(aired(w)).toHaveLength(20);
+  });
+
+  it('breathes while its room holds a cell of air, then from the suit', () => {
+    const { w, room } = setUp(1);
+    airUp(w, room);
+    w.do(builder, 'clear', { cell: at(1, 2), layer: 'conduit' }).run();
+    // At the far end, where the air goes first: still in a room holding air.
+    w.do(crew, 'enter', { cell: at(7, 3) }).run();
+    breaths(w, 21);
+    expect(aired(w)).toEqual([]);
+    expect(hero(w)?.suit).toBe(CREW.suit);
+    breaths(w, 2);
+    expect(hero(w)?.suit).toBe(CREW.suit - 2);
   });
 
   it('falls back on the suit once the room starts venting', () => {
