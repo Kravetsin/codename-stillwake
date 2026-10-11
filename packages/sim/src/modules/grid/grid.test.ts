@@ -66,10 +66,11 @@ describe('the map builds the grid', () => {
   it('reads a machine from its whole footprint and knows every cell it covers', () => {
     const w = scenario(world, ROOM);
     const [tank] = w.query(grid).machines();
+    if (!tank) throw new Error('no tank');
     expect(tank).toEqual({ id: 1, kind: 'tank', cell: 8 });
     for (const cell of w.cells('T')) expect(w.query(grid).machineAt(cell)).toEqual(tank);
     expect(w.query(grid).machineAt(7)).toBeUndefined();
-    expect(w.query(grid).portsOf(1)).toEqual([14]);
+    expect(w.query(grid).portsOf(tank)).toEqual([14]);
   });
 
   it("tells which cells a machine would cover, and none past the grid's edge", () => {

@@ -201,6 +201,10 @@ Pipe networks as connected components, rebuilt when a pipe, valve or machine cha
 splits a network. Built for pipes only: it becomes generic when wires arrive and give it a second
 caller.
 Done when: scenario tests for merge and split.
+Built as derived state like `rooms`: found again whenever the conduit layer or the machines differ
+from the copy kept, about 1 ms on the reference world. A machine joins the networks its ports stand
+on; `grid.portsOf` now takes the machine itself. Ids are smallest cells, so atmosphere keys oxygen on
+tanks, not networks.
 
 **P1-32 · Air machines** · S · content and `atmosphere` · after 31
 Tank (capacity; its oxygen lives in `atmosphere`), vent (joins its network to the room it stands in),

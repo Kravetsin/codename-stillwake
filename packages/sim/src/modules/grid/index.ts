@@ -9,6 +9,7 @@ import {
   STRUCTURE,
   type GridState,
   type Layer,
+  type Machine,
   type Placement,
 } from './state';
 
@@ -95,10 +96,8 @@ const gridModule = defineModule()({
       return id === 0 ? undefined : ctx.state.machines.find((m) => m.id === id);
     },
     machines: (ctx) => ctx.state.machines,
-    /** The cells where conduits meet the machine. */
-    portsOf(ctx, machineId: number): number[] {
-      const m = ctx.state.machines.find((machine) => machine.id === machineId);
-      if (!m) return [];
+    /** The cells where conduits meet a machine, as `machines()` or `machineAt` hand it out. */
+    portsOf(ctx, m: Machine): number[] {
       const x = m.cell % ctx.state.width;
       const y = Math.floor(m.cell / ctx.state.width);
       return MACHINES[m.kind].ports.map((p) => (y + p.y) * ctx.state.width + x + p.x);
