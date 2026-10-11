@@ -7,6 +7,14 @@ import { createStore } from './store';
 export const openCrate = createStore<number | undefined>(undefined);
 
 /**
+ * The piece of debris E would grab, and whether the sim would refuse it: `crew` sets it while the
+ * pointer is on one within reach, `debris` outlines that piece.
+ */
+export const aimedPiece = createStore<
+  { readonly id: number; readonly refused: boolean } | undefined
+>(undefined);
+
+/**
  * Whether a build tool is out: `building` sets it with the tool, `crew` then leaves the pointer to
  * the building layer, outlining nothing and offering no prompt.
  */

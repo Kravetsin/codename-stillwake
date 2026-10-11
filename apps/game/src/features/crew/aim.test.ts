@@ -302,6 +302,7 @@ describe('a piece of debris under the pointer', () => {
     space.step([command(crew, 'enter', { cell: y * 12 + x - 2 })]);
     const aim = aimAt(space, 0, heroOn(x - 2, y), centre(x, y));
     expect(aim?.press).toEqual({ command: grab, problem: undefined });
+    expect(aim?.piece).toBe(piece.id);
     expect(usesOf(aim, { pressed: true, held: true }, 3, -1).commands).toEqual([grab]);
   });
 });

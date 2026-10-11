@@ -21,7 +21,7 @@ export interface Use {
 /**
  * The cell under the pointer and what E does there: works a plan while held, or, when pressed,
  * toggles a door or valve, puts a canister into a tank, grabs a piece of debris or opens crate
- * `crate`.
+ * `crate`. `piece` names the piece of debris a press grabs, which is outlined itself, not its cell.
  */
 export interface Aim {
   readonly cell: number;
@@ -29,6 +29,7 @@ export interface Aim {
   readonly press?: Use;
   readonly work?: { readonly plan: number; readonly problem: string | undefined };
   readonly crate?: number;
+  readonly piece?: number;
 }
 
 /** Whether the middle of `cell` is within the hero's reach of the middle of its body. */
@@ -81,6 +82,7 @@ export function aimAt(
   return {
     cell,
     inReach,
+    piece: piece.id,
     press: {
       command: command(debris, 'grab', { piece: piece.id }),
       problem: sim.query(debris).grabProblem(peer, piece.id),

@@ -3,7 +3,7 @@ import { crew, grid, type Sim } from '@stillwake/sim';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
-import { buildMode, openCrate } from '../../session/ui';
+import { aimedPiece, buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -23,10 +23,12 @@ const AIM_REFUSED = 0xe05555;
 
 /**
  * Outlines what E would work under the pointer within reach, a machine's whole footprint: green, or
- * red when the sim would refuse. Nothing else: no square follows the pointer.
+ * red when the sim would refuse. Nothing else: no square follows the pointer, and a piece of debris
+ * is outlined by `debris`, around its own shape.
  */
 function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) {
   g.clear();
+  if (aim?.piece !== undefined) return;
   if (!aim?.inReach || (!aim.press && !aim.work && aim.crate === undefined)) return;
   const q = sim.query(grid);
   const { width } = q.size();
@@ -135,6 +137,12 @@ export const crewFeature: Feature = {
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);
         drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);
         if (!samePrompt(prompt, shownPrompt.get())) shownPrompt.set(prompt);
+        const piece =
+          prompt && aim?.piece !== undefined
+            ? { id: aim.piece, refused: prompt.problem !== undefined }
+            : undefined;
+        const aimed = aimedPiece.get();
+        if (piece?.id !== aimed?.id || piece?.refused !== aimed?.refused) aimedPiece.set(piece);
 
         // The press is taken every frame, so one made out of reach is spent rather than kept.
         // Passed out, E does nothing: a press is spent, a hold works no plan.
@@ -154,6 +162,7 @@ export const crewFeature: Feature = {
         keys.destroy();
         openCrate.set(undefined);
         shownPrompt.set(undefined);
+        aimedPiece.set(undefined);
       },
     };
   },

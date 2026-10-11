@@ -2,6 +2,7 @@ import { debris } from '@stillwake/sim';
 import { Container, Graphics, Texture, TilingSprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { ITEM_LOOK } from '../../render/item-look';
+import { aimedPiece } from '../../session/ui';
 import type { Feature } from '../feature';
 
 const UNIT = 1000;
@@ -16,6 +17,9 @@ const PARALLAX = 0.08;
 const PIECE = 0.8;
 /** How far a piece fades in after it spawns and out before it is gone, in thousandths of a cell. */
 const FADE = 8000;
+/** The outline of the piece E would grab: green, or red when the sim would refuse it. */
+const AIM_READY = 0x7fe08a;
+const AIM_REFUSED = 0xe05555;
 
 /** How visible a piece is: out of the dark over the start of its path, back into it at the end. */
 export function fadeOf(piece: {
@@ -44,13 +48,24 @@ function starTile(): Texture {
   return Texture.from(canvas);
 }
 
-function pieceView(item: keyof typeof ITEM_LOOK): Graphics {
+/** A piece's shape, `grow` pixels wider all round. */
+function shape(g: Graphics, round: boolean, grow: number): Graphics {
+  const size = PIECE * CELL + 2 * grow;
+  return round ? g.circle(0, 0, size / 2) : g.rect(-size / 2, -size / 2, size, size);
+}
+
+/** A piece of debris, and its outline, hidden until E would grab it. */
+function pieceView(item: keyof typeof ITEM_LOOK): { view: Container; rim: Graphics } {
   const look = ITEM_LOOK[item];
-  const size = PIECE * CELL;
-  const g = new Graphics();
-  if (look.round) g.circle(0, 0, size / 2);
-  else g.rect(-size / 2, -size / 2, size, size);
-  return g.fill(look.colour).stroke({ width: 1, color: 0x0b0f17, alpha: 0.6 });
+  const body = shape(new Graphics(), look.round, 0)
+    .fill(look.colour)
+    .stroke({ width: 1, color: 0x0b0f17, alpha: 0.6 });
+  // Drawn white and tinted, so one shape serves both colours.
+  const rim = shape(new Graphics(), look.round, 1.5).stroke({ width: 2, color: 0xffffff });
+  rim.visible = false;
+  const view = new Container();
+  view.addChild(body, rim);
+  return { view, rim };
 }
 
 /**
@@ -67,7 +82,7 @@ export const debrisFeature: Feature = {
     view.addChild(stars, piecesView);
     let stream = 0;
     let clockMs = 0;
-    const shown = new Map<number, Graphics>();
+    const shown = new Map<number, { view: Container; rim: Graphics }>();
 
     return {
       view,
@@ -89,23 +104,26 @@ export const debrisFeature: Feature = {
 
         const pieces = sim.query(debris).pieces();
         const ids = new Set(pieces.map((p) => p.id));
-        for (const [id, g] of shown) {
+        for (const [id, s] of shown) {
           if (ids.has(id)) continue;
-          g.destroy();
+          s.view.destroy({ children: true });
           shown.delete(id);
         }
+        const aimed = aimedPiece.get();
         for (const piece of pieces) {
-          let g = shown.get(piece.id);
-          if (!g) {
-            g = pieceView(piece.item);
-            shown.set(piece.id, g);
-            piecesView.addChild(g);
+          let s = shown.get(piece.id);
+          if (!s) {
+            s = pieceView(piece.item);
+            shown.set(piece.id, s);
+            piecesView.addChild(s.view);
           }
           const x = piece.x - piece.speed * game.progress;
-          g.position.set((x / UNIT) * CELL, (piece.y / UNIT) * CELL);
-          g.alpha = fadeOf({ ...piece, x });
+          s.view.position.set((x / UNIT) * CELL, (piece.y / UNIT) * CELL);
+          s.view.alpha = fadeOf({ ...piece, x });
           // A slow tumble, each piece its own way.
-          g.rotation = (clockMs / 4000) * (piece.id % 2 === 0 ? 1 : -1) + piece.id;
+          s.view.rotation = (clockMs / 4000) * (piece.id % 2 === 0 ? 1 : -1) + piece.id;
+          s.rim.visible = aimed?.id === piece.id;
+          if (s.rim.visible) s.rim.tint = aimed?.refused ? AIM_REFUSED : AIM_READY;
         }
       },
     };
