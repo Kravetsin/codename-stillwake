@@ -129,6 +129,16 @@ content · after P2-02
   2 ms a tick with `DEBRIS.max` pieces out; pieces drift past the wreck and a catch lands in the
   inventory in two windows.
 
+**P2-04a · Space without edges** · S · client, content · after P2-04, asked for after its playtest
+No grid lines but around the pointer while a build tool is out, fading with distance. Stars over the
+whole screen, far away: a tile at one pixel a star whatever the zoom, moving a little with the camera
+and streaming slowly. The wreck's grid grows to 192 × 96, at least 16 cells of space on every side of
+the hull, so its edge is out of a tether's reach; `DEBRIS.max` 20, as pieces stay out longer. A grid
+that grows is left for when building reaches the edge: the oxygen a room takes to fill and keep is
+what limits building.
+Done when: no grid line shows with no tool out; a test of the grid near the pointer; the camera says
+what it shows; the wreck test holds the margin.
+
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
 inventory, sent each tick the left button is held with that slot selected. Progress per hero (slot,
@@ -141,9 +151,9 @@ Done when: scenarios for completion, the freed slot, both refusals and the reset
 **P2-06 · Tether** · S · client `crew` (the hero state carries the anchor; net unchanged) · after
 P2-01
 Anchored at the middle of the last non-space cell the body left; a move that would take the body's
-middle more than `HERO.tether` (thousandths of a cell) from the anchor keeps only its part along the
-limit; cleared on entering any room and on waking. Every peer draws every tether as a line, hidden
-with its hero.
+middle more than `HERO.tether` (thousandths of a cell, under the wreck's 16-cell margin) from the
+anchor keeps only its part along the limit; cleared on entering any room and on waking. Every peer
+draws every tether as a line, hidden with its hero.
 Done when: controller tests: the anchor, the body's middle never past `HERO.tether` from it, sliding
 along the limit, the clearing; a second window draws the other player's tether.
 

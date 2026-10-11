@@ -4,10 +4,11 @@
  * leads down a ladder to room C, whose right wall has a breach one cell tall. The hero wakes in room
  * B, which the tank airs from the start; an airlock off its right end, a closet between two closed
  * doorways, is the way outside. A crate beside the vent holds the starting store. Rows are read as
- * written, so the space around the wreck — room to build and to swim in — stays part of the grid.
+ * written and padded with space to the first, the widest: the space around the wreck, 192 × 96
+ * cells, is room to build and to swim in, its edge too far for a tether to reach.
  */
 export const WRECK: readonly string[] = [
-  '                                                                                                ',
+  '                                                                                                                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
@@ -55,6 +56,54 @@ export const WRECK: readonly string[] = [
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
+  '',
 ];
 
 /**

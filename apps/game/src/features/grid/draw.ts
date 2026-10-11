@@ -17,7 +17,6 @@ const COLOUR_BY_CODE = new Map<number, number>(
   (Object.keys(MATERIALS) as MaterialId[]).map((id) => [MATERIALS[id].code, MATERIAL_COLOUR[id]]),
 );
 
-const LINE = 0x161d2a;
 const FLOOR = 0x9aa3b5;
 const LADDER = 0xb08d57;
 const DOOR = 0xc97a3a;
@@ -112,11 +111,4 @@ export function drawConduit(batch: Batch, cells: Cells, cell: number): void {
   if (conduit === CONDUIT.valveOpen || conduit === CONDUIT.valveClosed) {
     batch.fill(conduit === CONDUIT.valveOpen ? VALVE_OPEN : VALVE_CLOSED, cx - 5, cy - 5, 10, 10);
   }
-}
-
-/** The faint cell lines of the whole grid, drawn once: they never change. */
-export function drawGridLines(g: Graphics, width: number, height: number): void {
-  for (let x = 0; x <= width; x++) g.moveTo(x * CELL, 0).lineTo(x * CELL, height * CELL);
-  for (let y = 0; y <= height; y++) g.moveTo(0, y * CELL).lineTo(width * CELL, y * CELL);
-  g.stroke({ width: 1, color: LINE });
 }

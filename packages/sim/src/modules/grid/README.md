@@ -51,6 +51,8 @@ their top-left cells in reading order. Other modules find a map's machines by th
 
 ## Deliberately not handled
 
+- A grid that grows: its size is the map's. The wreck leaves 16 cells or more of space around the
+  hull, past a tether's reach, and the oxygen a room takes limits building long before the edge.
 - Machines need no floor under them: side-view support rules come with building, if play wants them.
 - No events on change: rooms and pipes (P1-30, P1-31) add what they need to notice changes.
 - Doorways have no shape: any run of door cells is one, so a door and a hatch that touch open

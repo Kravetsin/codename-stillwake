@@ -108,4 +108,17 @@ describe('camera', () => {
     camera.follow({ x: 3, y: 1 }, screen);
     expect(world.x).toBe(100 - 3 * CELL);
   });
+
+  it('tells what part of the world is on the screen, at what zoom', () => {
+    const { camera, world } = setup();
+    world.scale.set(2);
+    camera.follow({ x: 10, y: 5 }, { width: 640, height: 320 });
+    expect(camera.view({ width: 640, height: 320 })).toEqual({
+      x: 10 - 640 / 2 / 2 / CELL,
+      y: 5 - 320 / 2 / 2 / CELL,
+      width: 640 / 2 / CELL,
+      height: 320 / 2 / CELL,
+      zoom: 2,
+    });
+  });
 });

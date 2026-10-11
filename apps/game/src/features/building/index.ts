@@ -4,6 +4,7 @@ import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
+import { nearGrid } from './near-grid';
 import { Toolbar } from './Toolbar';
 import { selected } from './tools';
 
@@ -13,16 +14,19 @@ const FITS = 0x7fe08a;
 const REFUSED = 0xe05555;
 const BAR = 0xf2f5fa;
 const BAR_BACK = 0x0b0f17;
+const GRID_LINE = 0x9fb4c8;
 
 /**
- * Plans and marks drawn over the ship, and the selected tool at work: a ghost along the drag,
- * coloured by what the sim would say, with its reason by the pointer. A release sends the commands.
+ * Plans and marks drawn over the ship, and the selected tool at work: the grid around the pointer,
+ * fading out, and a ghost along the drag, coloured by what the sim would say, with its reason by the
+ * pointer. A release sends the commands. With no tool out, no grid: space stays space.
  */
 export const buildingFeature: Feature = {
   id: 'building',
   Panel: Toolbar,
   layer() {
     const plansView = new Graphics();
+    const near = new Graphics();
     const ghost = new Graphics();
     const reason = new Text({
       text: '',
@@ -34,7 +38,7 @@ export const buildingFeature: Feature = {
       },
     });
     const view = new Container();
-    view.addChild(plansView, ghost, reason);
+    view.addChild(near, plansView, ghost, reason);
 
     let drawn = '';
     let pressed: Spot | undefined;
@@ -74,8 +78,17 @@ export const buildingFeature: Feature = {
         if (!tool) pressed = undefined;
 
         ghost.clear();
+        near.clear();
         reason.text = '';
         const pointer = camera.pointer();
+        if (tool && pointer) {
+          for (const e of nearGrid(pointer, size)) {
+            near
+              .moveTo(e.x1 * CELL, e.y1 * CELL)
+              .lineTo(e.x2 * CELL, e.y2 * CELL)
+              .stroke({ width: 1, color: GRID_LINE, alpha: e.alpha });
+          }
+        }
         if (!tool || !pointer || (!pressed && !onGrid(size, pointer))) return;
         const end = spotAt(size, pointer);
         const verdicts = judge(tool, lineOf(size.width, tool, pressed ?? end, end), q);

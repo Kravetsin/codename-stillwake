@@ -1,31 +1,35 @@
 import { DEBRIS } from '@stillwake/content';
-import { debris, grid } from '@stillwake/sim';
-import { Container, Graphics } from 'pixi.js';
+import { debris } from '@stillwake/sim';
+import { Container, Graphics, Texture, TilingSprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { ITEM_LOOK } from '../../render/item-look';
 import type { Feature } from '../feature';
 
 const UNIT = 1000;
-/** Cells of space per star. */
-const STAR_SPACING = 14;
-/** How fast the stars stream by, in cells a second: far away, slower than the debris. */
-const STAR_SPEED = 0.25;
+/** The star tile, in screen pixels, and how many stars it holds. */
+const TILE = 512;
+const STARS = 420;
+/** How fast the stars stream by, in screen pixels a second: far away, slower than the debris. */
+const STAR_SPEED = 8;
+/** How much of the camera's movement the stars follow: a little, so they read as far away. */
+const PARALLAX = 0.08;
 /** A piece's size, in cells. */
 const PIECE = 0.8;
 
-/** A field of stars over `width` × `height` cells, drawn twice side by side so it can wrap. */
-function starField(width: number, height: number): Graphics {
-  const g = new Graphics();
-  const count = Math.floor((width * height) / STAR_SPACING);
-  for (let i = 0; i < count; i++) {
-    const x = Math.random() * width * CELL;
-    const y = Math.random() * height * CELL;
-    const size = Math.random() < 0.15 ? 2 : 1;
-    const alpha = 0.25 + Math.random() * 0.5;
-    for (const copy of [0, width * CELL])
-      g.rect(x + copy, y, size, size).fill({ color: 0xdfe8f5, alpha });
+/** A tile of stars that repeats without a seam: a pixel's place, size and brightness at random. */
+function starTile(): Texture {
+  const canvas = document.createElement('canvas');
+  canvas.width = TILE;
+  canvas.height = TILE;
+  const g = canvas.getContext('2d');
+  if (g) {
+    for (let i = 0; i < STARS; i++) {
+      const size = Math.random() < 0.15 ? 2 : 1;
+      g.fillStyle = `rgba(223, 232, 245, ${0.2 + Math.random() * 0.55})`;
+      g.fillRect(Math.floor(Math.random() * TILE), Math.floor(Math.random() * TILE), size, size);
+    }
   }
-  return g;
+  return Texture.from(canvas);
 }
 
 function pieceView(item: keyof typeof ITEM_LOOK): Graphics {
@@ -38,44 +42,38 @@ function pieceView(item: keyof typeof ITEM_LOOK): Graphics {
 }
 
 /**
- * Space behind the ship: stars streaming past as the ship moves, and the debris drifting by, drawn
- * between ticks so it glides. Behind the hull, since it never collides with it (ADR 0006).
+ * Space behind the ship: stars over the whole screen, far away, streaming past as the ship moves,
+ * with no edge anywhere; and the debris drifting by, drawn between ticks so it glides. Behind the
+ * hull, since it never collides with it (ADR 0006).
  */
 export const debrisFeature: Feature = {
   id: 'debris',
   layer() {
     const view = new Container();
-    const starClip = new Container();
+    const stars = new TilingSprite({ texture: starTile() });
     const piecesView = new Container();
-    // Only over the grid: the field's second copy waits off its right edge.
-    const mask = new Graphics();
-    starClip.addChild(mask);
-    starClip.mask = mask;
-    view.addChild(starClip, piecesView);
-    let stars: Graphics | undefined;
-    let size = { width: -1, height: -1 };
-    let offset = 0;
+    view.addChild(stars, piecesView);
+    let stream = 0;
     let clockMs = 0;
     const shown = new Map<number, Graphics>();
 
     return {
       view,
-      update({ game, elapsedMs }) {
+      update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
-        const now = sim.query(grid).size();
-        if (now.width !== size.width || now.height !== size.height) {
-          size = now;
-          stars?.destroy();
-          stars = starField(size.width, size.height);
-          starClip.addChild(stars);
-          mask
-            .clear()
-            .rect(0, 0, size.width * CELL, size.height * CELL)
-            .fill(0xffffff);
-        }
+        // The stars cover the screen at one pixel a star whatever the zoom, and move a little with
+        // the camera and slowly on their own.
+        const seen = camera.view(screen);
+        stars.position.set(seen.x * CELL, seen.y * CELL);
+        stars.width = seen.width * CELL;
+        stars.height = seen.height * CELL;
+        stars.tileScale.set(1 / seen.zoom);
         clockMs += elapsedMs;
-        offset = (offset + (elapsedMs / 1000) * STAR_SPEED * CELL) % (size.width * CELL || 1);
-        if (stars) stars.x = -offset;
+        stream = (stream + (elapsedMs / 1000) * STAR_SPEED) % TILE;
+        stars.tilePosition.set(
+          -seen.x * CELL * PARALLAX - stream / seen.zoom,
+          -seen.y * CELL * PARALLAX,
+        );
 
         const pieces = sim.query(debris).pieces();
         const ids = new Set(pieces.map((p) => p.id));

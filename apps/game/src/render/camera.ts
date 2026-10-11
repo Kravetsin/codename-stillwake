@@ -19,6 +19,8 @@ export interface Camera {
   follow(point: { x: number; y: number }, screen: Size): void;
   /** The world point under the mouse, in cells; undefined while the mouse is off the canvas. */
   pointer(): { x: number; y: number } | undefined;
+  /** The part of the world on `screen`, in cells, and the zoom it is drawn at. */
+  view(screen: Size): { x: number; y: number; width: number; height: number; zoom: number };
   /** Left-button presses and releases since the last call, in order, at their world points. */
   takeLeft(): readonly LeftButton[];
   destroy(): void;
@@ -130,6 +132,11 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     pointer() {
       // Read when asked, not when the mouse moved: the camera may have moved since.
       return mouse && toWorld(mouse.x, mouse.y);
+    },
+    view(screen) {
+      const zoom = world.scale.x;
+      const { x, y } = toWorld(0, 0);
+      return { x, y, width: screen.width / zoom / CELL, height: screen.height / zoom / CELL, zoom };
     },
     takeLeft() {
       const taken = left;

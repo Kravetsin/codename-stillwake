@@ -4,7 +4,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
-import { Batch, drawConduit, drawGridLines, drawStructure, type Cells } from './draw';
+import { Batch, drawConduit, drawStructure, type Cells } from './draw';
 
 const MACHINE_FILL = 0x2a3d4f;
 const MACHINE_EDGE = 0x5f86a8;
@@ -18,11 +18,10 @@ export const gridFeature: Feature = {
   id: 'grid',
   layer() {
     const view = new Container();
-    const lines = new Graphics();
     const chunkLayer = new Container();
     const machineLayer = new Container();
     const conduitLayer = new Container();
-    view.addChild(lines, chunkLayer, machineLayer, conduitLayer);
+    view.addChild(chunkLayer, machineLayer, conduitLayer);
 
     let chunks: Graphics[] = [];
     let conduitChunks: Graphics[] = [];
@@ -64,8 +63,6 @@ export const gridFeature: Feature = {
 
         if (cells.width !== size.width || cells.height !== size.height) {
           size = { width: cells.width, height: cells.height };
-          lines.clear();
-          drawGridLines(lines, size.width, size.height);
           for (const g of [...chunks, ...conduitChunks]) g.destroy();
           const count = chunkCount(size.width, size.height);
           chunks = Array.from({ length: count }, () => new Graphics());

@@ -9,7 +9,7 @@ import type { ItemId } from './items';
 export const DEBRIS = {
   every: 160,
   jitter: 80,
-  max: 12,
+  max: 20,
   drift: 40,
   rows: { top: 6, bottom: 41 },
   kinds: [
