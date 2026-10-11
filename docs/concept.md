@@ -24,20 +24,21 @@ A living document: what is decided about the game and what is still open. Techni
 - **Graybox first.** Plain blocks without textures until the core mechanics are fun; art comes after.
 - **Look: simple textures carried by light.** Light also tells the ship's state: an unpowered room is
   dark but for helmet lamps, a venting room flashes red, starlight comes in through windows.
-- **Oxygen works like a power grid.** A pipe network holds one pool of oxygen, and a room has air when
-  a vent of a network with oxygen in it stands inside. A room is a space closed by walls and closed
-  doors, recomputed only when something is built, broken or a door moves; rooms hold a status (air,
-  venting, vacuum), not amounts. A breach or a door left open to space makes a room vent: its network
-  drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty room
-  joins the two into one that has to be filled again. Growth is held back by a one-off
-  fill per room by volume, a leak through every outer hull cell of an aired room (its material decides
-  how much) and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
-  same network system.
+- **Oxygen works like a power grid.** A pipe network holds one pool of oxygen, and a room has air
+  when a vent of a network with oxygen in it stands inside. A room is a space closed by walls and
+  closed doors around it and back walls behind it, recomputed only when something is built, broken
+  or a door moves; rooms hold a status (air, venting, vacuum), not amounts. A breach or a door left
+  open to space makes a room vent: its network drains fast until a valve cuts the room off or the
+  hole is patched. A door opened onto an empty room joins the two into one that has to be filled
+  again. Growth is held back by a one-off fill per room by volume, a leak through every outer hull
+  cell of an aired room (its material decides how much) and breathing. Without air a hero breathes
+  from the suit tank. Power and wires run on the same network system.
 - **Building is cell by cell, in layers.** Structure: hull walls of different materials, floors,
-  ladders, doors, airlocks. Conduits: pipes and wires run through walls, one of each per cell. Machines
-  stand on floors and connect to conduits. Materials differ in strength against meteors, air leaks and
-  cost. Overlays show air, pipes and power. The player places plans and the hero builds them by hand;
-  drones come later.
+  ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.
+  Conduits: pipes and wires run through walls, one of each per cell. Machines stand on floors and
+  connect to conduits. Materials differ in strength against meteors, air leaks and cost. Overlays
+  show air, pipes and power. The player places plans and the hero builds them by hand; drones come
+  later.
 - **The screen speaks without words.** What is always on screen shows the ship's state by colour
   and motion: a room losing air pulses red, pipes carrying oxygen glow, a low suit reddens the
   screen's edges, air escaping through the hull is seen leaving. Text is on demand, in overlays and by

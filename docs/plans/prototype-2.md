@@ -159,9 +159,26 @@ the start of its path and out over the end.
 Done when: scenarios for the band following a taller ship, spawn and removal points, speeds within
 range; content tests; `SAVE_FORMAT` bumped; ADR 0009.
 
-**P2-04d · Back walls** · M or L · sim, content, client · after P2-04c
-A layer of the ship the player builds behind its cells, as Terraria's walls; how it changes air and
-maps is being designed (design → review → plan).
+**P2-04d · Back walls** · M · sim `grid`, `rooms`, `building`, content, client, ADR 0010 · after
+P2-04c
+
+- `grid` gains the layer `back`, `BACK = { none: 0, wall: 1 }` (codes never renumbered), in
+  `layers()`. Placement `{ layer: 'back', kind: 'backWall' }`, refused only with `grid.occupied`;
+  allowed behind walls, doors, machines and in space. Maps: every character but a space is backed,
+  `#` included.
+- `rooms`: after the flood, a room cell with no back wall is one of its room's openings; the
+  README's definition of openings changes with it. The back layer is compared with a copy every
+  tick, as the structure is.
+- `building`: a third slot per cell, the back; `BUILDS.backWall` `{ scrap: 1 }`, 6 ticks;
+  `clearAt` takes the back last; `markedCell` and `builtAt` gain the back. The fuzz draws back
+  plans and marks.
+- Client: back walls a dark panel over the stars and debris and under everything else; a back wall
+  tool in the toolbar; the concept's room rule and building layers updated.
+  Done when: scenarios: a room drawn with a space inside vents, and fills once that back wall is
+  built; taking a back wall apart vents an aired room and refunds it; a back plan and a wall plan
+  share a cell; a second back wall is refused; invariant: every room cell without a back wall is an
+  opening of its room; `SAVE_FORMAT` bumped; `?perf` stays under 2 ms a tick while four heroes
+  paint back walls.
 
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
@@ -182,8 +199,8 @@ Done when: controller tests: the anchor, the body's middle never past `HERO.teth
 along the limit, the clearing; a second window draws the other player's tether.
 
 **P2-07 · Airlock and a scarce start** · S · content · after P2-01, P2-03
-The airlock P2-01 drew, proven; `STARTING_CRATE` cut so that two more rooms cannot be aired without
-salvage.
+The airlock P2-01 drew, proven; `STARTING_CRATE` cut so that two more rooms, back walls included,
+cannot be aired without salvage.
 Done when: scenarios on the wreck — outer doorway open, room B stays aired; outer closed and inner
 opened, the closet's six cells are aired within six ticks; both open, B vents — and a new player
 cycles the airlock without venting B.
