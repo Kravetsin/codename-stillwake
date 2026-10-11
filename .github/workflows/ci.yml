@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   check:
-    name: format, lint, types, tests, build
+    name: format, lint, types, tests, build, smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -39,3 +39,5 @@ jobs:
       # Includes the desync fuzz suite, the save round trip and the lint guardrail tests.
       - run: pnpm test
       - run: pnpm build
+      # Smoke tests of flows in the dev build, in the Chrome the runner ships with.
+      - run: pnpm e2e

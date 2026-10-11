@@ -1,4 +1,4 @@
-import { HERO, MACHINES, MATERIALS, STARTING_INVENTORY } from '@stillwake/content';
+import { HERO, MACHINES, MATERIALS, STARTING_CRATE } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
@@ -13,11 +13,29 @@ import {
   type Sim,
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { aimAt, usesOf, type Aim } from './aim';
+import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { heroAt, shipOf, stepHero, UNIT, type Hero, type Input } from './hero';
 
 function worldFrom(map: string): Sim {
   return stillwake.create(1, parseLayout(map));
+}
+
+/** `map` with a crate drawn below it, whose starting store peer 0 has taken in full. */
+function withStore(map: string): Sim {
+  const rows = parseLayout(map).rows;
+  const sim = stillwake.create(1, parseLayout([...rows, 'KK'], [...rows.map(() => ''), 's']));
+  const crate = sim
+    .query(grid)
+    .machines()
+    .find((m) => m.kind === 'crate');
+  if (!crate) throw new Error('no crate');
+  const slots = sim.query(items).crate(crate.id).length;
+  sim.step(
+    Array.from({ length: slots }, (_, slot) =>
+      command(items, 'move', { src: { crate: crate.id, slot }, dst: {}, count: 999 }),
+    ),
+  );
+  return sim;
 }
 
 /** A hero whose body is centred on the middle of cell (x, y). */
@@ -81,9 +99,9 @@ describe('aiming', () => {
   });
 
   it('puts a canister into a tank on a press, or carries why it cannot', () => {
-    const tanked = worldFrom(`
+    const tanked = withStore(`
       ########
-      #TT..c.#
+      #TT....#
       #TT....#
       ########
     `);
@@ -94,10 +112,12 @@ describe('aiming', () => {
       command: command(atmosphere, 'loadCanister', { tank: tank.id }),
       problem: undefined,
     });
-    tanked.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
+    for (let i = 0; i < STARTING_CRATE.canister; i++) {
+      tanked.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
+    }
     expect(aimAt(tanked, 0, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('items.notEnough');
-    // Another hero still carries a canister of their own.
-    expect(aimAt(tanked, 1, heroOn(3, 2), centre(2, 2))?.press?.problem).toBeUndefined();
+    // The canisters were this hero's: another, carrying none, gets the same answer.
+    expect(aimAt(tanked, 1, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('items.notEnough');
   });
 
   it('reaches cells whose middle is at most the reach from the middle of the body', () => {
@@ -132,8 +152,8 @@ describe('aiming', () => {
 
   it("carries the sim's reason when work on a plan would be refused", () => {
     // One steel wall more than the starting steel begins, laid row by row in a hall nine wide.
-    const affordable = Math.floor(STARTING_INVENTORY.steel / MATERIALS.steel.cost);
-    const poor = worldFrom(hall(affordable + 1));
+    const affordable = Math.floor(STARTING_CRATE.steel / MATERIALS.steel.cost);
+    const poor = withStore(hall(affordable + 1));
     for (let i = 0; i <= affordable; i++) {
       poor.step([command(building, 'placePlan', { cell: inside(i), placement: steelWall })]);
     }
@@ -151,8 +171,8 @@ describe('aiming', () => {
     // Nine wide. A tank is planned over a pipe, and the pipe is marked: two plans in cell 15.
     // Below the tank's rows, enough steel walls are begun to leave too little steel for it.
     const walls =
-      Math.floor((STARTING_INVENTORY.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
-    const tight = worldFrom(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
+      Math.floor((STARTING_CRATE.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
+    const tight = withStore(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
     for (let i = 0; i < walls; i++) {
       tight.step([command(building, 'placePlan', { cell: 18 + inside(i), placement: steelWall })]);
     }
@@ -218,6 +238,45 @@ describe('the wreck, worked with E', () => {
     use(h, 42, 23);
     h = run(h, down, 300);
     expect(h.y).toBe(32 * UNIT);
+  });
+});
+
+describe('a crate under the pointer', () => {
+  const room = withStore(`
+    ##########
+    #........#
+    #........#
+    #........#
+    ##########
+  `);
+  const crate = room
+    .query(grid)
+    .machines()
+    .find((m) => m.kind === 'crate');
+  if (!crate) throw new Error('no crate');
+  const { width } = room.query(grid).size();
+  // The crate sits on the row below the room's floor, from column 0.
+  const row = Math.floor(crate.cell / width);
+
+  it('opens on a press within reach, and on no press or out of reach', () => {
+    const near = heroOn(2, row - 1);
+    const aim = aimAt(room, 0, near, centre(1, row));
+    expect(aim).toEqual({ cell: crate.cell + 1, inReach: true, crate: crate.id });
+    expect(usesOf(aim, { pressed: true, held: true }, 3, -1)).toEqual({
+      commands: [],
+      open: crate.id,
+      workedOnTick: -1,
+    });
+    expect(usesOf(aim, { pressed: false, held: true }, 3, -1).open).toBeUndefined();
+    const far = aimAt(room, 0, heroOn(8, row - 7), centre(1, row));
+    expect(usesOf(far, { pressed: true, held: true }, 3, -1).open).toBeUndefined();
+  });
+
+  it('stays in reach while any cell of it is, and not once it is taken apart', () => {
+    const reach = HERO.reach / UNIT;
+    expect(crateInReach(room, heroOn(1 + reach, row), crate.id)).toBe(true);
+    expect(crateInReach(room, heroOn(2 + reach, row), crate.id)).toBe(false);
+    expect(crateInReach(room, heroOn(1, row), crate.id + 1)).toBe(false);
   });
 });
 

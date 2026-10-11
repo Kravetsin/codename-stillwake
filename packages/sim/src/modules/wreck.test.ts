@@ -1,6 +1,7 @@
+import { STARTING_CRATE } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { cellsOf } from '../core/layout';
-import { grid, stillwake, wreck } from './index';
+import { grid, items, stillwake, wreck } from './index';
 
 describe('the starting wreck', () => {
   it('builds the same world for the same seed', () => {
@@ -15,13 +16,23 @@ describe('the starting wreck', () => {
     expect(rowsWithHull.every((row) => row.startsWith(' ') && row.endsWith(' '))).toBe(true);
   });
 
-  it('holds a tank, a vent, three doorways three tall, a hatch, three canisters and a place to wake', () => {
+  it('holds a tank, a vent, a crate with the store, three doorways, a hatch and a place to wake', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
-    expect(q.machines().map((m) => m.kind)).toEqual(['tank', 'vent']);
+    expect(q.machines().map((m) => m.kind)).toEqual(['tank', 'vent', 'crate']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(10).fill({ kind: 'door', open: false }));
-    expect(cellsOf(wreck, 'c')).toHaveLength(3);
+    const crate = q.machines()[2]?.id ?? 0;
+    expect(
+      sim
+        .query(items)
+        .crate(crate)
+        .filter((s) => s !== null),
+    ).toEqual([
+      { item: 'scrap', count: STARTING_CRATE.scrap },
+      { item: 'steel', count: STARTING_CRATE.steel },
+      { item: 'canister', count: STARTING_CRATE.canister },
+    ]);
     expect(cellsOf(wreck, 'S')).toHaveLength(1);
   });
 

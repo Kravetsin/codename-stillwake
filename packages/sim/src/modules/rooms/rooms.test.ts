@@ -1,6 +1,7 @@
 import { MATERIALS } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import { building, grid, rooms, stillwake as world, wreck } from '../index';
 
@@ -239,6 +240,7 @@ describe('rooms', () => {
     );
     const at = xy(w);
     const wall = { layer: 'structure', kind: 'wall', material: 'scrap' } as const;
+    giveItems(w, 0, { scrap: MATERIALS.scrap.cost });
     w.do(building, 'placePlan', { cell: at(5, 2), placement: wall }).run();
     for (let i = 0; i < MATERIALS.scrap.buildTicks; i++) w.do(building, 'work', { plan: 1 }).run();
     expect(w.query(rooms).room(at(2, 2))).toMatchObject({ volume: 3, openings: [] });

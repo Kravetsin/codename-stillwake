@@ -16,7 +16,7 @@ function read(game: Game) {
 }
 
 /**
- * The suit without a word: a bar under the item counters that turns red and blinks when the suit
+ * The suit without a word: a bar under the hotbar that turns red and blinks when the suit
  * runs low out of room air, red at the screen's edges then, and the screen going dark on passing out.
  */
 export function SuitGauge({ game }: { readonly game: Game }) {
@@ -29,7 +29,7 @@ export function SuitGauge({ game }: { readonly game: Game }) {
   const { suit, danger } = reading;
   return (
     <>
-      <div className="absolute left-3 top-14 flex w-56 items-center gap-2 rounded border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-slate-400">
+      <div className="absolute left-3 top-16 flex w-56 items-center gap-2 rounded border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-slate-400">
         <span>O₂</span>
         <div className="h-1.5 flex-1 rounded bg-slate-700">
           <div

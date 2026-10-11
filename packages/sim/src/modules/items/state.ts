@@ -11,14 +11,26 @@ export interface Stack {
   count: number;
 }
 
-/** An inventory slot: a stack, or nothing. */
+/** A slot: a stack, or nothing. */
 export type Slot = Stack | null;
 
+/** Where a stack is: a slot of crate `crate`, or of the sender's own inventory when there is none. */
+export interface Place {
+  readonly crate?: number;
+  readonly slot: number;
+}
+
+/** Where a move goes: a slot as a `Place`, or, with no slot, that side as a whole. */
+export interface Target {
+  readonly crate?: number;
+  readonly slot?: number;
+}
+
 export interface ItemsState {
-  /** What every inventory holds until its first change. */
-  start: Slot[];
-  /** The inventories changed at least once, by peer id, in id order. */
+  /** The inventories changed at least once, by peer id, in id order; one never changed is empty. */
   inventories: { peer: number; slots: Slot[] }[];
+  /** The crates holding something, by machine id, in id order; an empty crate has no entry. */
+  crates: { crate: number; slots: Slot[] }[];
   /** Creative mode: nothing is ever taken. A world setting, saved with the world. */
   creative: boolean;
 }

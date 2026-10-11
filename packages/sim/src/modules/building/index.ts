@@ -44,7 +44,7 @@ const buildingModule = defineModule<Deps>()({
     clearAt: (ctx, cell: number) => clearAt(ctx.deps.grid.query, ctx.state.plans, cell),
     /** Why `action` cannot be planned at `cell`: what a ghost shows before the command is sent. */
     problem: (ctx, cell: number, action: Action) =>
-      planProblem(ctx.deps.grid.query, ctx.state.plans, cell, action),
+      planProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.plans, cell, action),
     /** Why peer `peer`'s work on plan `id` would be refused: what the client shows first. */
     workProblem: (ctx, id: number, peer: number) =>
       workProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.plans, id, peer),
@@ -58,9 +58,15 @@ const buildingModule = defineModule<Deps>()({
   commands: {
     placePlan: {
       validate(ctx, p: { cell: number; placement: Placement }) {
-        const why = planProblem(ctx.deps.grid.query, ctx.state.plans, p.cell, {
-          place: p.placement,
-        });
+        const why = planProblem(
+          ctx.deps.grid.query,
+          ctx.deps.items.query,
+          ctx.state.plans,
+          p.cell,
+          {
+            place: p.placement,
+          },
+        );
         if (why) return refuse(why);
       },
       apply(ctx, p: { cell: number; placement: Placement }) {
@@ -71,7 +77,15 @@ const buildingModule = defineModule<Deps>()({
     },
     deconstruct: {
       validate(ctx, p: { cell: number; layer: Layer }) {
-        const why = planProblem(ctx.deps.grid.query, ctx.state.plans, p.cell, { clear: p.layer });
+        const why = planProblem(
+          ctx.deps.grid.query,
+          ctx.deps.items.query,
+          ctx.state.plans,
+          p.cell,
+          {
+            clear: p.layer,
+          },
+        );
         if (why) return refuse(why);
       },
       apply(ctx, p: { cell: number; layer: Layer }) {

@@ -64,7 +64,7 @@ export function cellsOf(layout: Layout, char: string, under = false): number[] {
   return cells;
 }
 
-const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = { T: 'tank', V: 'vent' };
+const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = { T: 'tank', V: 'vent', K: 'crate' };
 
 /**
  * The machines a map draws, in reading order of their top-left cells, each with the cells it covers.

@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "new:module": "node tools/scaffold/new-module.js"
+    "new:module": "node tools/scaffold/new-module.js",
+    "e2e": "pnpm --filter @stillwake/game e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

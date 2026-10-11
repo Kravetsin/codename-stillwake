@@ -4,6 +4,7 @@ import {
   command,
   defineModule,
   defineSim,
+  grid,
   parseLayout,
   stillwake,
   items,
@@ -64,13 +65,22 @@ describe('desync fuzz: the game', () => {
       tamper: (tick, clients) => {
         const first = clients[0];
         if (!first) return;
-        if (tick === 0) {
-          first.send(command(items, 'setCreative', { on: true }));
+        // Building and loading are free, whatever creative mode the fuzz switched to meanwhile.
+        if (tick <= 40) first.send(command(items, 'setCreative', { on: true }));
+        if (tick < 40) {
+          // Each missing pipe planned, or its plan worked: the fuzz may cancel a plan meanwhile.
           for (const at of [cell(2, 2), cell(2, 3), cell(2, 4)]) {
-            first.send(command(building, 'placePlan', { cell: at, placement: pipe }));
+            if (first.sim.query(grid).conduitAt(at).kind !== 'none') continue;
+            const plan = first.sim
+              .query(building)
+              .plansAt(at)
+              .find((p) => 'place' in p && p.place.layer === 'conduit');
+            first.send(
+              plan
+                ? command(building, 'work', { plan: plan.id })
+                : command(building, 'placePlan', { cell: at, placement: pipe }),
+            );
           }
-        } else if (tick < 40) {
-          for (const plan of [1, 2, 3]) first.send(command(building, 'work', { plan }));
         } else if (tick === 40) {
           for (let i = 0; i < 3; i++) first.send(command(atmosphere, 'loadCanister', { tank }));
         }

@@ -5,6 +5,7 @@ import { buildOf, builtAt, ticksFor } from './costs';
 import type { Action, Plan } from './state';
 
 type Grid = QueryApi<GridModule>;
+type Items = QueryApi<ItemsModule>;
 
 /** Structure and machines exclude each other in a cell; a conduit runs through either. */
 const slotOf = (layer: Layer) => (layer === 'conduit' ? 'conduit' : 'solid');
@@ -55,9 +56,17 @@ export function clearAt(
   return top;
 }
 
+/** `building.notEmpty` when taking `layer` out of `cell` would take a crate holding something. */
+function notEmpty(grid: Grid, items: Items, cell: number, layer: Layer): string | undefined {
+  const machine = layer === 'machine' ? grid.machineAt(cell) : undefined;
+  if (machine?.kind !== 'crate') return undefined;
+  return items.crate(machine.id).some((s) => s !== null) ? 'building.notEmpty' : undefined;
+}
+
 /** Why `action` cannot be planned at `cell`, as a refusal key; `undefined` when it can. */
 export function planProblem(
   grid: Grid,
+  items: Items,
   plans: readonly Plan[],
   cell: number,
   action: Action,
@@ -65,7 +74,8 @@ export function planProblem(
   if ('clear' in action) {
     const at = markedCell(grid, cell, action.clear);
     if (at === undefined) return 'building.nothingThere';
-    return isMarked(plans, action.clear, at) ? 'building.planned' : undefined;
+    if (isMarked(plans, action.clear, at)) return 'building.planned';
+    return notEmpty(grid, items, at, action.clear);
   }
   const gridProblem = grid.placementProblem(cell, action.place);
   if (gridProblem) return gridProblem;
@@ -82,11 +92,12 @@ export function planProblem(
 
 /**
  * Why work on plan `id` by peer `peer` is refused: the plan is gone; it is not begun and the hero
- * cannot pay; or this tick would take apart what a mark names and the refund does not fit.
+ * cannot pay; or this tick would take apart what a mark names, and it is a crate that holds
+ * something again or the refund does not fit.
  */
 export function workProblem(
   grid: Grid,
-  items: QueryApi<ItemsModule>,
+  items: Items,
   plans: readonly Plan[],
   id: number,
   peer: number,
@@ -98,5 +109,5 @@ export function workProblem(
   }
   if (plan.progress + 1 < ticksFor(grid, plan)) return undefined;
   const built = builtAt(grid, plan.cell, plan.clear);
-  return built && items.fullFor(peer, built.cost);
+  return notEmpty(grid, items, plan.cell, plan.clear) ?? (built && items.fullFor(peer, built.cost));
 }

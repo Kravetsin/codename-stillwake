@@ -19,7 +19,7 @@ const LAYERS: readonly Layer[] = ['structure', 'conduit', 'machine'];
 const WIDTH = WRECK[0]?.length ?? 0;
 const CELLS = WIDTH * WRECK.length;
 const BUILT: readonly number[] = WRECK.flatMap((row, y) =>
-  [...row].flatMap((char, x) => ('#=HDd-vxTV'.includes(char) ? [y * WIDTH + x] : [])),
+  [...row].flatMap((char, x) => ('#=HDd-vxTVK'.includes(char) ? [y * WIDTH + x] : [])),
 );
 
 /**

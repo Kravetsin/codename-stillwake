@@ -34,7 +34,7 @@ export { grid };
 export { building };
 export type { Action, Plan } from './building';
 export { items };
-export type { Cost, Item, Slot, Stack } from './items';
+export type { Cost, Item, Place, Slot, Stack, Target } from './items';
 export { rooms };
 export { pipes };
 export { atmosphere };

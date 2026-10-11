@@ -19,21 +19,37 @@ export interface Use {
 
 /**
  * The cell under the pointer and what E does there: works a plan while held, or, when pressed,
- * toggles a door or valve or puts a canister into a tank.
+ * toggles a door or valve, puts a canister into a tank or opens crate `crate`.
  */
 export interface Aim {
   readonly cell: number;
   readonly inReach: boolean;
   readonly press?: Use;
   readonly work?: { readonly plan: number; readonly problem: string | undefined };
+  readonly crate?: number;
+}
+
+/** Whether the middle of `cell` is within the hero's reach of the middle of its body. */
+export function reaches(hero: Hero, cell: number, width: number): boolean {
+  const dx = (cell % width) * UNIT + UNIT / 2 - hero.x;
+  const dy = Math.floor(cell / width) * UNIT + UNIT / 2 - (hero.y - HERO.height / 2);
+  return dx * dx + dy * dy <= HERO.reach * HERO.reach;
+}
+
+/** Whether crate `id` still stands with a cell of it within the hero's reach. */
+export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
+  const q = sim.query(grid);
+  const crate = q.machines().find((m) => m.id === id && m.kind === 'crate');
+  const cells = crate ? (q.footprint(crate.kind, crate.cell) ?? []) : [];
+  return cells.some((cell) => reaches(hero, cell, q.size().width));
 }
 
 /**
  * What the hero of peer `peer` aims at with the pointer at `point`, in cells; nothing off the grid.
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
- * block the mark beside it; when none can, the oldest, to show why. Then a tank, a door, a valve: a
- * valve under a tank or in a door's cell is not worked with E.
+ * block the mark beside it; when none can, the oldest, to show why. Then a crate, a tank, a door, a
+ * valve: a valve under a machine or in a door's cell is not worked with E.
  */
 export function aimAt(
   sim: Sim,
@@ -46,9 +62,7 @@ export function aimAt(
   const y = Math.floor(point.y);
   if (x < 0 || y < 0 || x >= cells.width || y >= cells.height) return undefined;
   const cell = y * cells.width + x;
-  const dx = x * UNIT + UNIT / 2 - hero.x;
-  const dy = y * UNIT + UNIT / 2 - (hero.y - HERO.height / 2);
-  const inReach = dx * dx + dy * dy <= HERO.reach * HERO.reach;
+  const inReach = reaches(hero, cell, cells.width);
 
   const plans = sim.query(building);
   const here = plans
@@ -56,6 +70,8 @@ export function aimAt(
     .map((p) => ({ plan: p.id, problem: plans.workProblem(p.id, peer) }));
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
+  const machine = sim.query(grid).machineAt(cell);
+  if (machine?.kind === 'crate') return { cell, inReach, crate: machine.id };
   const press = pressOf(sim, peer, cell);
   return press ? { cell, inReach, press } : { cell, inReach };
 }
@@ -80,9 +96,13 @@ function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {
   return undefined;
 }
 
-/** What E sends this frame, and the tick work was last sent on: -1 when none is under way. */
+/**
+ * What E sends this frame, the crate it opens if any, and the tick work was last sent on: -1 when
+ * none is under way.
+ */
 export interface Uses {
   readonly commands: readonly Command[];
+  readonly open?: number;
   readonly workedOnTick: number;
 }
 
@@ -102,6 +122,9 @@ export function usesOf(
   workedOnTick: number,
 ): Uses {
   if (!aim?.inReach) return { commands: [], workedOnTick: -1 };
+  if (e.pressed && aim.crate !== undefined) {
+    return { commands: [], open: aim.crate, workedOnTick: -1 };
+  }
   const commands: Command[] = [];
   if (e.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
   if (!aim.work || aim.work.problem || !e.held) return { commands, workedOnTick: -1 };

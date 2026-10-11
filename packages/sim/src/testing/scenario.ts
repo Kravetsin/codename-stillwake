@@ -29,8 +29,8 @@ export interface Scenario {
   cells(char: string): number[];
 }
 
-export function scenario(definition: SimDefinition, map = '', seed = 1): Scenario {
-  const layout = parseLayout(map);
+export function scenario(definition: SimDefinition, map: string | Layout = '', seed = 1): Scenario {
+  const layout = typeof map === 'string' ? parseLayout(map) : map;
   const sim = definition.create(seed, layout);
   let queued: Command[] = [];
   const refusals: string[] = [];

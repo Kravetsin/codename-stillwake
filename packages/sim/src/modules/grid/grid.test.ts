@@ -328,6 +328,7 @@ describe('invariants', () => {
       { layer: 'conduit', kind: 'pipe' },
       { layer: 'machine', kind: 'tank' },
       { layer: 'machine', kind: 'vent' },
+      { layer: 'machine', kind: 'crate' },
     ),
   );
   const step = fc.oneof(
@@ -355,7 +356,7 @@ describe('invariants', () => {
         const q = w.query(grid);
         const covered = new Map<number, number>();
         for (const m of q.machines()) {
-          const spec = { tank: [0, 1, 5, 6], vent: [0] }[m.kind];
+          const spec = { tank: [0, 1, 5, 6], vent: [0], crate: [0, 1] }[m.kind];
           for (const offset of spec) {
             const cell = m.cell + offset;
             if (covered.has(cell)) return false;

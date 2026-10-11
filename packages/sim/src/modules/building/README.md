@@ -15,7 +15,9 @@ completes through `grid`'s operations, paid from and refunded to the inventories
 - A plan to place is checked against the grid first (`grid.placementProblem`, whose keys pass through
   unchanged), then against the other plans: in each cell, structure and machines share one solid slot
   and a conduit has its own, as in the grid. A machine's plan covers its whole footprint.
-- A mark needs something in that layer of that cell, and one thing takes one mark. A machine's mark is
+- A mark needs something in that layer of that cell, and one thing takes one mark. A crate is
+  marked only empty, refused with `building.notEmpty`, and the tick of work that would take it apart
+  is refused the same way when items were put into it meanwhile. A machine's mark is
   kept at the machine's top-left, whichever of its cells was marked. A marked thing is still built, so
   the grid refuses a plan for that slot until it is gone.
 - Work comes one tick at a time: a `work` command is one tick of one hero's work, and the client sends
@@ -39,9 +41,10 @@ completes through `grid`'s operations, paid from and refunded to the inventories
   what is marked already) and where its mark is kept; `workProblem(planId, peer)` — the refusal that
   peer's `work` would get; `ticksFor(planId)` — the ticks a plan takes in all.
 - **Commands:** `placePlan { cell, placement }`, refused with grid's keys or `building.planned`;
-  `deconstruct { cell, layer }`, refused with `building.nothingThere` or `building.planned`;
+  `deconstruct { cell, layer }`, refused with `building.nothingThere`, `building.planned` or
+  `building.notEmpty`;
   `cancelPlan { id }`, refused with `building.noPlan` or `items.full`; `work { plan }`, refused with
-  `building.noPlan`, `items.notEnough` or `items.full`.
+  `building.noPlan`, `items.notEnough`, `building.notEmpty` or `items.full`.
 
 ## Invariants
 

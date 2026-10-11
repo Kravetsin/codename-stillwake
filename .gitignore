@@ -6,3 +6,5 @@ coverage/
 .env
 .env.*
 .claude/worktrees/
+test-results/
+playwright-report/

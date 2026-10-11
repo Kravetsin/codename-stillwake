@@ -1,6 +1,7 @@
 import { MACHINES, MATERIALS, type MachineKind, type MaterialId } from '@stillwake/content';
 import type { Placement } from '@stillwake/sim';
 import { t } from '../../i18n/en';
+import { createStore } from '../../session/store';
 
 /** What the left button does in the world while a tool is selected. */
 export type Tool =
@@ -34,20 +35,4 @@ export const TOOLS: readonly Tool[] = [
  * The selected tool, shared by the toolbar that sets it and the layer that uses it. One per page:
  * there is one game and one player at this keyboard.
  */
-export const selected = createToolStore();
-
-function createToolStore() {
-  let current: Tool | undefined;
-  const listeners = new Set<() => void>();
-  return {
-    get: () => current,
-    set: (tool: Tool | undefined) => {
-      current = tool;
-      for (const listener of listeners) listener();
-    },
-    subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-}
+export const selected = createStore<Tool | undefined>(undefined);

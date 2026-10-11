@@ -5,8 +5,7 @@ import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
-import { INVENTORY, ITEMS, STARTING_INVENTORY, type ItemId } from './items';
-import { WRECK } from './wreck';
+import { CRATE, INVENTORY, ITEMS, STARTING_CRATE, type ItemId } from './items';
 
 describe('materials', () => {
   const all = Object.values(MATERIALS);
@@ -30,7 +29,6 @@ describe('machines', () => {
   it('have a footprint of at least one cell and ports inside it', () => {
     for (const m of Object.values(MACHINES)) {
       expect(m.width >= 1 && m.height >= 1).toBe(true);
-      expect(m.ports.length).toBeGreaterThan(0);
       for (const p of m.ports) {
         expect(p.x >= 0 && p.x < m.width && p.y >= 0 && p.y < m.height).toBe(true);
       }
@@ -84,15 +82,14 @@ describe('items', () => {
     for (const material of Object.keys(MATERIALS)) expect(Object.keys(ITEMS)).toContain(material);
   });
 
-  it('start in every inventory in whole numbers, and fit it with the wreck canisters', () => {
-    expect(Number.isSafeInteger(INVENTORY.slots) && INVENTORY.slots > 0).toBe(true);
-    for (const [item, amount] of Object.entries(STARTING_INVENTORY)) {
+  it('go into inventories and crates of whole slots, and start in a crate they fit', () => {
+    for (const slots of [INVENTORY.slots, CRATE.slots]) {
+      expect(Number.isSafeInteger(slots) && slots > 0).toBe(true);
+    }
+    for (const [item, amount] of Object.entries(STARTING_CRATE)) {
       expect({ [item]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({ [item]: true });
     }
-    const canisters = WRECK.join('').split('c').length - 1;
-    expect(slotsFor({ ...STARTING_INVENTORY, canister: canisters })).toBeLessThanOrEqual(
-      INVENTORY.slots,
-    );
+    expect(slotsFor(STARTING_CRATE)).toBeLessThanOrEqual(CRATE.slots);
   });
 });
 

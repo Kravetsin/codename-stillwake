@@ -88,19 +88,19 @@ content · after P2-02
   under the map; heroes start empty; the `c` legend goes. Crates are never hit by meteors; a crate
   is deconstructed only empty: `building.notEmpty` when marked, and again on the completing work
   tick, since items may be moved into a marked crate.
-- `move { src: Place, dst?: Place, count }` within the sender's inventory or between it and a crate:
-  moves the lesser of `count`, what `src` holds and what fits at `dst`; a whole stack onto a
-  different item swaps them; with no `dst`, fills that item's stacks and then the empty slots, in
-  slot order, of the other side (inventory to crate, crate to inventory). Refused with
+- `move { src: Place, dst: { crate?, slot? }, count }` within the sender's inventory or between it
+  and a crate (or two crates): moves the lesser of `count`, what `src` holds and what fits at
+  `dst`; a whole stack onto a different item swaps them; with no slot in `dst`, fills that item's
+  stacks and then the empty slots, in slot order, of that side (a shift-click names the other side). Refused with
   `items.empty` (nothing there, or `count` below 1), `items.full`, `items.noCrate`, `items.noSlot`
   (out of range, or `src` equal to `dst`). Accepted: a stale pick at a shared crate moves whatever
   is in the slot by then.
 - Client: Tab opens the inventory, E on a crate opens it beside. Left click picks a stack, right
   click half of it rounded up, a click on a slot puts it, shift-click sends it to the other side;
   the picked stack is UI-only. The hotbar is the inventory's first row, chosen with keys 1–9; the
-  selected slot is state of the game shell, beside the camera, since features never import each
-  other. The builder is at hand when the selected slot holds no salvage item. Counts and icons,
-  names on hover only.
+  open crate is state of the game shell (`session/ui.ts`), since `crew` opens and closes it and
+  `items` shows it. The selected slot stays in `items` until P2-05 gives it a second reader, the
+  builder being at hand when it holds no salvage item. Counts and icons, names on hover only.
   Done when: scenarios for every move and refusal, two heroes taking the last stack of one crate on
   one tick, a crate filled after being marked; content test (`STARTING_CRATE` fits `CRATE.slots`);
   `SAVE_FORMAT` 9; in two windows one player takes scrap from the crate and builds with it while the

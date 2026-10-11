@@ -12,14 +12,14 @@ const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 
 /**
- * A sealed room nine wide, with a vent above a tank and canisters in every inventory. A tank's port
+ * A sealed room nine wide, with a vent above a tank, and three canisters for peer 0. A tank's port
  * is its bottom-left cell, a vent's its own; `pipeUp` lays the pipe joining them.
  */
 const ROOM = `
   #########
-  #V.....c#
-  #TT....c#
-  #TT....c#
+  #V......#
+  #TT.....#
+  #TT.....#
   #########
 `;
 const at = (x: number, y: number) => y * 9 + x;
@@ -38,7 +38,7 @@ function setUp(map = ROOM): {
   room: number;
   pipeUp: () => void;
 } {
-  const w = scenario(withBuilder, map);
+  const w = giveItems(scenario(withBuilder, map), 0, { canister: 3 });
   const machines = w.query(grid).machines();
   const tank = machines.find((m) => m.kind === 'tank')?.id ?? 0;
   const vent = machines.find((m) => m.kind === 'vent')?.id ?? 0;
@@ -88,8 +88,8 @@ describe('air machines', () => {
     const { w, tank, pipeUp } = setUp(`
       #########
       #V..#..V#
-      #TT.#..c#
-      #TT.#..c#
+      #TT.#...#
+      #TT.#...#
       #########
     `);
     pipeUp();
@@ -120,7 +120,7 @@ describe('air machines', () => {
 
   it("takes the canister from the sender's inventory, no one else's", () => {
     const { w, tank } = setUp();
-    w.do(atmosphere, 'loadCanister', { tank }, 2).run();
+    giveItems(w, 2, { canister: 3 }).do(atmosphere, 'loadCanister', { tank }, 2).run();
     expect(w.refusals).toEqual([]);
     expect([canisters(w, 0), canisters(w, 2)]).toEqual([3, 2]);
   });
@@ -132,7 +132,7 @@ describe('air machines', () => {
       .run();
     expect(w.refusals).toEqual(['atmosphere.noTank', 'atmosphere.noTank']);
 
-    const full = scenario(world, ROOM.replace(/c/g, '.'));
+    const full = scenario(world, ROOM);
     const fullTank =
       full
         .query(grid)

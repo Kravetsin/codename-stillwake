@@ -158,8 +158,8 @@ nothing about the game.
 - **Generic suites** cover every registered module on their own: save, load and play on
   (`src/modules/modules.test.ts`) and the desync fuzz (`fuzzDesync` in `packages/net`). Do not copy them
   per module.
-- **Client:** unit tests for logic such as the hero controller; Playwright smoke tests for flows. No
-  pixel snapshots.
+- **Client:** unit tests for logic such as the hero controller; Playwright smoke tests for flows in
+  `apps/game/e2e` (`*.e2e.ts`, run by `pnpm e2e` in the installed Chrome). No pixel snapshots.
 - A bug fix starts with a failing scenario test.
 - Tests never touch real time; time is ticks.
 
@@ -198,9 +198,9 @@ what must hold across entries: capacities above zero, unique ids.
 
 `pnpm dev` (the game in a browser, dev panel on `` ` ``; `?host` in one window and `?join=<id>` in another
 for co-op over the dev relay), `pnpm desktop` (the built game in the Electron shell), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
-`pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm new:module <name> [--client]`. One package:
+`pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm e2e`, `pnpm new:module <name> [--client]`. One package:
 `pnpm --filter @stillwake/sim test`. Run `pnpm format` before `pnpm format:check`. CI runs format
-check, lint, types, tests and build.
+check, lint, types, tests, build and the smoke tests.
 
 ## Conventions
 

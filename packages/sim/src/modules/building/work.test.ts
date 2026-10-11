@@ -5,16 +5,26 @@ import {
   ITEMS,
   MACHINES,
   MATERIALS,
-  STARTING_INVENTORY,
 } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { giveItems } from '../../testing/items';
+import { parseLayout, type Layout } from '../../core/layout';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Layer, Placement } from '../grid';
 import { grid, items, stillwake as world, type Item } from '../index';
 import { apartTicks } from './costs';
 import { building } from './index';
+
+/** What every hero in these tests carries from the start. */
+const STOCK = { scrap: 360, steel: 60 } as const;
+
+/** A world from `map` with peers 0 to 3 carrying STOCK. */
+function stocked(map: string | Layout): Scenario {
+  const w = scenario(world, map);
+  for (const peer of [0, 1, 2, 3]) giveItems(w, peer, STOCK);
+  return w;
+}
 
 const steelWall: Placement = { layer: 'structure', kind: 'wall', material: 'steel' };
 const tank: Placement = { layer: 'machine', kind: 'tank' };
@@ -34,9 +44,9 @@ const TANK = `
 `;
 const at = (x: number, y: number) => y * 9 + x;
 
-/** As many steel walls as a starting inventory pays for. */
-const AFFORDABLE = Math.floor(STARTING_INVENTORY.steel / MATERIALS.steel.cost);
-/** OPEN with rows enough inside for one more plan than a starting inventory pays for. */
+/** As many steel walls as STOCK pays for. */
+const AFFORDABLE = Math.floor(STOCK.steel / MATERIALS.steel.cost);
+/** OPEN with rows enough inside for one more plan than STOCK pays for. */
 const HALL = ['#########']
   .concat(Array<string>(Math.ceil((AFFORDABLE + 1) / 7)).fill('#.......#'), ['#########'])
   .join('\n');
@@ -57,11 +67,11 @@ const count = (w: Scenario, item: Item, peer = 0) =>
     .reduce((sum, s) => sum + (s?.item === item ? s.count : 0), 0);
 const steel = (w: Scenario, peer = 0) => count(w, 'steel', peer);
 
-/** Fills every slot of peer `peer`'s starting inventory: its steel stack, then scrap in the rest. */
+/** Fills every slot of peer `peer`, who carries STOCK: its steel stack, then scrap in the rest. */
 function fillUp(w: Scenario, peer: number): Scenario {
-  giveItems(w, peer, { steel: ITEMS.steel.stack - STARTING_INVENTORY.steel });
+  giveItems(w, peer, { steel: ITEMS.steel.stack - STOCK.steel });
   giveItems(w, peer, {
-    scrap: (INVENTORY.slots - 1) * ITEMS.scrap.stack - STARTING_INVENTORY.scrap,
+    scrap: (INVENTORY.slots - 1) * ITEMS.scrap.stack - STOCK.scrap,
   });
   for (const item of ['scrap', 'steel'] as const) {
     expect(w.query(items).fullFor(peer, { [item]: 1 })).toBe('items.full');
@@ -78,7 +88,7 @@ describe('building by hand', () => {
   const ticks = MATERIALS.steel.buildTicks;
 
   it('builds a plan only with as many ticks of work as it takes, through the grid', () => {
-    const w = scenario(world, OPEN).do(building, 'placePlan', {
+    const w = stocked(OPEN).do(building, 'placePlan', {
       cell: at(2, 1),
       placement: steelWall,
     });
@@ -93,20 +103,20 @@ describe('building by hand', () => {
   });
 
   it('pays the whole cost on the first tick of work, and nothing after', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel);
+    expect(steel(w)).toBe(STOCK.steel);
     work(w, 1, 1);
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel - MATERIALS.steel.cost);
+    expect(steel(w)).toBe(STOCK.steel - MATERIALS.steel.cost);
     expect(w.query(building).plans()[0]).toMatchObject({ paid: { steel: MATERIALS.steel.cost } });
     work(w, 1, ticks - 1);
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel - MATERIALS.steel.cost);
+    expect(steel(w)).toBe(STOCK.steel - MATERIALS.steel.cost);
   });
 
   it('refuses to begin a plan the hero cannot pay for, leaving it untouched', () => {
     const affordable = AFFORDABLE;
-    let w = scenario(world, HALL);
+    let w = stocked(HALL);
     for (let i = 0; i <= affordable; i++) {
       w = w.do(building, 'placePlan', { cell: inside(i), placement: steelWall });
     }
@@ -115,38 +125,38 @@ describe('building by hand', () => {
     expect(w.refusals).toEqual(['items.notEnough']);
     const last = w.query(building).plans().at(-1);
     expect(last).toMatchObject({ progress: 0, paid: {} });
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel - affordable * MATERIALS.steel.cost);
+    expect(steel(w)).toBe(STOCK.steel - affordable * MATERIALS.steel.cost);
     expect(w.query(building).workProblem(affordable + 1, 0)).toBe('items.notEnough');
     // Another hero carries steel of their own.
     expect(w.query(building).workProblem(affordable + 1, 1)).toBeUndefined();
     work(w, affordable + 1, 1, 1);
     expect(w.refusals).toEqual(['items.notEnough']);
-    expect(steel(w, 1)).toBe(STARTING_INVENTORY.steel - MATERIALS.steel.cost);
+    expect(steel(w, 1)).toBe(STOCK.steel - MATERIALS.steel.cost);
   });
 
   it("pays from the inventory of the hero who begins the work, no one else's", () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     work(w, 1, 1, 2);
     work(w, 1, 1, 1);
     expect([steel(w, 0), steel(w, 1), steel(w, 2)]).toEqual([
-      STARTING_INVENTORY.steel,
-      STARTING_INVENTORY.steel,
-      STARTING_INVENTORY.steel - MATERIALS.steel.cost,
+      STOCK.steel,
+      STOCK.steel,
+      STOCK.steel - MATERIALS.steel.cost,
     ]);
   });
 
   it('goes on with a begun plan without paying again, however little the hero carries', () => {
     // Begin enough steel walls that less steel is left than one more would cost.
     const affordable = AFFORDABLE;
-    let w = scenario(world, HALL);
+    let w = stocked(HALL);
     for (let i = 0; i < affordable; i++) {
       w = w.do(building, 'placePlan', { cell: inside(i), placement: steelWall });
     }
     w.run();
     for (let id = 1; id <= affordable; id++) work(w, id, 1);
-    const left = STARTING_INVENTORY.steel - affordable * MATERIALS.steel.cost;
+    const left = STOCK.steel - affordable * MATERIALS.steel.cost;
     expect(left).toBeLessThan(MATERIALS.steel.cost);
     work(w, 1, ticks - 1);
     expect(w.refusals).toEqual([]);
@@ -155,18 +165,18 @@ describe('building by hand', () => {
   });
 
   it('builds twice as fast with two heroes on it, paying once', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     for (let i = 0; i < Math.ceil(ticks / 2); i++) {
       w.do(building, 'work', { plan: 1 }).do(building, 'work', { plan: 1 }).run();
     }
     expect(w.query(grid).structureAt(at(2, 1))).toEqual({ kind: 'wall', material: 'steel' });
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel - MATERIALS.steel.cost);
+    expect(steel(w)).toBe(STOCK.steel - MATERIALS.steel.cost);
   });
 
   it('keeps the work done when the hero stops, and goes on from there', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     work(w, 1, 10).run(100);
@@ -176,18 +186,18 @@ describe('building by hand', () => {
   });
 
   it('refunds what a cancelled plan paid, and nothing for one not begun', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .do(building, 'placePlan', { cell: at(3, 1), placement: steelWall })
       .run();
     work(w, 1, 5);
     w.do(building, 'cancelPlan', { id: 1 }).do(building, 'cancelPlan', { id: 2 }).run();
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel);
+    expect(steel(w)).toBe(STOCK.steel);
     expect(w.refusals).toEqual([]);
   });
 
   it('refunds to the hero who cancels, and refuses when it does not fit, keeping the plan', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     work(w, 1, 5, 1);
@@ -198,13 +208,13 @@ describe('building by hand', () => {
     w.do(building, 'cancelPlan', { id: 1 }, 3).run();
     expect(w.query(building).plans()).toEqual([]);
     expect([steel(w, 1), steel(w, 3)]).toEqual([
-      STARTING_INVENTORY.steel - MATERIALS.steel.cost,
-      STARTING_INVENTORY.steel + MATERIALS.steel.cost,
+      STOCK.steel - MATERIALS.steel.cost,
+      STOCK.steel + MATERIALS.steel.cost,
     ]);
   });
 
   it('cancels a plan not begun for a hero with no room, refunding nothing', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     fillUp(w, 2);
@@ -214,27 +224,27 @@ describe('building by hand', () => {
   });
 
   it('refunds what was paid even when creative mode is on by the time it is cancelled', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     work(w, 1, 1);
     w.do(items, 'setCreative', { on: true }).do(building, 'cancelPlan', { id: 1 }).run();
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel);
+    expect(steel(w)).toBe(STOCK.steel);
   });
 
   it('pays nothing in creative mode, so cancelling refunds nothing', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(items, 'setCreative', { on: true })
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
     work(w, 1, 1);
     expect(w.query(building).plans()[0]).toMatchObject({ progress: 1, paid: {} });
     w.do(building, 'cancelPlan', { id: 1 }).run();
-    expect(w.query(items).inventory(0)).toEqual(scenario(world, OPEN).query(items).inventory(0));
+    expect(w.query(items).inventory(0)).toEqual(stocked(OPEN).query(items).inventory(0));
   });
 
   it('never charges a plan begun in creative mode, once creative mode is off', () => {
-    const w = scenario(world, OPEN)
+    const w = stocked(OPEN)
       .do(items, 'setCreative', { on: true })
       .do(building, 'placePlan', { cell: at(2, 1), placement: steelWall })
       .run();
@@ -243,15 +253,51 @@ describe('building by hand', () => {
     work(w, 1, ticks - 1);
     expect(w.refusals).toEqual([]);
     expect(w.query(grid).structureAt(at(2, 1)).kind).toBe('wall');
-    expect(steel(w)).toBe(STARTING_INVENTORY.steel);
+    expect(steel(w)).toBe(STOCK.steel);
   });
 
   it('refuses work on a plan that is not there', () => {
-    const w = work(scenario(world, OPEN), 3, 1);
+    const w = work(stocked(OPEN), 3, 1);
     expect(w.refusals).toEqual(['building.noPlan']);
   });
 
   describe('taking apart', () => {
+    /** A crate, machine 1, holding the starting store. */
+    const CRATE_ROOM = parseLayout(['#KK.#'], [' s']);
+    const crateTicks = apartTicks(MACHINES.crate.buildTicks);
+    const empty = (w: Scenario) => {
+      for (const slot of [0, 1, 2]) {
+        w.do(items, 'move', { src: { crate: 1, slot }, dst: {}, count: 999 }, 1);
+      }
+      return w.run();
+    };
+
+    it('refuses to mark a crate that holds something, and takes an emptied one apart', () => {
+      const w = stocked(CRATE_ROOM);
+      w.do(building, 'deconstruct', { cell: 2, layer: 'machine' }).run();
+      expect(w.refusals).toEqual(['building.notEmpty']);
+      expect(w.query(building).problem(1, { clear: 'machine' })).toBe('building.notEmpty');
+      empty(w).do(building, 'deconstruct', { cell: 2, layer: 'machine' }).run();
+      work(w, 1, crateTicks);
+      expect(w.refusals).toEqual(['building.notEmpty']);
+      expect(w.query(grid).machines()).toEqual([]);
+      expect(count(w, 'scrap')).toBe(STOCK.scrap + MACHINES.crate.cost.scrap);
+    });
+
+    it('refuses the last tick of work on a crate filled after it was marked', () => {
+      const w = empty(stocked(CRATE_ROOM));
+      w.do(building, 'deconstruct', { cell: 1, layer: 'machine' }).run();
+      work(w, 1, crateTicks - 1);
+      w.do(items, 'move', { src: { slot: 0 }, dst: { crate: 1 }, count: 1 }).run();
+      work(w, 1, 1);
+      expect(w.refusals).toEqual(['building.notEmpty']);
+      expect(w.query(building).workProblem(1, 0)).toBe('building.notEmpty');
+      expect(progressOf(w, 1)).toBe(crateTicks - 1);
+      w.do(items, 'move', { src: { crate: 1, slot: 0 }, dst: {}, count: 1 }).run();
+      work(w, 1, 1);
+      expect(w.query(grid).machines()).toEqual([]);
+    });
+
     it('takes a share of the build time, rounded up so nothing comes apart in no time', () => {
       const share = 20;
       expect(apartTicks(DECONSTRUCT_SPEEDUP * share)).toBe(share);
@@ -261,7 +307,7 @@ describe('building by hand', () => {
 
     it('takes a wall apart in its share of the build time and refunds its material', () => {
       const scrapTicks = apartTicks(MATERIALS.scrap.buildTicks);
-      const w = scenario(world, OPEN)
+      const w = stocked(OPEN)
         .do(building, 'deconstruct', { cell: at(0, 1), layer: 'structure' })
         .run();
       expect(w.query(building).ticksFor(1)).toBe(scrapTicks);
@@ -269,13 +315,13 @@ describe('building by hand', () => {
       expect(w.query(grid).structureAt(at(0, 1)).kind).toBe('wall');
       work(w, 1, 1);
       expect(w.query(grid).structureAt(at(0, 1))).toEqual({ kind: 'empty' });
-      expect(count(w, 'scrap')).toBe(STARTING_INVENTORY.scrap + MATERIALS.scrap.cost);
+      expect(count(w, 'scrap')).toBe(STOCK.scrap + MATERIALS.scrap.cost);
       expect(w.query(building).plans()).toEqual([]);
     });
 
     it('refunds to the hero whose work completes it, refusing that tick when it does not fit', () => {
       const scrapTicks = apartTicks(MATERIALS.scrap.buildTicks);
-      const w = scenario(world, OPEN)
+      const w = stocked(OPEN)
         .do(building, 'deconstruct', { cell: at(0, 1), layer: 'structure' })
         .run();
       fillUp(w, 2);
@@ -289,14 +335,13 @@ describe('building by hand', () => {
       work(w, 1, 1, 1);
       expect(w.query(grid).structureAt(at(0, 1))).toEqual({ kind: 'empty' });
       expect([count(w, 'scrap', 0), count(w, 'scrap', 1)]).toEqual([
-        STARTING_INVENTORY.scrap,
-        STARTING_INVENTORY.scrap + MATERIALS.scrap.cost,
+        STOCK.scrap,
+        STOCK.scrap + MATERIALS.scrap.cost,
       ]);
     });
 
     it('refunds a door and a valve what they cost, in their own time', () => {
-      const w = scenario(
-        world,
+      const w = stocked(
         `
           #####
           #.D.#
@@ -316,48 +361,48 @@ describe('building by hand', () => {
       work(w, 1, apartTicks(BUILDS.door.buildTicks));
       work(w, 2, apartTicks(BUILDS.valve.buildTicks));
       expect([count(w, 'scrap'), steel(w)]).toEqual([
-        STARTING_INVENTORY.scrap + BUILDS.door.cost.scrap + BUILDS.valve.cost.scrap,
-        STARTING_INVENTORY.steel + BUILDS.door.cost.steel + BUILDS.valve.cost.steel,
+        STOCK.scrap + BUILDS.door.cost.scrap + BUILDS.valve.cost.scrap,
+        STOCK.steel + BUILDS.door.cost.steel + BUILDS.valve.cost.steel,
       ]);
       expect(w.query(grid).structureAt(door)).toEqual({ kind: 'empty' });
       expect(w.query(grid).conduitAt(valve)).toEqual({ kind: 'none' });
     });
 
     it('refunds what it takes apart in creative mode too', () => {
-      const w = scenario(world, OPEN)
+      const w = stocked(OPEN)
         .do(items, 'setCreative', { on: true })
         .do(building, 'deconstruct', { cell: at(0, 1), layer: 'structure' })
         .run();
       work(w, 1, apartTicks(MATERIALS.scrap.buildTicks));
-      expect(count(w, 'scrap')).toBe(STARTING_INVENTORY.scrap + MATERIALS.scrap.cost);
+      expect(count(w, 'scrap')).toBe(STOCK.scrap + MATERIALS.scrap.cost);
     });
 
     it('takes a machine apart from its mark and refunds what it cost', () => {
-      const w = scenario(world, TANK);
+      const w = stocked(TANK);
       // Marked from the tank's far corner, not the cell it is kept at.
       w.do(building, 'deconstruct', { cell: at(2, 2), layer: 'machine' }).run();
       work(w, 1, apartTicks(MACHINES.tank.buildTicks));
       expect(w.query(grid).machines()).toEqual([]);
       expect([count(w, 'scrap'), steel(w)]).toEqual([
-        STARTING_INVENTORY.scrap + MACHINES.tank.cost.scrap,
-        STARTING_INVENTORY.steel + MACHINES.tank.cost.steel,
+        STOCK.scrap + MACHINES.tank.cost.scrap,
+        STOCK.steel + MACHINES.tank.cost.steel,
       ]);
     });
 
     it('takes a pipe out of a wall, refunds the pipe and leaves the wall', () => {
-      const w = scenario(world, OPEN)
+      const w = stocked(OPEN)
         .do(building, 'placePlan', {
           cell: at(0, 1),
           placement: { layer: 'conduit', kind: 'pipe' },
         })
         .run();
       work(w, 1, BUILDS.pipe.buildTicks);
-      expect(count(w, 'scrap')).toBe(STARTING_INVENTORY.scrap - BUILDS.pipe.cost.scrap);
+      expect(count(w, 'scrap')).toBe(STOCK.scrap - BUILDS.pipe.cost.scrap);
       w.do(building, 'deconstruct', { cell: at(0, 1), layer: 'conduit' }).run();
       work(w, 2, apartTicks(BUILDS.pipe.buildTicks));
       expect(w.query(grid).conduitAt(at(0, 1))).toEqual({ kind: 'none' });
       expect(w.query(grid).structureAt(at(0, 1)).kind).toBe('wall');
-      expect(count(w, 'scrap')).toBe(STARTING_INVENTORY.scrap);
+      expect(count(w, 'scrap')).toBe(STOCK.scrap);
     });
   });
 
@@ -393,7 +438,7 @@ describe('building by hand', () => {
     );
     fc.assert(
       fc.property(fc.array(step, { maxLength: 40, size: 'max' }), (steps) => {
-        const w = scenario(world, OPEN);
+        const w = stocked(OPEN);
         for (const s of steps) {
           if (s.type === 'placePlan')
             w.do(building, 'placePlan', { cell: s.cell, placement: s.placement });

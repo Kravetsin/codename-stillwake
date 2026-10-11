@@ -5,7 +5,8 @@ import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import type { Feature } from '../feature';
-import { aimAt, usesOf, type Aim } from './aim';
+import { openCrate } from '../../session/ui';
+import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes } from './remote';
@@ -31,7 +32,7 @@ function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
   if (!aim) return;
   const x = (aim.cell % width) * CELL;
   const y = Math.floor(aim.cell / width) * CELL;
-  if (!aim.press && !aim.work) {
+  if (!aim.press && !aim.work && aim.crate === undefined) {
     g.rect(x, y, CELL, CELL).stroke({ width: 1, color: AIM_IDLE, alpha: 0.35 });
     return;
   }
@@ -62,10 +63,10 @@ function place(shown: { figure: Container; body: Graphics }, x: number, y: numbe
 
 /**
  * Other players' heroes, as their peers send them through the host, drawn a little behind so they
- * move smoothly between sends; and this machine's hero: moved by the keyboard against the ship's cells, outside the sim, and
- * followed by the camera. E under the pointer, within reach, toggles a door or valve or loads a tank
- * when pressed,
- * and works a plan while held: one `work` command for every tick the host releases.
+ * move smoothly between sends; and this machine's hero: moved by the keyboard against the ship's
+ * cells, outside the sim, and followed by the camera. E under the pointer, within reach, toggles a
+ * door or valve, loads a tank or opens a crate when pressed, and works a plan while held: one
+ * `work` command for every tick the host releases.
  */
 export const crewFeature: Feature = {
   id: 'crew',
@@ -165,9 +166,16 @@ export const crewFeature: Feature = {
         const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
         workedOnTick = uses.workedOnTick;
         for (const c of uses.commands) game.client.send(c);
+        if (uses.open !== undefined) openCrate.set(uses.open);
+        // A crate stays open while the hero can reach it, awake.
+        const open = openCrate.get();
+        if (open !== undefined && (out || !crateInReach(sim, current, open))) {
+          openCrate.set(undefined);
+        }
       },
       destroy() {
         keys.destroy();
+        openCrate.set(undefined);
       },
     };
   },

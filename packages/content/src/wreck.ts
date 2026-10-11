@@ -3,9 +3,8 @@
  * opens into room B, which holds a vent, through a doorway three cells tall; a hatch in B's floor
  * leads down a ladder to room C, whose right wall has a breach one cell tall. The hero wakes in room
  * B, which the tank airs from the start; an airlock off its right end, a closet between two closed
- * doorways, is the way outside. The canisters are counted into every hero's starting inventory.
- * Rows are read as written, so the space around the wreck — room to build and to swim in — stays
- * part of the grid.
+ * doorways, is the way outside. A crate beside the vent holds the starting store. Rows are read as
+ * written, so the space around the wreck — room to build and to swim in — stays part of the grid.
  */
 export const WRECK: readonly string[] = [
   '                                                                                                ',
@@ -30,7 +29,7 @@ export const WRECK: readonly string[] = [
   '                              #........#................####                                    ',
   '                              #........D................D..D                                    ',
   '                              #TT......D................D..D                                    ',
-  '                              #TT..c...D.....S.V...c....D..D                                    ',
+  '                              #TT......D.....S.V.KK.....D..D                                    ',
   '                              ############D#################                                    ',
   '                                       #..H.............#                                       ',
   '                                       #..H.............#                                       ',
@@ -39,7 +38,7 @@ export const WRECK: readonly string[] = [
   '                                       #..H.............                                        ',
   '                                       #..H.............#                                       ',
   '                                       #..H.............#                                       ',
-  '                                       #..H...c.........#                                       ',
+  '                                       #..H.............#                                       ',
   '                                       ##################                                       ',
   '                                                                                                ',
   '                                                                                                ',
@@ -58,7 +57,10 @@ export const WRECK: readonly string[] = [
   '                                                                                                ',
 ];
 
-/** Under the wreck: a pipe from the tank's port to the vent, and a canister's worth in the tank. */
+/**
+ * Under the wreck: a pipe from the tank's port to the vent, a canister's worth in the tank, and the
+ * starting store in the crate.
+ */
 export const WRECK_UNDER: readonly string[] = [
   '',
   '',
@@ -82,5 +84,5 @@ export const WRECK_UNDER: readonly string[] = [
   '',
   '',
   '                               o',
-  '                               -----------------',
+  '                               -----------------  s',
 ];
