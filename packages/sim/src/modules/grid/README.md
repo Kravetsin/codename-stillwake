@@ -27,7 +27,9 @@ of structure and of other machines. Conduits need only a free conduit slot.
   throws; `clear(cell, layer)` — for machines, removes the whole machine covering the cell. Both only
   in commands or construction: rooms and pipes read before derivation trust that nothing changes the
   grid after it, on every peer alike, a freshly loaded one included.
-- **Commands:** `toggleDoor { cell }`, refused with `grid.noDoor`; `toggleValve { cell }`, refused with
+- **Commands:** `toggleDoor { cell }` — opens or closes the whole doorway: every door cell
+  4-connected to `cell` takes the opposite of `cell`'s state, so a mixed run evens out; refused with
+  `grid.noDoor`; `toggleValve { cell }`, refused with
   `grid.noValve`.
 - **Refusal keys from `placementProblem`:** `grid.outOfBounds`, `grid.occupied`, `grid.machineInTheWay`,
   `grid.blocked`, `grid.noSuchMaterial`, `grid.noSuchMachine`.
@@ -49,3 +51,5 @@ one does not load. A map cannot show a pipe inside a wall: use `place` for that.
 
 - Machines need no floor under them: side-view support rules come with building, if play wants them.
 - No events on change: rooms and pipes (P1-30, P1-31) add what they need to notice changes.
+- Doorways have no shape: any run of door cells is one, so a door and a hatch that touch open
+  together, and a doorway half built is a gap in the wall that vents like one.

@@ -31,6 +31,26 @@ const STRUCTURE_CODE = {
   door: STRUCTURE.doorClosed,
 } as const;
 
+const isDoor = (s: { readonly structure: readonly number[] }, cell: number) =>
+  s.structure[cell] === STRUCTURE.doorClosed || s.structure[cell] === STRUCTURE.doorOpen;
+
+/** The door cells 4-connected to door `cell`, itself included: one doorway, opened as one. */
+function doorway(s: GridState, cell: number): number[] {
+  const found = new Set([cell]);
+  const todo = [cell];
+  for (let at = todo.pop(); at !== undefined; at = todo.pop()) {
+    const x = at % s.width;
+    // Off the grid `structure` has no entry, so no door: only the row ends need a guard.
+    const next = [at - s.width, at + s.width, x > 0 ? at - 1 : -1, x < s.width - 1 ? at + 1 : -1];
+    for (const n of next) {
+      if (found.has(n) || !isDoor(s, n)) continue;
+      found.add(n);
+      todo.push(n);
+    }
+  }
+  return [...found];
+}
+
 const gridModule = defineModule()({
   id: 'grid',
   dependsOn: [],
@@ -161,14 +181,14 @@ const gridModule = defineModule()({
   commands: {
     toggleDoor: {
       validate(ctx, p: { cell: number }) {
-        const s = ctx.state.structure[p.cell];
-        if (s !== STRUCTURE.doorClosed && s !== STRUCTURE.doorOpen) return refuse('grid.noDoor');
+        if (!isDoor(ctx.state, p.cell)) return refuse('grid.noDoor');
       },
       apply(ctx, p: { cell: number }) {
-        ctx.state.structure[p.cell] =
+        const to =
           ctx.state.structure[p.cell] === STRUCTURE.doorOpen
             ? STRUCTURE.doorClosed
             : STRUCTURE.doorOpen;
+        for (const cell of doorway(ctx.state, p.cell)) ctx.state.structure[cell] = to;
       },
     },
     toggleValve: {

@@ -261,6 +261,9 @@ player can understand.
 state, so a doorway three cells tall opens as one.
 Done when: a doorway toggles as one from any of its cells, a mixed run evens out, and two doorways
 apart do not affect each other.
+Built in `toggleDoor` alone: rooms, building, aim and the legend are unchanged, and a doorway is
+drawn as door cells in a row or column. A fast-check property checks that a toggle leaves the run in
+one state and every other cell as it was.
 
 **P1-35b · Scale in the sim** · M · content and sim · after 35a
 The numbers of 0005: oxygen × 9, leaks × 3, build ticks ÷ 3, `ticksPerCell` 1, starting stock × 3.

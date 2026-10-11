@@ -108,6 +108,72 @@ describe('doors and valves', () => {
     expect(w.query(grid).structureAt(door)).toEqual({ kind: 'door', open: false });
   });
 
+  it('a doorway opens and closes as one, from any of its cells', () => {
+    const w = scenario(world, `#D#\n#D#\n#D#`);
+    const state = () => [1, 4, 7].map((c) => w.query(grid).structureAt(c));
+    w.do(grid, 'toggleDoor', { cell: 7 }).run();
+    expect(state()).toEqual(Array(3).fill({ kind: 'door', open: true }));
+    w.do(grid, 'toggleDoor', { cell: 1 }).run();
+    expect(state()).toEqual(Array(3).fill({ kind: 'door', open: false }));
+  });
+
+  it('a mixed doorway takes the opposite of the cell toggled', () => {
+    const w = scenario(world, `#d#\n#D#\n#d#`);
+    w.do(grid, 'toggleDoor', { cell: 4 }).run();
+    expect([1, 4, 7].map((c) => w.query(grid).structureAt(c))).toEqual(
+      Array(3).fill({ kind: 'door', open: true }),
+    );
+  });
+
+  it('doorways apart, or only at a corner, or across a row end, toggle on their own', () => {
+    // Row ends: the D ending row 0 and the one starting row 1 are neighbours by index only.
+    const w = scenario(world, `#D#D\nD#D#`);
+    w.do(grid, 'toggleDoor', { cell: 1 }).run();
+    const open = [1, 3, 4, 6].map((c) => w.query(grid).structureAt(c));
+    expect(open).toEqual([
+      { kind: 'door', open: true },
+      { kind: 'door', open: false },
+      { kind: 'door', open: false },
+      { kind: 'door', open: false },
+    ]);
+  });
+
+  it('after a toggle a doorway is in one state, and no other cell changed', () => {
+    const cellArb = fc.constantFrom('#', '.', 'D', 'd');
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 8 }),
+        fc.array(cellArb, { minLength: 1, maxLength: 64, size: 'max' }),
+        fc.nat(),
+        (width, cells, pick) => {
+          const rows = [];
+          for (let i = 0; i < cells.length; i += width) rows.push(cells.slice(i, i + width));
+          const last = rows[rows.length - 1] as string[];
+          while (last.length < width) last.push('#');
+          const flat = rows.flat();
+          const doors = flat.flatMap((c, i) => (c === 'D' || c === 'd' ? [i] : []));
+          if (doors.length === 0) return;
+          const at = doors[pick % doors.length] as number;
+          const w = scenario(world, rows.map((r) => r.join('')).join('\n'));
+          const before = flat.map((_, c) => w.query(grid).structureAt(c));
+          w.do(grid, 'toggleDoor', { cell: at }).run();
+          const after = flat.map((_, c) => w.query(grid).structureAt(c));
+          // The doorway, walked here by rows and columns without the module's code.
+          const run = new Set([at]);
+          for (const c of run) {
+            const x = c % width;
+            for (const n of [c - width, c + width, x > 0 ? c - 1 : -1, x < width - 1 ? c + 1 : -1])
+              if (n >= 0 && n < flat.length && doors.includes(n)) run.add(n);
+          }
+          const was = before[at] as { open: boolean };
+          for (const [c, view] of after.entries()) {
+            expect(view).toEqual(run.has(c) ? { kind: 'door', open: !was.open } : before[c]);
+          }
+        },
+      ),
+    );
+  });
+
   it('a valve closes and opens again', () => {
     const w = scenario(world, `-v-`);
     const valve = w.cell('v');
