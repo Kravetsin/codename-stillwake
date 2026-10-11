@@ -417,6 +417,13 @@ before the eyes. The light map (a pixel per cell, multiplied over the scene) wai
 `584124e` for lamps and power.
 
 **P1-51 · Electron shell** — the game inside Electron, saving files through the platform interface.
+Built as `apps/desktop`: a main process in TS (`tsc`) opening one window on the built game from
+disk (`--dev`: the Vite dev server), and a sandboxed preload in CommonJS handing the page
+`stillwakeDesktop.saves` over IPC. Saves are `<slot>.json` in `%APPDATA%/Stillwake/saves`, written
+aside and renamed over, slot names plain. The game picks the desktop platform when the bridge is
+there; Vite builds with relative paths so the game opens from a file. CI installs Electron's types
+but not its binary. Checked live over the DevTools protocol: the built game runs in the shell, and a
+save from the game lands on disk and reads back. Left out: packaging an installer, steamworks.js.
 
 ## The prototype is done when
 

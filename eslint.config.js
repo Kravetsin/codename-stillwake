@@ -87,9 +87,15 @@ export default tseslint.config(
     },
   },
   {
-    files: ['**/*.{js,mjs}'],
+    files: ['**/*.{js,mjs,cjs}'],
     extends: [tseslint.configs.disableTypeChecked],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // CommonJS where a host demands it: the desktop shell's sandboxed preload.
+    files: ['**/*.cjs'],
+    languageOptions: { globals: globals.commonjs },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   {
     files: ['apps/game/src/**'],

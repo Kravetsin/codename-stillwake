@@ -2,5 +2,7 @@ packages:
   - apps/*
   - packages/*
   - tools/*
+allowBuilds:
+  electron: true
 minimumReleaseAgeExclude:
   - '@types/node@24.19.2'

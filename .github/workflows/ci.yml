@@ -30,6 +30,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        # CI builds the desktop shell but never runs it: its types are enough, not its binary.
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

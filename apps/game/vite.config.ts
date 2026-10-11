@@ -31,6 +31,8 @@ function build(): string {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), relay()],
+  // Relative paths, so the built game opens from disk in the desktop shell.
+  base: './',
   define: { __BUILD__: JSON.stringify(build()) },
   // The game ships inside Electron and loads from disk, so one large bundle (mostly Pixi) costs
   // nothing worth splitting for.

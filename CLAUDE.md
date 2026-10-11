@@ -39,7 +39,7 @@ the principle wins and the rule gets revisited.
 
 ### Packages
 
-`packages/content` → `packages/sim` → `packages/net` → `apps/game` (→ `apps/desktop` later). Imports
+`packages/content` → `packages/sim` → `packages/net` → `apps/game`, which `apps/desktop` loads. Imports
 point one way only; lint enforces it.
 
 | Package          | Holds                                                                                 |
@@ -48,6 +48,7 @@ point one way only; lint enforces it.
 | `sim`            | the deterministic simulation, core and modules; no DOM, no Node APIs, no rendering    |
 | `net`            | transports, host and client: stamping and applying commands, snapshots, hash checks   |
 | `apps/game`      | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
+| `apps/desktop`   | the Electron shell: a window with the built game, saves as files; no game code        |
 | `tools/lint`     | our ESLint rule and the tests proving every guardrail fires                           |
 | `tools/scaffold` | `pnpm new:module`: writes a module, its tests and README, and registers it            |
 
@@ -193,7 +194,7 @@ what must hold across entries: capacities above zero, unique ids.
 ## Scripts
 
 `pnpm dev` (the game in a browser, dev panel on `` ` ``; `?host` in one tab and `?join=<id>` in another for
-co-op over the dev relay), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
+co-op over the dev relay), `pnpm desktop` (the built game in the Electron shell), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
 `pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm new:module <name> [--client]`. One package:
 `pnpm --filter @stillwake/sim test`. Run `pnpm format` before `pnpm format:check`. CI runs format
 check, lint, types, tests and build.

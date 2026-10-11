@@ -1,6 +1,6 @@
 /**
- * Everything the game needs from where it runs. The browser is the development build; Electron
- * (P1-51) is the second implementation, so game code never reaches either directly.
+ * Everything the game needs from where it runs: the browser in development, the desktop shell
+ * (`apps/desktop`) for players. Game code never reaches either directly.
  */
 export interface Platform {
   readonly saves: SaveStore;

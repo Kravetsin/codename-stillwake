@@ -8,6 +8,7 @@ import type { Layer } from './features/feature';
 import { OverlayBar } from './overlays/OverlayBar';
 import { createOverlaySwitch, type OverlaySwitch } from './overlays/switch';
 import { browserPlatform } from './platform/browser';
+import { currentPlatform } from './platform/desktop';
 import { createCamera, START_ZOOM } from './render/camera';
 import { BUILD } from './session/build';
 import { createGame, ownSession, type Game, type Session } from './session/game';
@@ -73,7 +74,7 @@ export function App() {
       if (disposed) return app.destroy(true);
       ready = true;
       // The game reaches the sim only through its host and client, as every co-op peer does.
-      const created = createGame(stillwake, browserPlatform(), session);
+      const created = createGame(stillwake, currentPlatform(browserPlatform), session);
       // Lets an agent or a console drive the running game in development.
       if (import.meta.env.DEV) Object.assign(window, { __game: created });
       host.current?.appendChild(app.canvas);
