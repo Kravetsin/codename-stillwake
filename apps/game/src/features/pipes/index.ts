@@ -2,9 +2,9 @@ import { CONDUIT, grid, pipes } from '@stillwake/sim';
 import { Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature, Layer } from '../feature';
+import { NetworkOxygen } from './NetworkOxygen';
+import { colourOf } from './oxygen';
 
-/** Networks take these in turn, so neighbours rarely share one. */
-const PALETTE = [0x4fc3f7, 0xffb74d, 0xba68c8, 0x81c784, 0xf06292, 0xfff176, 0x4db6ac, 0xa1887f];
 const VALVE_OPEN = 0x4caf6a;
 const VALVE_CLOSED = 0xd05050;
 const REFRESH_MS = 250;
@@ -39,7 +39,7 @@ function pipesOverlay(): Layer {
             const [x, y] = at(cell) as [number, number];
             view.rect(x + 3, y + 3, CELL - 6, CELL - 6);
           }
-          view.fill(PALETTE[i % PALETTE.length] ?? 0xffffff);
+          view.fill(colourOf(i));
         });
       for (const [state, colour] of [
         [CONDUIT.valveOpen, VALVE_OPEN],
@@ -56,8 +56,9 @@ function pipesOverlay(): Layer {
   };
 }
 
-/** Pipes have nothing to show beyond the grid's drawing but their overlay. */
+/** The oxygen on each network, and an overlay of them all; the grid draws the pipes themselves. */
 export const pipesFeature: Feature = {
   id: 'pipes',
+  Panel: NetworkOxygen,
   overlay: { name: 'overlay.pipes', key: 'KeyP', layer: pipesOverlay },
 };

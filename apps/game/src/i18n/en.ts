@@ -48,6 +48,12 @@ export const EN: Readonly<Record<string, string>> = {
   'atmosphere.noVent': 'No vent in this room',
   'atmosphere.notPiped': 'Its vent has no pipe to a tank',
   'atmosphere.dry': 'Its pipes hold no oxygen: load a canister into a tank on them',
+  'alert.air.venting': 'Rooms venting into space through their vents: {n}',
+  'alert.air.runningOut': 'Rooms whose pipes cannot pay the next leak: {n}',
+  'alert.air.dry': 'Rooms whose vents have no oxygen in their pipes: {n}',
+  'alert.crew.suitLow': 'Suit low: find a room with air',
+  'pipes.oxygen': 'Oxygen in pipes',
+  'pipes.tanks': 'tanks: {n}',
   'time.seconds': '{n} s',
   'time.minutes': '{n} min',
 };

@@ -31,6 +31,18 @@ export interface Feature {
   readonly Panel?: ComponentType<{ readonly game: Game }>;
   /** A view of the ship this feature explains, drawn over everything while switched on. */
   readonly overlay?: Overlay;
+  /**
+   * The dangers this feature sees now, read a few times a second: an alert lasts while its condition
+   * holds, so it clears once fixed, and a load or a late join shows the same.
+   */
+  readonly alerts?: (game: Game) => readonly Alert[];
+}
+
+/** A danger the player should act on. */
+export interface Alert {
+  /** Stable while the danger lasts, so the alert bar keeps it in place. */
+  readonly id: string;
+  readonly text: string;
 }
 
 /** One overlay: at most one is on at a time, switched by its key. */

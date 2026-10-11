@@ -3,10 +3,9 @@ import { crew } from '@stillwake/sim';
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n/en';
 import type { Game } from '../../session/game';
+import { LOW } from './alerts';
 
 const REFRESH_MS = 250;
-/** Below this share of a full suit the gauge turns red. */
-const LOW = 0.25;
 
 function read(game: Game) {
   const { sim } = game.client;

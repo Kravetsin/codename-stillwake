@@ -4,6 +4,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
 import { airOverlay } from './air-overlay';
+import { airAlerts } from './alerts';
 
 const TRACK = 0x16212d;
 const OXYGEN = 0x6fd3ff;
@@ -16,6 +17,7 @@ const BAR = 4;
 export const atmosphereFeature: Feature = {
   id: 'atmosphere',
   overlay: { name: 'overlay.air', key: 'KeyO', layer: airOverlay },
+  alerts: (game) => airAlerts(game.client.sim.query(atmosphere).roomsAir()),
   layer() {
     const view = new Container();
     const gauges = new Graphics();

@@ -314,6 +314,14 @@ it lasts", and so are other rooms on a shared network.
 HUD: oxygen per network, suit oxygen, alerts built from module events ("Room venting", "Network
 empty") that clear once fixed.
 Done when: every danger from 33–35 raises an alert and clears it.
+Built from state, not events: a feature's `alerts(game)` says which dangers hold now, read twice a
+second into an alert bar, so an alert clears once fixed and a load or late join shows the same, with
+no event plumbing. `atmosphere` raises rooms venting through a piped vent (a breach or a meteor),
+rooms whose pipes cannot pay the next leak, and vents on dry pipes; `crew` a low suit out of room
+air, and passing out. A room open to space with no vent costs nothing and stays quiet. The `pipes`
+panel shows the oxygen on each network in its overlay colour; the suit gauge was there already.
+Checked in the browser: a meteor raises venting, a wall over the hole clears it, the drained pipes
+then raise dry pipes until a canister goes in, and the suit alerts come and go with passing out.
 
 ## M3 — A second player
 

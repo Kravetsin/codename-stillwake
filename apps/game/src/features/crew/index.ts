@@ -1,11 +1,12 @@
 import { HERO } from '@stillwake/content';
-import { crew, grid } from '@stillwake/sim';
+import { atmosphere, crew, grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import type { Feature } from '../feature';
 import { aimAt, usesOf, type Aim } from './aim';
+import { suitAlerts } from './alerts';
 import { heroAt, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
 import { reportOf } from './report';
@@ -46,6 +47,11 @@ function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
 export const crewFeature: Feature = {
   id: 'crew',
   Panel: SuitGauge,
+  alerts(game) {
+    const { sim } = game.client;
+    const hero = sim.query(crew).hero(game.client.id);
+    return suitAlerts(hero, hero !== undefined && sim.query(atmosphere).airedAt(hero.cell));
+  },
   layer() {
     const w = (HERO.width / UNIT) * CELL;
     const h = (HERO.height / UNIT) * CELL;
