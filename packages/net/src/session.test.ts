@@ -92,7 +92,9 @@ describe('several players', () => {
     const ids = peers.map(([toClient]) => host.connect(toClient));
     expect(ids).toEqual([0, 1]);
     const released: number[] = [];
-    peers[0]?.[1].onMessage((message) => released.push(...message.commands.map((c) => c.from)));
+    peers[0]?.[1].onMessage((message) => {
+      if (message.kind === 'tick') released.push(...message.commands.map((c) => c.from));
+    });
     peers[1]?.[1].send({ kind: 'command', command: { ...write('x'), from: 7 } });
     peers[0]?.[1].send({ kind: 'command', command: { ...write('y'), from: 7 } });
     host.advance();

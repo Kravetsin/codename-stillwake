@@ -9,14 +9,10 @@ export type HotSocket = Pick<ViteHotContext, 'send' | 'on' | 'off'>;
 export type LinkStatus =
   | { readonly role: 'alone' }
   | { readonly role: 'host'; readonly session: string | undefined; readonly peers: number }
-  | {
-      readonly role: 'peer';
-      readonly session: string;
-      readonly state: 'connecting' | 'connected' | 'refused' | 'host left';
-      /** Ticks the host has released to this tab, and the last of them. */
-      readonly ticks: number;
-      readonly tick: number | undefined;
-    };
+  | { readonly role: 'peer'; readonly session: string; readonly state: PeerState };
+
+/** Where a joining tab stands with its session on the relay. */
+export type PeerState = 'connecting' | 'connected' | 'refused' | 'host left' | 'other build';
 
 /** One per page, as there is one game: read by the dev panel, reported to by the link. */
 export const link = createStatus();
@@ -47,7 +43,7 @@ function listen(socket: HotSocket, listeners: Record<string, (data: never) => vo
  */
 export function hostOnRelay(
   socket: HotSocket,
-  host: () => Host,
+  host: () => Host | undefined,
   report: (status: LinkStatus) => void,
 ): () => void {
   const receivers = new Map<number, (message: ToHost) => void>();
@@ -64,7 +60,7 @@ export function hostOnRelay(
         send: (message) => socket.send(RELAY.toPeer, { peer, message }),
         onMessage: (receive) => receivers.set(peer, receive),
       };
-      host().connect(channel);
+      host()?.admit(channel);
       show();
     },
     [RELAY.fromPeer]: ({ peer, message }: { peer: number; message: ToHost }) => {
@@ -85,42 +81,52 @@ export function hostOnRelay(
 }
 
 /**
- * Joins session `session` on the relay and counts the ticks its host releases. Loading the host's
- * world and running those ticks is joining proper (P1-41); this only proves the link.
+ * Joins session `session` on the relay: the channel to its host, to join the host's world over
+ * (`joinHost`), and `ended`, which rejects if the session is not there or its host goes.
  */
 export function joinOnRelay(
   socket: HotSocket,
   session: string,
   report: (status: LinkStatus) => void,
-): () => void {
-  let state: 'connecting' | 'connected' | 'refused' | 'host left' = 'connecting';
-  let ticks = 0;
-  let tick: number | undefined;
-  const show = () => report({ role: 'peer', session, state, ticks, tick });
-  show();
+): { channel: Channel<ToClient, ToHost>; ended: Promise<never>; stop: () => void } {
+  let receive: ((message: ToClient) => void) | undefined;
+  // As a channel promises: what the host sends before anyone listens is kept, then handed over.
+  const waiting: ToClient[] = [];
+  let end: (why: Error) => void = () => {};
+  const ended = new Promise<never>((_, reject) => (end = reject));
+  // Nobody may be waiting on it once joined: a host leaving later only shows on the panel.
+  ended.catch(() => {});
+  const show = (state: PeerState) => report({ role: 'peer', session, state });
+  show('connecting');
   const stop = listen(socket, {
-    [RELAY.connected]: () => {
-      state = 'connected';
-      show();
-    },
+    [RELAY.connected]: () => show('connected'),
     [RELAY.refused]: () => {
-      state = 'refused';
-      show();
+      show('refused');
+      end(new Error(`No session ${session} on the relay.`));
     },
     [RELAY.hostLeft]: () => {
-      state = 'host left';
-      show();
+      show('host left');
+      end(new Error(`The host of session ${session} left.`));
     },
     [RELAY.fromHost]: ({ message }: { message: ToClient }) => {
-      ticks += 1;
-      tick = message.tick;
-      show();
+      if (receive) receive(message);
+      else waiting.push(message);
     },
   });
   socket.send(RELAY.join, { session });
-  return () => {
-    stop();
-    socket.send(RELAY.leave);
-    report({ role: 'alone' });
+  return {
+    channel: {
+      send: (message) => socket.send(RELAY.toHost, { message }),
+      onMessage: (handler) => {
+        receive = handler;
+        for (const message of waiting.splice(0)) handler(message);
+      },
+    },
+    ended,
+    stop: () => {
+      stop();
+      socket.send(RELAY.leave);
+      report({ role: 'alone' });
+    },
   };
 }

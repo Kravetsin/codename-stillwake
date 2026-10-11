@@ -57,8 +57,7 @@ function describeLink(status: LinkStatus): string | undefined {
       ? 'hosting…'
       : `hosting ?join=${status.session} · peers ${status.peers}`;
   }
-  const tick = status.tick === undefined ? '' : ` · host tick ${status.tick}`;
-  return `joined ${status.session} · ${status.state} · ${status.ticks} ticks${tick}`;
+  return `joined ${status.session} · ${status.state}`;
 }
 
 /** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */

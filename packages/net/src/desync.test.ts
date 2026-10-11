@@ -22,6 +22,18 @@ describe('desync fuzz: the game', () => {
     expect(run.ticks).toBe(600);
   });
 
+  it('keeps a client that joins mid-run in sync with the others', () => {
+    let count = 0;
+    const run = fuzzDesync(stillwake, {
+      seed: 4,
+      layout: wreck,
+      joinAt: 300,
+      tamper: (_tick, clients) => (count = clients.length),
+    });
+    expect(run.desync).toBeUndefined();
+    expect(count).toBe(4);
+  });
+
   it('keeps every client in sync while air fills, leaks and vents, and heroes breathe it', () => {
     // A room with a vent above a tank and the spawn beside them. The first client pipes them and
     // loads the tank through the pipeline, then the fuzz plays on past two leak beats, breaching

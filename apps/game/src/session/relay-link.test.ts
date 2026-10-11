@@ -1,5 +1,5 @@
-import { createHost, loopback, type ToClient, type ToHost } from '@stillwake/net';
-import { command, stock } from '@stillwake/sim';
+import { joinHost, localSession } from '@stillwake/net';
+import { command, stillwake, stock, wreck } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { createRelay, serve, type RelayClient } from '../dev/relay';
 import { hostOnRelay, joinOnRelay, type HotSocket, type LinkStatus } from './relay-link';
@@ -41,59 +41,67 @@ function status() {
 }
 
 describe('two tabs through the relay', () => {
-  it('host and join a session: the host releases ticks, the joined tab receives them', () => {
+  it('join mid-session: the joined tab loads the host world, catches up and stays in step', async () => {
     const server = devServer();
-    const host = createHost(0);
-    // The host tab's own game, a local peer of its host: it sees what every peer sees.
-    const [toLocal, local] = loopback<ToClient, ToHost>();
-    host.connect(toLocal);
-    const released: ToClient[] = [];
-    local.onMessage((m) => released.push(m));
-
+    const own = localSession(stillwake.create(3, wreck), 'b1');
     const hosting = status();
-    hostOnRelay(server.tab(), () => host, hosting.report);
+    hostOnRelay(server.tab(), () => own.host, hosting.report);
     expect(hosting.get()).toEqual({ role: 'host', session: '1', peers: 0 });
+    // The host plays on alone for a while, with a command still pending when the other tab joins.
+    own.client.send(command(stock, 'setCreative', { on: true }));
+    for (let i = 0; i < 30; i++) own.host.advance();
+    own.client.send(command(stock, 'setCreative', { on: false }));
 
     const joining = status();
-    const joiner = server.tab();
-    const stopJoin = joinOnRelay(joiner, '1', joining.report);
-    expect(joining.get()).toMatchObject({
-      role: 'peer',
-      session: '1',
-      state: 'connected',
-      ticks: 0,
-    });
+    const joined = joinOnRelay(server.tab(), '1', joining.report);
+    const client = await joinHost(stillwake, joined.channel, 'b1');
+    expect(joining.get()).toEqual({ role: 'peer', session: '1', state: 'connected' });
     expect(hosting.get()).toMatchObject({ peers: 1 });
-    host.advance();
-    host.advance();
-    expect(joining.get()).toMatchObject({ ticks: 2, tick: 1 });
+    expect(client.id).toBe(1);
 
-    // A command from the joined tab reaches the host, which stamps it with that peer's id.
-    const creative = command(stock, 'setCreative', { on: true });
-    joiner.send('stillwake:to-host', { message: { kind: 'command', command: creative } });
-    host.advance();
-    expect(released.at(-1)?.commands).toEqual([{ ...creative, from: 1 }]);
-    expect(joining.get()).toMatchObject({ ticks: 3, tick: 2 });
+    // Both play on, each sending commands; every tick both have run, their worlds agree.
+    for (let i = 0; i < 40; i++) {
+      if (i % 7 === 0) client.send(command(stock, 'setCreative', { on: i % 2 === 0 }));
+      own.host.advance();
+      own.client.update();
+      client.update();
+      expect(client.sim.world.tick).toBe(own.client.sim.world.tick);
+      expect(client.sim.hash()).toBe(own.client.sim.hash());
+    }
+    expect(client.sim.world.tick).toBe(70);
 
-    stopJoin();
+    joined.stop();
     expect(joining.get()).toEqual({ role: 'alone' });
     expect(hosting.get()).toMatchObject({ peers: 0 });
   });
 
-  it('tell a joining tab when its session never was, or its host left', () => {
+  it('refuse a tab running another build', async () => {
+    const server = devServer();
+    const own = localSession(stillwake.create(3, wreck), 'b1');
+    hostOnRelay(
+      server.tab(),
+      () => own.host,
+      () => {},
+    );
+    const joined = joinOnRelay(server.tab(), '1', () => {});
+    await expect(joinHost(stillwake, joined.channel, 'b2')).rejects.toThrow('build b1');
+  });
+
+  it('tell a joining tab when its session never was, or its host left', async () => {
     const server = devServer();
     const hostTab = server.tab();
     hostOnRelay(
       hostTab,
-      () => createHost(0),
+      () => undefined,
       () => {},
     );
     const lost = status();
-    joinOnRelay(server.tab(), '9', lost.report);
+    await expect(joinOnRelay(server.tab(), '9', lost.report).ended).rejects.toThrow('No session 9');
     expect(lost.get()).toMatchObject({ state: 'refused' });
     const left = status();
-    joinOnRelay(server.tab(), '1', left.report);
+    const waiting = joinOnRelay(server.tab(), '1', left.report);
     hostTab.close();
+    await expect(waiting.ended).rejects.toThrow('left');
     expect(left.get()).toMatchObject({ state: 'host left' });
   });
 });

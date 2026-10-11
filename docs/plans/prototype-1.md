@@ -360,6 +360,16 @@ left (the relay drops it), since `Host` has no disconnect yet.
 The joiner gets a snapshot, the current tick and the pending commands, loads and catches up. The build
 id is checked on join.
 Done when: a tab joins mid-session and its hashes match the host's.
+Built as `Host.admit`: the host sends a `welcome` (the peer's id, its build, the world saved on the
+tick it releases next), then every tick like any peer's. Pending commands need nothing of their own:
+they ride in the next tick, which the new peer gets too. The world comes from the host player's
+client, run up to the host's tick first (`localSession(sim, build)`). `joinHost` checks the build,
+loads the world and hands back a client that catches up. The build is the short commit hash (`+`
+for a changed tree), set by Vite. A joined game has no host of its own: its ticks come from the
+host's, and its speed is the host's. The fuzz suite gains `joinAt`, a client joining mid-run, run
+on the wreck. Checked in two tabs: the joined tab has the host's creative mode and meteor hole, the
+hashes match on a shared tick, and a door it opens opens for the host. Left out: a joined tab that
+loads a save leaves the session for a world of its own; a failed join falls back to one.
 
 **P1-42 · Hero replication** · S · net and client · after 23, 41
 Each client sends its hero (position, velocity, facing, ladder flag) 20 times a second through the

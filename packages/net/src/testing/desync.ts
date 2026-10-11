@@ -2,6 +2,7 @@ import { createRng, type AnyModule, type Layout, type SimDefinition } from '@sti
 import { loopback } from '../channel';
 import { createClient, type Client } from '../client';
 import { createHost } from '../host';
+import { join } from '../join';
 import type { ToClient, ToHost } from '../protocol';
 
 export interface DesyncOptions {
@@ -11,6 +12,11 @@ export interface DesyncOptions {
   readonly checkEvery?: number;
   /** The map every client's world starts from; empty when there is none. */
   readonly layout?: Layout;
+  /**
+   * The tick at which one more client joins mid-run, from a snapshot of the first client's world, as
+   * a tab joins a session; none by default.
+   */
+  readonly joinAt?: number;
   /** Runs after every tick; tests use it to break a client on purpose. */
   readonly tamper?: (tick: number, clients: readonly Client[]) => void;
 }
@@ -29,7 +35,15 @@ export interface DesyncRun {
  * their state hashes compared at every check.
  */
 export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): DesyncRun {
-  const { seed, ticks = 600, clients: count = 3, checkEvery = 20, tamper, layout } = options;
+  const {
+    seed,
+    ticks = 600,
+    clients: count = 3,
+    checkEvery = 20,
+    tamper,
+    layout,
+    joinAt,
+  } = options;
 
   const unfuzzed = definition.modules.filter(hasCommands).filter((m) => !m.fuzz);
   if (unfuzzed.length > 0) {
@@ -37,7 +51,14 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
     throw new Error(`Modules with commands but no fuzz generator: ${ids}. Add one with withFuzz.`);
   }
 
-  const host = createHost(0);
+  const host = createHost(0, {
+    build: 'fuzz',
+    save() {
+      const first = clients[0] as Client;
+      update(first);
+      return first.sim.save();
+    },
+  });
   const clients = Array.from({ length: count }, () => {
     const [toClient, toHost] = loopback<ToClient, ToHost>();
     const id = host.connect(toClient);
@@ -62,8 +83,21 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   };
 
   for (let tick = 0; tick < ticks; tick++) {
+    if (tick === joinAt) {
+      const [toClient, toHost] = loopback<ToClient, ToHost>();
+      host.admit(toClient);
+      join(
+        definition,
+        toHost,
+        'fuzz',
+        (client) => clients.push(client),
+        (why) => {
+          throw why;
+        },
+      );
+    }
     for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
-      const sender = clients[rng.below(count)] as Client;
+      const sender = clients[rng.below(clients.length)] as Client;
       const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
       const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng);
       if (!pick) continue;

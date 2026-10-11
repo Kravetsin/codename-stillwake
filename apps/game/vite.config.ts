@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin, type WebSocketClient } from 'vite';
@@ -17,8 +18,20 @@ function relay(): Plugin {
   };
 }
 
+/** The commit this build is made from, with `+` when the tree has changes: peers must match it. */
+function build(): string {
+  try {
+    const commit = execSync('git rev-parse --short HEAD').toString().trim();
+    const dirty = execSync('git status --porcelain').toString().trim() !== '';
+    return dirty ? `${commit}+` : commit;
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), relay()],
+  define: { __BUILD__: JSON.stringify(build()) },
   // The game ships inside Electron and loads from disk, so one large bundle (mostly Pixi) costs
   // nothing worth splitting for.
   build: { chunkSizeWarningLimit: 2000 },

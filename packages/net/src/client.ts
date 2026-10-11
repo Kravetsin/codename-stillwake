@@ -16,6 +16,8 @@ export interface Client {
 export function createClient(sim: Sim, channel: Channel<ToClient, ToHost>, id: number): Client {
   const released: TickMessage[] = [];
   channel.onMessage((message) => {
+    // A peer that holds its world is connected, never welcomed: a welcome here is our bug.
+    if (message.kind === 'welcome') throw new Error('A client holding its world was welcomed.');
     released.push(message);
   });
 
