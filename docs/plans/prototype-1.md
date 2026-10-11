@@ -252,6 +252,34 @@ through it, with no refund. The random meteor falls on a wall of the rooms' oute
 button and the countdown. A deconstruction mark on a broken wall is dropped by `building`. The save
 gains a hazards slice: `SAVE_FORMAT` is 5.
 
+The first playtest found the cells too big for the hero and the start too hard to read. Four tasks
+come before the overlays: the scale of [0005](../decisions/0005-terraria-scale.md), then a start a new
+player can understand.
+
+**P1-35a · Doorways** · S · sim `grid` · after 20
+`toggleDoor` on a door cell sets every door cell 4-connected to it to the opposite of that cell's
+state, so a doorway three cells tall opens as one.
+Done when: a doorway toggles as one from any of its cells, a mixed run evens out, and two doorways
+apart do not affect each other.
+
+**P1-35b · Scale in the sim** · M · content and sim · after 35a
+The numbers of 0005: oxygen × 9, leaks × 3, build ticks ÷ 3, `ticksPerCell` 1, starting stock × 3.
+The wreck redrawn on a 96 × 48 grid with three-tall doorways and a one-wide hatch over a ladder.
+`SAVE_FORMAT` 6; perf measured on the reference world with every room filling.
+Done when: the generic suites run on the new wreck and the reference world stays under 2 ms a tick.
+
+**P1-35c · Scale in the client** · M · client `crew` and render · after 35b
+`HERO` at 0.95 × 2.625 cells with movement × 3; a cell drawn at 16 px; the camera starts at zoom 2.
+Hero tests redrawn for the new size: through a three-tall door not a two-tall one, up a one-wide
+shaft, over a three-cell ledge not a four-cell one.
+Done when: the hero crosses the new wreck, and walls read thin against them.
+
+**P1-35d · A readable start** · S · content, sim and client · after 35c
+The hero wakes in a room the tank already airs: a pipe drawn on the map from the tank to the vent and
+a tank that starts with oxygen. Machines show their ports, pipes are drawn over machines, a tank shows
+its oxygen, and canisters on the map are dropped (they start in the stock, as the counter shows).
+Done when: a new player finds air at the start and can tell what keeps it there.
+
 **P1-36 · Overlays** · M · client · after 33
 Air: rooms tinted by state; hovering shows volume, leak per minute, the network's oxygen and how long
 it lasts. Pipes: every network in its own colour, valve states. Hotkeys switch views. Adds overlays to
