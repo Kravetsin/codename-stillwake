@@ -10,8 +10,9 @@ export interface Host {
   /** The next tick `advance` releases. */
   readonly tick: number;
   /**
-   * Adds a peer, which receives every tick released from now on, and returns its id: every command
-   * it sends is stamped with it. Ids count up and are never handed out twice.
+   * Adds a peer, which receives every tick released from now on and every other peer's hero, and
+   * returns its id: every command and hero it sends is stamped with it. Ids count up and are never
+   * handed out twice.
    */
   connect(channel: Channel<ToHost, ToClient>): number;
   /**
@@ -37,14 +38,19 @@ export interface WorldSource {
 export function createHost(firstTick: number, world?: WorldSource): Host {
   let tick = firstTick;
   let pending: Command[] = [];
-  const peers: Channel<ToHost, ToClient>[] = [];
+  const peers: { id: number; channel: Channel<ToHost, ToClient> }[] = [];
   let nextPeer = 0;
 
   const connect = (channel: Channel<ToHost, ToClient>) => {
     const id = nextPeer;
     nextPeer += 1;
-    peers.push(channel);
+    peers.push({ id, channel });
     channel.onMessage((message) => {
+      if (message.kind === 'hero') {
+        const passed: ToClient = { kind: 'hero', from: id, state: message.state };
+        for (const peer of peers) if (peer.id !== id) peer.channel.send(passed);
+        return;
+      }
       // A new object, so the sender is the host's word, whatever the client wrote.
       pending.push({ ...message.command, from: id });
     });
@@ -72,7 +78,7 @@ export function createHost(firstTick: number, world?: WorldSource): Host {
       const message: ToClient = { kind: 'tick', tick, commands: pending };
       pending = [];
       tick += 1;
-      for (const peer of peers) peer.send(message);
+      for (const peer of peers) peer.channel.send(message);
     },
   };
 }

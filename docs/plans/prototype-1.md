@@ -375,6 +375,13 @@ loads a save leaves the session for a world of its own; a failed join falls back
 Each client sends its hero (position, velocity, facing, ladder flag) 20 times a second through the
 host; the others interpolate behind a buffer of about 100 ms.
 Done when: both heroes move smoothly in both tabs.
+Built as a `hero` message beside commands: the host passes it to every other peer stamped with the
+sender and keeps nothing; net carries the state without reading it. A client sends its hero every
+50 ms while it changes and once a second regardless, so a late joiner sees one standing still. The
+others are drawn 100 ms behind, between the two samples around that moment; a jump of more than
+three cells (waking at the spawn) snaps instead of sliding, and a hero silent for three seconds is
+hidden, since the host tells no one of a peer leaving yet. Others' heroes are teal, one's own gold.
+Checked in two tabs: each sees the other's hero walk to the doorway and turn.
 
 **P1-43 · Live hash checks** · M · net · after 41
 Clients report hashes every 20 ticks. On a mismatch the host sends a snapshot and the client writes a

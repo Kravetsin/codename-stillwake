@@ -11,14 +11,20 @@ export interface Client {
   send(command: Command): void;
   /** Runs every released tick not run yet, in order, and returns their reports. */
   update(): TickReport[];
+  /** Tells every other peer, through the host, where this peer's hero is now. */
+  sendHero(state: unknown): void;
+  /** The other peers' heroes received since the last call, in order of arrival. */
+  takeHeroes(): { readonly from: number; readonly state: unknown }[];
 }
 
 export function createClient(sim: Sim, channel: Channel<ToClient, ToHost>, id: number): Client {
   const released: TickMessage[] = [];
+  let heroes: { from: number; state: unknown }[] = [];
   channel.onMessage((message) => {
     // A peer that holds its world is connected, never welcomed: a welcome here is our bug.
     if (message.kind === 'welcome') throw new Error('A client holding its world was welcomed.');
-    released.push(message);
+    if (message.kind === 'hero') heroes.push({ from: message.from, state: message.state });
+    else released.push(message);
   });
 
   return {
@@ -27,6 +33,16 @@ export function createClient(sim: Sim, channel: Channel<ToClient, ToHost>, id: n
 
     send(command) {
       channel.send({ kind: 'command', command });
+    },
+
+    sendHero(state) {
+      channel.send({ kind: 'hero', state });
+    },
+
+    takeHeroes() {
+      const taken = heroes;
+      heroes = [];
+      return taken;
     },
 
     update() {

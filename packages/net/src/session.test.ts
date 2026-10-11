@@ -142,3 +142,40 @@ describe('loopback', () => {
     expect(received).toEqual([1, 2, 3]);
   });
 });
+
+describe('heroes', () => {
+  it('pass through the host to every other peer, stamped with the sender, and never back', () => {
+    const host = createHost(0);
+    const clients = [0, 1, 2].map(() => {
+      const [toClient, toHost] = loopback<ToClient, ToHost>();
+      return createClient(game.create(1), toHost, host.connect(toClient));
+    });
+    clients[1]?.sendHero({ x: 1 });
+    clients[2]?.sendHero({ x: 2 });
+    clients[1]?.sendHero({ x: 3 });
+    expect(clients[0]?.takeHeroes()).toEqual([
+      { from: 1, state: { x: 1 } },
+      { from: 2, state: { x: 2 } },
+      { from: 1, state: { x: 3 } },
+    ]);
+    expect(clients[1]?.takeHeroes()).toEqual([{ from: 2, state: { x: 2 } }]);
+    expect(clients[0]?.takeHeroes()).toEqual([]);
+  });
+
+  it('stay out of the simulation: no tick, no command, the same hash', () => {
+    const { host, client } = localSession(game.create(1));
+    const [toClient, toHost] = loopback<ToClient, ToHost>();
+    const other = createClient(game.create(1), toHost, host.connect(toClient));
+    other.sendHero({ x: 5 });
+    host.advance();
+    const [report] = client.update();
+    expect(report?.refused).toEqual([]);
+    // As a world that ran the same tick with nothing in it.
+    const quiet = game.create(1);
+    quiet.step([]);
+    expect(client.sim.hash()).toBe(quiet.hash());
+    other.update();
+    expect(other.sim.hash()).toBe(client.sim.hash());
+    expect(client.takeHeroes()).toEqual([{ from: 1, state: { x: 5 } }]);
+  });
+});
