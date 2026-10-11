@@ -2,6 +2,7 @@ import {
   atmosphere,
   building,
   command,
+  crew,
   defineModule,
   defineSim,
   grid,
@@ -38,7 +39,7 @@ describe('desync fuzz: the game', () => {
   it('keeps every client in sync while air fills, leaks and vents, and heroes breathe it', () => {
     // A room with a vent above a tank and the spawn beside them. The first client pipes them and
     // loads the tank through the pipeline, then the fuzz plays on past two leak beats, breaching
-    // walls and moving heroes in and out as it goes.
+    // walls and moving heroes in and out as it goes, one kept outside till it passes out.
     const room = parseLayout([
       '.............',
       '.###########.',
@@ -84,6 +85,9 @@ describe('desync fuzz: the game', () => {
         } else if (tick === 40) {
           for (let i = 0; i < 3; i++) first.send(command(atmosphere, 'loadCanister', { tank }));
         }
+        // One hero is kept out in space, whatever the fuzz does with it, until a hero passes out and wakes.
+        const second = clients[1];
+        if (second && tick > 40 && !woke) second.send(command(crew, 'enter', { cell: cell(0, 0) }));
         const air = first.sim.world.slices.atmosphere as { aired: number[] };
         aired = Math.max(aired, air.aired.length);
         const oxygen = first.sim.query(atmosphere).oxygenIn(tank);
