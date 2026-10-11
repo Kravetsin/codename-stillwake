@@ -1,5 +1,5 @@
 import { HERO } from '@stillwake/content';
-import { building, cellsOf, grid } from '@stillwake/sim';
+import { cellsOf, grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
@@ -26,17 +26,19 @@ function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
   if (!aim) return;
   const x = (aim.cell % width) * CELL;
   const y = Math.floor(aim.cell / width) * CELL;
-  if (!aim.toggle && !aim.work) {
+  if (!aim.press && !aim.work) {
     g.rect(x, y, CELL, CELL).stroke({ width: 1, color: AIM_IDLE, alpha: 0.35 });
     return;
   }
-  const colour = !aim.inReach ? AIM_FAR : aim.work?.problem ? AIM_REFUSED : AIM_READY;
+  const problem = aim.work ? aim.work.problem : aim.press?.problem;
+  const colour = !aim.inReach ? AIM_FAR : problem ? AIM_REFUSED : AIM_READY;
   g.rect(x + 1, y + 1, CELL - 2, CELL - 2).stroke({ width: 2, color: colour });
 }
 
 /**
  * This machine's hero: moved by the keyboard against the ship's cells, outside the sim, and
- * followed by the camera. E under the pointer, within reach, toggles a door or valve when pressed,
+ * followed by the camera. E under the pointer, within reach, toggles a door or valve or loads a tank
+ * when pressed,
  * and works a plan while held: one `work` command for every tick the host releases.
  */
 export const crewFeature: Feature = {
@@ -96,9 +98,10 @@ export const crewFeature: Feature = {
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
-        const aim = pointer && aimAt(ship, sim.query(building), current, pointer);
+        const aim = pointer && aimAt(sim, current, pointer);
         drawAim(aimView, ship.width, aim);
-        reason.text = aim?.work?.problem ? t(aim.work.problem) : '';
+        const problem = aim?.work ? aim.work.problem : aim?.press?.problem;
+        reason.text = problem ? t(problem) : '';
         // A line below where the build tool writes its reason, so the two never overlap.
         if (pointer) reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 26);
 

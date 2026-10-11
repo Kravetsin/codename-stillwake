@@ -27,6 +27,8 @@ export const EN: Readonly<Record<string, string>> = {
   'material.steel': 'steel',
   'item.canister': 'canisters',
   'stock.notEnough': 'Not enough in stock',
+  'atmosphere.noTank': 'There is no tank here',
+  'atmosphere.tankFull': 'The tank is full',
   'stock.creative': 'creative',
 };
 

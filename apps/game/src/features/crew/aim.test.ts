@@ -1,18 +1,19 @@
 import { HERO } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
+  atmosphere,
   building,
   cellsOf,
   command,
-  CONDUIT,
   grid,
+  stock,
   parseLayout,
   stillwake,
   wreck,
   type Sim,
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { aimAt, usesOf, type Aim, type Cells } from './aim';
+import { aimAt, usesOf, type Aim } from './aim';
 import { stepHero, heroAt, UNIT, type Hero, type Input } from './hero';
 
 function worldFrom(map: string): Sim {
@@ -34,46 +35,71 @@ describe('aiming', () => {
     #..D.v.#
     ########
   `);
-  const cells = world.query(grid).layers();
-  const plans = world.query(building);
-  const at = (x: number, y: number) => y * cells.width + x;
+  const at = (x: number, y: number) => y * world.query(grid).size().width + x;
 
   it('offers to toggle a door or a valve under the pointer', () => {
     const hero = heroOn(2, 1);
-    expect(aimAt(cells, plans, hero, centre(3, 1))).toEqual({
+    expect(aimAt(world, hero, centre(3, 1))).toEqual({
       cell: at(3, 1),
       inReach: true,
-      toggle: command(grid, 'toggleDoor', { cell: at(3, 1) }),
+      press: { command: command(grid, 'toggleDoor', { cell: at(3, 1) }), problem: undefined },
     });
-    expect(aimAt(cells, plans, hero, centre(4, 1))?.toggle).toBeUndefined();
-    expect(aimAt(cells, plans, heroOn(4, 1), centre(5, 1))?.toggle).toEqual(
+    expect(aimAt(world, hero, centre(4, 1))?.press).toBeUndefined();
+    expect(aimAt(world, heroOn(4, 1), centre(5, 1))?.press?.command).toEqual(
       command(grid, 'toggleValve', { cell: at(5, 1) }),
     );
   });
 
   it('works the door when a valve shares its cell', () => {
-    const shared: Cells = {
-      ...cells,
-      conduit: cells.conduit.map((c, i) => (i === at(3, 1) ? CONDUIT.valveOpen : c)),
-    };
-    expect(aimAt(shared, plans, heroOn(2, 1), centre(3, 1))?.toggle).toEqual(
+    const shared = worldFrom(`
+      ########
+      #..D.v.#
+      ########
+    `);
+    // A valve built into the door's cell, by hand, for free.
+    const valve = { layer: 'conduit', kind: 'valve' } as const;
+    shared.step([
+      command(stock, 'setCreative', { on: true }),
+      command(building, 'placePlan', { cell: at(3, 1), placement: valve }),
+    ]);
+    while (shared.query(building).plans().length > 0) {
+      shared.step([command(building, 'work', { plan: 1 })]);
+    }
+    expect(shared.query(grid).conduitAt(at(3, 1)).kind).toBe('valve');
+    expect(aimAt(shared, heroOn(2, 1), centre(3, 1))?.press?.command).toEqual(
       command(grid, 'toggleDoor', { cell: at(3, 1) }),
     );
   });
 
+  it('puts a canister into a tank on a press, or carries why it cannot', () => {
+    const tanked = worldFrom(`
+      ########
+      #TT..c.#
+      #TT....#
+      ########
+    `);
+    const tank = tanked.query(grid).machineAt(at(1, 1));
+    if (!tank) throw new Error('no tank');
+    const aim = aimAt(tanked, heroOn(3, 2), centre(2, 2));
+    expect(aim?.press).toEqual({
+      command: command(atmosphere, 'loadCanister', { tank: tank.id }),
+      problem: undefined,
+    });
+    tanked.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
+    expect(aimAt(tanked, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('stock.notEnough');
+  });
+
   it('reaches cells whose middle is at most the reach from the middle of the body', () => {
-    const cells = worldFrom(`
+    const open = worldFrom(`
       ..........
       ..........
       ..........
-    `)
-      .query(grid)
-      .layers();
+    `);
     const hero = heroOn(1, 1);
     const cellsAway = HERO.reach / UNIT;
-    expect(aimAt(cells, plans, hero, centre(1 + cellsAway, 1))?.inReach).toBe(true);
-    expect(aimAt(cells, plans, hero, centre(2 + cellsAway, 1))?.inReach).toBe(false);
-    expect(aimAt(cells, plans, hero, centre(1 + cellsAway, 2))?.inReach).toBe(false);
+    expect(aimAt(open, hero, centre(1 + cellsAway, 1))?.inReach).toBe(true);
+    expect(aimAt(open, hero, centre(2 + cellsAway, 1))?.inReach).toBe(false);
+    expect(aimAt(open, hero, centre(1 + cellsAway, 2))?.inReach).toBe(false);
   });
 
   it('works a plan before a door in its cell, the oldest plan first', () => {
@@ -89,7 +115,7 @@ describe('aiming', () => {
         placement: { layer: 'conduit', kind: 'pipe' },
       }),
     ]);
-    const aim = aimAt(cells, marked.query(building), heroOn(2, 1), centre(3, 1));
+    const aim = aimAt(marked, heroOn(2, 1), centre(3, 1));
     expect(aim).toEqual({ cell: at(3, 1), inReach: true, work: { plan: 1, problem: undefined } });
   });
 
@@ -105,11 +131,9 @@ describe('aiming', () => {
       poor.step([command(building, 'placePlan', { cell: 9 + x, placement: steel })]);
     }
     for (let id = 1; id <= 6; id++) poor.step([command(building, 'work', { plan: id })]);
-    const aim = aimAt(poor.query(grid).layers(), poor.query(building), heroOn(6, 1), centre(7, 1));
+    const aim = aimAt(poor, heroOn(6, 1), centre(7, 1));
     expect(aim?.work).toEqual({ plan: 7, problem: 'stock.notEnough' });
-    expect(
-      aimAt(poor.query(grid).layers(), poor.query(building), heroOn(6, 1), centre(6, 1))?.work,
-    ).toEqual({ plan: 6, problem: undefined });
+    expect(aimAt(poor, heroOn(6, 1), centre(6, 1))?.work).toEqual({ plan: 6, problem: undefined });
   });
 
   it('works a plan the ship can pay for before an older one it cannot', () => {
@@ -136,15 +160,16 @@ describe('aiming', () => {
       [7, 'stock.notEnough'],
       [8, undefined],
     ]);
-    const aim = aimAt(tight.query(grid).layers(), q, heroOn(5, 1), centre(6, 1));
+    const aim = aimAt(tight, heroOn(5, 1), centre(6, 1));
     expect(aim?.work).toEqual({ plan: 8, problem: undefined });
   });
 
   it('aims at nothing off the grid', () => {
     const hero = heroOn(2, 1);
-    expect(aimAt(cells, plans, hero, { x: -0.5, y: 1 })).toBeUndefined();
-    expect(aimAt(cells, plans, hero, { x: 2, y: 3.2 })).toBeUndefined();
-    expect(aimAt(cells, plans, hero, { x: cells.width + 0.5, y: 1 })).toBeUndefined();
+    const { width } = world.query(grid).size();
+    expect(aimAt(world, hero, { x: -0.5, y: 1 })).toBeUndefined();
+    expect(aimAt(world, hero, { x: 2, y: 3.2 })).toBeUndefined();
+    expect(aimAt(world, hero, { x: width + 0.5, y: 1 })).toBeUndefined();
   });
 });
 
@@ -162,9 +187,9 @@ describe('the wreck, worked with E', () => {
       return h;
     };
     const use = (hero: Hero, x: number, y: number) => {
-      const aim = aimAt(ship(), client.sim.query(building), hero, centre(x, y));
+      const aim = aimAt(client.sim, hero, centre(x, y));
       expect(aim?.inReach).toBe(true);
-      if (aim?.toggle) client.send(aim.toggle);
+      if (aim?.press) client.send(aim.press.command);
       host.advance();
       client.update();
     };
@@ -191,7 +216,7 @@ describe('the wreck, worked with E', () => {
 
 describe('what E sends', () => {
   const door = command(grid, 'toggleDoor', { cell: 3 });
-  const onDoor: Aim = { cell: 3, inReach: true, toggle: door };
+  const onDoor: Aim = { cell: 3, inReach: true, press: { command: door, problem: undefined } };
   const onPlan: Aim = { cell: 4, inReach: true, work: { plan: 7, problem: undefined } };
   const work = command(building, 'work', { plan: 7 });
   const press = { pressed: true, held: true };
@@ -233,6 +258,11 @@ describe('what E sends', () => {
       commands: [],
       workedOnTick: -1,
     });
+  });
+
+  it('presses nothing the sim would refuse', () => {
+    const full: Aim = { ...onDoor, press: { command: door, problem: 'atmosphere.tankFull' } };
+    expect(usesOf(full, press, 5, -1).commands).toEqual([]);
   });
 
   it('works a plan in a door cell on a press, rather than toggling the door', () => {

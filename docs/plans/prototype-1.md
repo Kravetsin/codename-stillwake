@@ -210,6 +210,9 @@ tanks, not networks.
 Tank (capacity; its oxygen lives in `atmosphere`), vent (joins its network to the room it stands in),
 canister (an item put into a tank by a command).
 Done when: a tank with a canister and a vent in a sealed room starts filling it.
+Built as the first of `atmosphere`: tanks keep their oxygen by machine id; `loadCanister` spends a
+canister from the stock (E on a tank in the client); `roomStatus` says `filling` while a vent in the
+room stands on a network with oxygen, and `vacuum` otherwise. Nothing flows yet: P1-33 does that.
 
 **P1-33 · Air rules** · M · `atmosphere` · after 30, 32
 Room states: vacuum → filling → aired, and venting. A room with a vent on a network with oxygen fills

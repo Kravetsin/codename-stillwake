@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AIR } from './air';
 import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
@@ -93,5 +94,15 @@ describe('builds', () => {
   it('come apart faster than they go up, by a whole factor', () => {
     expect(Number.isSafeInteger(DECONSTRUCT_SPEEDUP)).toBe(true);
     expect(DECONSTRUCT_SPEEDUP).toBeGreaterThan(1);
+  });
+});
+
+describe('air', () => {
+  it('is in whole units, and a tank takes at least one canister', () => {
+    for (const value of Object.values(AIR)) {
+      expect(Number.isSafeInteger(value)).toBe(true);
+      expect(value).toBeGreaterThan(0);
+    }
+    expect(AIR.canister).toBeLessThanOrEqual(AIR.tankCapacity);
   });
 });

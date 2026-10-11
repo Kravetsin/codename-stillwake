@@ -1,45 +1,42 @@
 import { HERO } from '@stillwake/content';
 import {
+  atmosphere,
   building,
   command,
   CONDUIT,
   grid,
   STRUCTURE,
   type Command,
-  type QueryApi,
+  type Sim,
 } from '@stillwake/sim';
-import { UNIT, type Hero, type Ship } from './hero';
+import { UNIT, type Hero } from './hero';
 
-/** The cells the hero aims at: structure for doors, conduit for valves. */
-export interface Cells extends Ship {
-  readonly conduit: readonly number[];
+/** Something E does: the command it sends, and why the sim would refuse it, if it would. */
+export interface Use {
+  readonly command: Command;
+  readonly problem: string | undefined;
 }
 
-type Plans = Pick<QueryApi<typeof building>, 'plansAt' | 'workProblem'>;
-
 /**
- * The cell under the pointer and what E does there: works a plan while held, or toggles a door or
- * valve when pressed. `problem` is why work would be refused.
+ * The cell under the pointer and what E does there: works a plan while held, or, when pressed,
+ * toggles a door or valve or puts a canister into a tank.
  */
 export interface Aim {
   readonly cell: number;
   readonly inReach: boolean;
-  readonly toggle?: Command;
+  readonly press?: Use;
   readonly work?: { readonly plan: number; readonly problem: string | undefined };
 }
 
 /**
  * What the hero aims at with the pointer at `point`, in cells; nothing off the grid. A plan takes E
- * before a door or valve in its cell, so a marked door is taken apart rather than opened. Of several
+ * before anything else in its cell, so a marked door is taken apart rather than opened. Of several
  * plans, the oldest that can be worked, so one the ship cannot pay for does not block the mark beside
- * it; when none can, the oldest, to show why. A door and a valve may share a cell; E works the door.
+ * it; when none can, the oldest, to show why. Then a tank, a door, a valve: a valve under a tank or in
+ * a door's cell is not worked with E.
  */
-export function aimAt(
-  cells: Cells,
-  plans: Plans,
-  hero: Hero,
-  point: { x: number; y: number },
-): Aim | undefined {
+export function aimAt(sim: Sim, hero: Hero, point: { x: number; y: number }): Aim | undefined {
+  const cells = sim.query(grid).layers();
   const x = Math.floor(point.x);
   const y = Math.floor(point.y);
   if (x < 0 || y < 0 || x >= cells.width || y >= cells.height) return undefined;
@@ -48,21 +45,30 @@ export function aimAt(
   const dy = y * UNIT + UNIT / 2 - (hero.y - HERO.height / 2);
   const inReach = dx * dx + dy * dy <= HERO.reach * HERO.reach;
 
+  const plans = sim.query(building);
   const here = plans.plansAt(cell).map((p) => ({ plan: p.id, problem: plans.workProblem(p.id) }));
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
-  const toggle = toggleOf(cells, cell);
-  return toggle ? { cell, inReach, toggle } : { cell, inReach };
+  const press = pressOf(sim, cell);
+  return press ? { cell, inReach, press } : { cell, inReach };
 }
 
-function toggleOf(cells: Cells, cell: number): Command | undefined {
-  const s = cells.structure[cell];
-  if (s === STRUCTURE.doorClosed || s === STRUCTURE.doorOpen) {
-    return command(grid, 'toggleDoor', { cell });
+function pressOf(sim: Sim, cell: number): Use | undefined {
+  const machine = sim.query(grid).machineAt(cell);
+  if (machine?.kind === 'tank') {
+    return {
+      command: command(atmosphere, 'loadCanister', { tank: machine.id }),
+      problem: sim.query(atmosphere).canisterProblem(machine.id),
+    };
   }
-  const c = cells.conduit[cell];
+  const { structure, conduit } = sim.query(grid).layers();
+  const s = structure[cell];
+  if (s === STRUCTURE.doorClosed || s === STRUCTURE.doorOpen) {
+    return { command: command(grid, 'toggleDoor', { cell }), problem: undefined };
+  }
+  const c = conduit[cell];
   if (c === CONDUIT.valveClosed || c === CONDUIT.valveOpen) {
-    return command(grid, 'toggleValve', { cell });
+    return { command: command(grid, 'toggleValve', { cell }), problem: undefined };
   }
   return undefined;
 }
@@ -77,10 +83,10 @@ export interface Uses {
 const MAX_WORK_PER_FRAME = 5;
 
 /**
- * What E does this frame. A press toggles a door or valve within reach. Held on a plan the sim
- * would take, it sends one `work` for every tick released since the last it sent for, so a peer
- * drawing fewer frames than the ticks it runs builds as fast as any other; a hold just begun sends
- * one. `tick` is the client's world tick.
+ * What E does this frame. A press within reach sends what is pressed, unless the sim would refuse
+ * it. Held on a plan the sim would take, it sends one `work` for every tick released since the last
+ * it sent for, so a peer drawing fewer frames than the ticks it runs builds as fast as any other; a
+ * hold just begun sends one. `tick` is the client's world tick.
  */
 export function usesOf(
   aim: Aim | undefined,
@@ -90,7 +96,7 @@ export function usesOf(
 ): Uses {
   if (!aim?.inReach) return { commands: [], workedOnTick: -1 };
   const commands: Command[] = [];
-  if (e.pressed && aim.toggle) commands.push(aim.toggle);
+  if (e.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
   if (!aim.work || aim.work.problem || !e.held) return { commands, workedOnTick: -1 };
   // A hold just begun sends one; so does a load that took the world's tick back.
   const fresh = workedOnTick < 0 || tick < workedOnTick;
