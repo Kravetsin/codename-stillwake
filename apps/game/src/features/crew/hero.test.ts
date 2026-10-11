@@ -51,22 +51,27 @@ function settle(ship: Ship, hero: Hero, input: Input): Hero {
 const column = (h: Hero) => Math.floor(h.x / UNIT);
 
 describe('hero controller', () => {
+  // Rooms are drawn three cells tall at least: the hero stands 2.625 cells, under three.
   it('falls and stands flush on the floor below', () => {
     const { ship, hero } = start(`
       #####
+      #...#
+      #...#
       #.S.#
       #...#
       #...#
       #####
     `);
-    const landed = settle(ship, { ...hero, y: 1500 }, still);
-    expect(landed.y).toBe(4 * UNIT);
+    const landed = settle(ship, hero, still);
+    expect(landed.y).toBe(6 * UNIT);
     expect(landed.vy).toBe(0);
   });
 
   it('walks until flush against a wall, either way', () => {
     const { ship, hero } = start(`
       #######
+      #.....#
+      #.....#
       #..S..#
       #######
     `);
@@ -78,6 +83,8 @@ describe('hero controller', () => {
   it('faces the way it last walked', () => {
     const { ship, hero } = start(`
       #######
+      #.....#
+      #.....#
       #..S..#
       #######
     `);
@@ -87,50 +94,61 @@ describe('hero controller', () => {
   });
 
   it('falls no faster than its top speed', () => {
-    const shaft = ['###', '#S#', ...Array.from({ length: 15 }, () => '#.#'), '###'];
+    const depth = 60;
+    const shaft = ['###', '#.#', '#.#', '#S#', ...Array<string>(depth).fill('#.#'), '###'];
     const { ship, hero } = start(shaft);
     let h = hero;
     let fastest = 0;
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 400; i++) {
       h = stepHero(h, still, ship);
       fastest = Math.max(fastest, h.vy);
     }
     expect(fastest).toBe(HERO.maxFall);
-    expect(h.y).toBe(17 * UNIT);
+    expect(h.y).toBe((4 + depth) * UNIT);
   });
 
-  it('is stopped by a closed door and walks through an open one', () => {
-    const closed = start(`
+  it('is stopped by a closed doorway and walks through an open one, three cells tall', () => {
+    const doorway = (door: string, top = door) => `
       ########
-      #.S.D..#
+      #...${top}..#
+      #...${door}..#
+      #.S.${door}..#
       ########
-    `);
+    `;
+    const closed = start(doorway('D'));
     expect(settle(closed.ship, closed.hero, right).x).toBe(4 * UNIT - HALF);
-    const open = start(`
-      ########
-      #.S.d..#
-      ########
-    `);
+    const open = start(doorway('d'));
     expect(settle(open.ship, open.hero, right).x).toBe(7 * UNIT - HALF);
+    // Two cells of open door under a wall are too low.
+    const low = start(doorway('d', '#'));
+    expect(settle(low.ship, low.hero, right).x).toBe(4 * UNIT - HALF);
   });
 
-  it('jumps onto a ledge one cell high', () => {
-    const { ship, hero } = start(`
-      ######
-      #....#
-      #....#
-      #S.###
-      ######
-    `);
-    let h = stepHero(hero, jump, ship);
+  it('jumps onto a ledge three cells high, not four', () => {
+    const ledge = (high: number) => {
+      const rows = ['######', ...Array<string>(8).fill('#....#'), '######'];
+      for (let y = 9 - high; y <= 8; y++) rows[y] = '#..###';
+      rows[8] = '#S.###';
+      return start(rows);
+    };
+    const three = ledge(3);
+    let h = stepHero(three.hero, jump, three.ship);
     expect(h.vy).toBe(-HERO.jump + HERO.gravity);
-    h = until(ship, h, right, (x) => column(x) === 3);
-    expect(settle(ship, h, still).y).toBe(3 * UNIT);
+    h = until(three.ship, h, right, (x) => column(x) === 3);
+    expect(settle(three.ship, h, still).y).toBe(6 * UNIT);
+
+    const four = ledge(4);
+    let g = stepHero(four.hero, jump, four.ship);
+    for (let i = 0; i < 200; i++) g = stepHero(g, right, four.ship);
+    expect(column(g)).toBeLessThan(3);
+    expect(g.y).toBe(9 * UNIT);
   });
 
   it('jumps only from something to stand on', () => {
     const { ship, hero } = start(`
       ######
+      #....#
+      #....#
       #....#
       #....#
       #S...#
@@ -143,10 +161,12 @@ describe('hero controller', () => {
   it('bumps a ceiling and comes back down', () => {
     const { ship, hero } = start(`
       ######
+      #....#
+      #....#
       #.S..#
       ######
     `);
-    // The room is a cell tall, so the first step of the jump already reaches the ceiling.
+    // The room is three cells tall, so the first step of the jump already reaches the ceiling.
     const top = stepHero(hero, jump, ship);
     expect(top.y - HERO.height).toBe(1 * UNIT);
     expect(top.vy).toBe(0);
@@ -154,12 +174,14 @@ describe('hero controller', () => {
     // Head against the ceiling, the hero still walks into the next column.
     const atEdge = { ...top, x: 3 * UNIT - HALF };
     expect(stepHero(atEdge, right, ship).x).toBe(atEdge.x + HERO.walk);
-    expect(settle(ship, top, still).y).toBe(2 * UNIT);
+    expect(settle(ship, top, still).y).toBe(4 * UNIT);
   });
 
   it('walks off a ledge and slides down a wall without catching on it', () => {
     const { ship, hero } = start(`
       ######
+      #....#
+      #....#
       #S...#
       ##...#
       ##...#
@@ -169,29 +191,33 @@ describe('hero controller', () => {
     // Pressed into the wall of the ledge, the hero still falls all the way down.
     const fallen = settle(ship, { ...off, x: 2 * UNIT + HALF }, left);
     expect(fallen.x).toBe(2 * UNIT + HALF);
-    expect(fallen.y).toBe(4 * UNIT);
+    expect(fallen.y).toBe(6 * UNIT);
   });
 
   it('stands on a ledge it overlaps by the least amount', () => {
     const { ship, hero } = start(`
       ######
+      #....#
+      #....#
       #S...#
       ##...#
       ######
     `);
     const edge = { ...hero, x: 2 * UNIT + HALF - 1 };
-    expect(settle(ship, edge, still).y).toBe(2 * UNIT);
-    expect(settle(ship, { ...edge, x: edge.x + 1 }, still).y).toBe(3 * UNIT);
+    expect(settle(ship, edge, still).y).toBe(4 * UNIT);
+    expect(settle(ship, { ...edge, x: edge.x + 1 }, still).y).toBe(5 * UNIT);
 
     const mirrored = start(`
       ######
+      #....#
+      #....#
       #...S#
       #...##
       ######
     `);
     const other = { ...mirrored.hero, x: 4 * UNIT - HALF + 1 };
-    expect(settle(mirrored.ship, other, still).y).toBe(2 * UNIT);
-    expect(settle(mirrored.ship, { ...other, x: other.x - 1 }, still).y).toBe(3 * UNIT);
+    expect(settle(mirrored.ship, other, still).y).toBe(4 * UNIT);
+    expect(settle(mirrored.ship, { ...other, x: other.x - 1 }, still).y).toBe(5 * UNIT);
   });
 
   it('jumps up through a floor and lands on top of it', () => {
@@ -199,20 +225,26 @@ describe('hero controller', () => {
       ######
       #....#
       #....#
+      #....#
+      #....#
+      #....#
+      #....#
       #S==.#
       ######
     `);
     // Standing under the floor, inside its row: a floor holds a hero up from above only.
     const under = settle(ship, { ...hero, x: 3 * UNIT }, still);
-    expect(under.y).toBe(4 * UNIT);
+    expect(under.y).toBe(8 * UNIT);
     const on = settle(ship, stepHero(under, jump, ship), still);
-    expect(on.y).toBe(3 * UNIT);
+    expect(on.y).toBe(7 * UNIT);
     expect(stepHero(on, jump, ship).vy).toBe(-HERO.jump + HERO.gravity);
   });
 
   it('walks through a floor from the side', () => {
     const { ship, hero } = start(`
       ######
+      #....#
+      #....#
       #S=..#
       ######
     `);
@@ -220,9 +252,13 @@ describe('hero controller', () => {
   });
 
   describe('ladders', () => {
+    // A ladder four cells tall, its top in row 4, with room for the hero to stand above it.
     const map = `
       #######
       #.....#
+      #.....#
+      #.....#
+      #..H..#
       #..H..#
       #..H..#
       #.SH..#
@@ -240,49 +276,68 @@ describe('hero controller', () => {
       let top = grabbed;
       for (let i = 0; i < 200 && top.climbing; i++) {
         top = stepHero(top, up, ship);
-        expect(top.y).toBeGreaterThanOrEqual(2 * UNIT);
+        expect(top.y).toBeGreaterThanOrEqual(4 * UNIT);
       }
       expect(top.climbing).toBe(false);
-      expect(top.y).toBe(2 * UNIT);
+      expect(top.y).toBe(4 * UNIT);
       for (let i = 0; i < 30; i++) {
         top = stepHero(top, up, ship);
-        expect(top.y).toBe(2 * UNIT);
+        expect(top.y).toBe(4 * UNIT);
       }
     });
 
     it('are climbed down from the top with down, to the floor', () => {
       const { ship } = start(map);
-      const top: Hero = { x: 3500, y: 2 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
+      const top: Hero = { x: 3500, y: 4 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
       const grabbed = stepHero(top, down, ship);
       expect(grabbed.climbing).toBe(true);
       const bottom = settle(ship, grabbed, down);
-      expect(bottom.y).toBe(5 * UNIT);
+      expect(bottom.y).toBe(8 * UNIT);
       // A ladder's top holds a hero up, so a jump starts from it.
       expect(stepHero(top, jump, ship).y).toBeLessThan(top.y);
     });
 
     it('hold the hero in place while nothing is pressed', () => {
       const { ship } = start(map);
-      let h: Hero = { x: 3500, y: 3500, vx: 0, vy: 0, climbing: true, facing: 1 };
+      let h: Hero = { x: 3500, y: 6500, vx: 0, vy: 0, climbing: true, facing: 1 };
       for (let i = 0; i < 30; i++) h = stepHero(h, still, ship);
-      expect(h).toEqual({ x: 3500, y: 3500, vx: 0, vy: 0, climbing: true, facing: 1 });
+      expect(h).toEqual({ x: 3500, y: 6500, vx: 0, vy: 0, climbing: true, facing: 1 });
+    });
+
+    it('are grabbed overhead where they end above the floor', () => {
+      // The ladder stops two cells short of the floor; the hero standing under it reaches it.
+      const { ship } = start(`
+        #######
+        #.....#
+        #.....#
+        #.....#
+        #..H..#
+        #..H..#
+        #.S...#
+        #.....#
+        #######
+      `);
+      const under: Hero = { x: 3500, y: 8 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
+      const grabbed = stepHero(under, up, ship);
+      expect(grabbed.climbing).toBe(true);
+      expect(grabbed.y).toBe(8 * UNIT - HERO.climb);
     });
 
     it('are caught while falling past them', () => {
       const { ship } = start(map);
-      const falling: Hero = { x: 3500, y: 3000, vx: 0, vy: 200, climbing: false, facing: 1 };
+      const falling: Hero = { x: 3500, y: 6000, vx: 0, vy: 200, climbing: false, facing: 1 };
       const caught = stepHero(falling, up, ship);
       expect(caught.climbing).toBe(true);
-      expect(caught.y).toBe(3000 - HERO.climb);
+      expect(caught.y).toBe(6000 - HERO.climb);
     });
 
     it('are not grabbed while walking or jumping, nor from beside them', () => {
       const { ship } = start(map);
-      const at: Hero = { x: 3500, y: 5 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
+      const at: Hero = { x: 3500, y: 8 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
       expect(stepHero(at, { x: 1, y: -1, jump: false }, ship).climbing).toBe(false);
-      const falling: Hero = { ...at, y: 3500, vy: 200 };
+      const falling: Hero = { ...at, y: 6500, vy: 200 };
       expect(stepHero(falling, { x: 1, y: -1, jump: false }, ship).vy).toBe(200 + HERO.gravity);
-      const midAir: Hero = { ...at, y: 3500 };
+      const midAir: Hero = { ...at, y: 6500 };
       const jumped = stepHero(midAir, { x: 0, y: -1, jump: true }, ship);
       expect(jumped.climbing).toBe(false);
       expect(jumped.vy).toBe(HERO.gravity);
@@ -294,30 +349,34 @@ describe('hero controller', () => {
     it('let go at a bottom that opens into air', () => {
       const { ship } = start(`
         #######
+        #.....#
+        #.....#
+        #.....#
         #..H..#
         #..H..#
         #.S...#
         #.....#
+        #.....#
         #######
       `);
       let h = stepHero(
-        { x: 3500, y: 1 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 },
+        { x: 3500, y: 4 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 },
         down,
         ship,
       );
       for (let i = 0; i < 200 && h.climbing; i++) h = stepHero(h, down, ship);
       expect(h.climbing).toBe(false);
-      expect(h.y).toBeLessThan(5 * UNIT);
-      expect(settle(ship, h, still).y).toBe(5 * UNIT);
+      expect(h.y).toBeLessThan(9 * UNIT);
+      expect(settle(ship, h, still).y).toBe(9 * UNIT);
     });
 
     it('are let go by walking or jumping', () => {
       const { ship } = start(map);
-      const middle: Hero = { x: 3500, y: 4 * UNIT, vx: 0, vy: 0, climbing: true, facing: 1 };
+      const middle: Hero = { x: 3500, y: 6 * UNIT, vx: 0, vy: 0, climbing: true, facing: 1 };
       const walked = stepHero(middle, left, ship);
       expect(walked.climbing).toBe(false);
       expect(walked.vy).toBe(HERO.gravity);
-      expect(settle(ship, walked, still).y).toBe(5 * UNIT);
+      expect(settle(ship, walked, still).y).toBe(8 * UNIT);
       const jumped = stepHero(middle, jump, ship);
       expect(jumped.climbing).toBe(false);
       expect(jumped.vy).toBe(-HERO.jump + HERO.gravity);
@@ -326,29 +385,55 @@ describe('hero controller', () => {
     it('end on a floor the hero climbs down onto, not through', () => {
       const { ship } = start(`
         #######
+        #.....#
+        #.....#
+        #.....#
         #..H..#
         #..H..#
         #.S=..#
         #.....#
+        #.....#
         #######
       `);
-      const top: Hero = { x: 3500, y: 1 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
-      expect(settle(ship, stepHero(top, down, ship), down).y).toBe(3 * UNIT);
-      const foot: Hero = { ...top, y: 3 * UNIT };
-      expect(settle(ship, foot, down).y).toBe(3 * UNIT);
+      const top: Hero = { x: 3500, y: 4 * UNIT, vx: 0, vy: 0, climbing: false, facing: 1 };
+      expect(settle(ship, stepHero(top, down, ship), down).y).toBe(6 * UNIT);
+      const foot: Hero = { ...top, y: 6 * UNIT };
+      expect(settle(ship, foot, down).y).toBe(6 * UNIT);
     });
 
     it('are fallen through below their top', () => {
       const { ship } = start(map);
-      const beside: Hero = { x: 3500, y: 3 * UNIT + 500, vx: 0, vy: 0, climbing: false, facing: 1 };
-      expect(settle(ship, beside, still).y).toBe(5 * UNIT);
+      const beside: Hero = { x: 3500, y: 6500, vx: 0, vy: 0, climbing: false, facing: 1 };
+      expect(settle(ship, beside, still).y).toBe(8 * UNIT);
+    });
+
+    it('lead up a shaft one cell wide into the room above', () => {
+      const { ship, hero } = start(`
+        #####
+        #...#
+        #...#
+        #...#
+        ##H##
+        ##H##
+        #.H.#
+        #.H.#
+        #SH.#
+        #####
+      `);
+      const atLadder = until(ship, hero, right, (h) => column(h) === 2);
+      const above = settle(ship, stepHero(atLadder, up, ship), up);
+      expect(above.climbing).toBe(false);
+      expect(above.y).toBe(4 * UNIT);
     });
 
     it('lead through an open hatch into the room above, but not a closed one', () => {
       const room = (hatch: string) => `
         ######
         #....#
+        #....#
+        #....#
         ##${hatch}###
+        #.H..#
         #.H..#
         #.HS.#
         ######
@@ -357,12 +442,12 @@ describe('hero controller', () => {
       const atLadder = until(open.ship, open.hero, left, (h) => column(h) === 2);
       const above = settle(open.ship, stepHero(atLadder, up, open.ship), up);
       expect(above.climbing).toBe(false);
-      expect(above.y).toBe(2 * UNIT);
+      expect(above.y).toBe(4 * UNIT);
 
       const closed = start(room('D'));
       const stuck = settle(closed.ship, stepHero(atLadder, up, closed.ship), up);
       expect(stuck.climbing).toBe(true);
-      expect(stuck.y - HERO.height).toBe(3 * UNIT);
+      expect(stuck.y - HERO.height).toBe(5 * UNIT);
     });
   });
 
@@ -426,7 +511,10 @@ describe('hero controller', () => {
           y >= ship.height ||
           ship.structure[y * ship.width + x] === STRUCTURE.wall ||
           ship.structure[y * ship.width + x] === STRUCTURE.doorClosed;
-        if (blocked(cell % ship.width, Math.floor(cell / ship.width))) return;
+        // The hero starts standing in `cell`, its body reaching up into the cells above.
+        const [sx, sy] = [cell % ship.width, Math.floor(cell / ship.width)];
+        const head = Math.floor(((sy + 1) * UNIT - HERO.height) / UNIT);
+        for (let y = head; y <= sy; y++) if (blocked(sx, y)) return;
 
         let h = heroAt(ship, cell);
         for (const [held, steps] of inputs) {

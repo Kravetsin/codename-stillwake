@@ -134,7 +134,7 @@ Done when: 60 fps on a 256×128 grid with every layer filled.
 Client-side, outside the sim: a box against cells. Walk, jump, gravity inside the ship, ladders (grab,
 climb, step off at the top), floors passable from below; walls and closed doors block.
 Done when: the hero crosses the whole wreck; tests cover corners and ladder exits.
-Built with a hero of 0.6×0.9 cells, so one-cell doors and gaps let them through, and an open door in
+Built with a hero of 0.6×0.9 cells (0.95×2.625 since P1-35c), and an open door in
 line with a ladder is a hatch it climbs through. Left out: gravity holds everywhere in the grid and its
 edges are walls, so a hero who drops out through the breach stays below the wreck until spacewalks
 (reload to get back); no dropping through floors, since ladders lead down; no coyote time or variable
@@ -280,6 +280,11 @@ and aired rooms 0.6 ms (1.5 at worst). The old hero still plays the new wreck un
 Hero tests redrawn for the new size: through a three-tall door not a two-tall one, up a one-wide
 shaft, over a three-cell ledge not a four-cell one.
 Done when: the hero crosses the new wreck, and walls read thin against them.
+Built as planned; the controller needed no change, since it already checked every row and column
+the box covers. Its tests are redrawn with rooms three tall, plus a ladder that ends overhead, which
+a hero this tall grabs from the floor. `maxFall` is over a cell a step now: moves cross every row
+on the way, so nothing is skipped. `?perf` still frames the whole reference world. A machine's
+name shrinks to fit a one-cell machine.
 
 **P1-35d · A readable start** · S · content, sim and client · after 35c
 The hero wakes in a room the tank already airs: a pipe drawn on the map from the tank to the vent and

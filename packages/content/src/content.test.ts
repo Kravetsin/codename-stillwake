@@ -47,21 +47,22 @@ describe('hero', () => {
     }
   });
 
-  it('fits through a one-cell door and centres on a ladder', () => {
-    expect(HERO.height).toBeLessThan(CELL);
+  it('fits through a doorway three cells tall and a shaft one wide, and centres on a ladder', () => {
+    expect(HERO.height).toBeGreaterThan(2 * CELL);
+    expect(HERO.height).toBeLessThan(3 * CELL);
     expect(HERO.width).toBeLessThan(CELL);
     expect(HERO.width % 2).toBe(0);
   });
 
-  it('moves less than a cell per step', () => {
-    for (const speed of [HERO.walk, HERO.climb, HERO.jump, HERO.maxFall])
-      expect(speed).toBeLessThan(CELL);
+  it('walks and climbs less than a cell per step', () => {
+    for (const speed of [HERO.walk, HERO.climb]) expect(speed).toBeLessThan(CELL);
   });
 
-  it('jumps onto a ledge one cell high', () => {
+  it('jumps onto a ledge three cells high, not four', () => {
     let rise = 0;
     for (let v = HERO.jump - HERO.gravity; v > 0; v -= HERO.gravity) rise += v;
-    expect(rise).toBeGreaterThan(CELL);
+    expect(rise).toBeGreaterThan(3 * CELL);
+    expect(rise).toBeLessThan(4 * CELL);
   });
 });
 

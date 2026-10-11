@@ -87,6 +87,8 @@ export const gridFeature: Feature = {
             style: { fontFamily: 'monospace', fontSize: 9, fill: 0xa8c4dc },
           });
           label.position.set(4, 3);
+          // A one-cell machine is narrower than its name: the name shrinks to fit inside.
+          label.scale.set(Math.min(1, (spec.width * CELL - 8) / label.width));
           const machine = new Container();
           machine.addChild(box, label);
           machine.position.set(

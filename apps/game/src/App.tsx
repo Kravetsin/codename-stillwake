@@ -5,7 +5,7 @@ import { perfLayout } from './dev/perf-map';
 import { FEATURES } from './features';
 import type { Layer } from './features/feature';
 import { browserPlatform } from './platform/browser';
-import { createCamera } from './render/camera';
+import { createCamera, START_ZOOM } from './render/camera';
 import { createGame, type Game } from './session/game';
 
 export function App() {
@@ -19,7 +19,8 @@ export function App() {
     let destroyCamera = () => {};
     let layers: Layer[] = [];
     // `?perf` swaps the wreck for the reference world the budgets in CLAUDE.md are measured on.
-    const layout = new URLSearchParams(location.search).has('perf') ? perfLayout() : wreck;
+    const perf = new URLSearchParams(location.search).has('perf');
+    const layout = perf ? perfLayout() : wreck;
     // The game reaches the sim only through its host and client, as every co-op peer does.
     const created = createGame(stillwake, browserPlatform(), Date.now() >>> 0, layout);
     // Lets an agent or a console drive the running game in development.
@@ -38,8 +39,10 @@ export function App() {
         app.stage.addChild(world);
         const camera = createCamera(world, app.canvas);
         destroyCamera = () => camera.destroy();
+        // The reference world is measured whole on screen; a game starts close on the hero.
         const { width, height } = created.client.sim.query(grid).size();
-        camera.fit({ x: 0, y: 0, width, height }, app.screen);
+        if (perf) camera.fit({ x: 0, y: 0, width, height }, app.screen);
+        else world.scale.set(START_ZOOM);
 
         layers = FEATURES.flatMap((f) => (f.layer ? [f.layer()] : []));
         for (const layer of layers) world.addChild(layer.view);

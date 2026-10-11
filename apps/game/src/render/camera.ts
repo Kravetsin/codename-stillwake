@@ -1,8 +1,10 @@
 import type { Container } from 'pixi.js';
 
 /** Pixels per cell at zoom 1. */
-export const CELL = 24;
+export const CELL = 16;
 
+/** The zoom a game starts at: the hero about 84 px tall. */
+export const START_ZOOM = 2;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const WHEEL_STEP = 1.15;
