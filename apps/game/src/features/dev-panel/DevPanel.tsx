@@ -1,6 +1,7 @@
 import { command, grid, hazards, rooms, stock, type Sim } from '@stillwake/sim';
 import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
+import { link, type LinkStatus } from '../../session/relay-link';
 
 const REFRESH_MS = 250;
 /** Hashing a big world costs milliseconds, so the readout hashes once a second, not every refresh. */
@@ -13,6 +14,7 @@ interface Reading {
   tick: number;
   hash: string;
   creative: boolean;
+  link: LinkStatus;
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -29,6 +31,7 @@ function read(
     tick: sim.world.tick,
     hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
     creative: sim.query(stock).creative(),
+    link: link.get(),
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -44,6 +47,18 @@ function hullWall(sim: Sim): number | undefined {
     .flatMap((r) => r.hull)
     .filter((cell) => sim.query(grid).structureAt(cell).kind === 'wall');
   return walls[Math.floor(Math.random() * walls.length)];
+}
+
+/** Where this tab stands on the dev relay, in a line. */
+function describeLink(status: LinkStatus): string | undefined {
+  if (status.role === 'alone') return undefined;
+  if (status.role === 'host') {
+    return status.session === undefined
+      ? 'hosting…'
+      : `hosting ?join=${status.session} · peers ${status.peers}`;
+  }
+  const tick = status.tick === undefined ? '' : ` · host tick ${status.tick}`;
+  return `joined ${status.session} · ${status.state} · ${status.ticks} ticks${tick}`;
 }
 
 /** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */
@@ -121,6 +136,12 @@ export function DevPanel({ game }: { readonly game: Game }) {
         <dd>{reading.tick}</dd>
         <dt>hash</dt>
         <dd>{reading.hash}</dd>
+        {describeLink(reading.link) && (
+          <>
+            <dt>net</dt>
+            <dd>{describeLink(reading.link)}</dd>
+          </>
+        )}
       </dl>
       <div className="mb-2 flex gap-2">
         <button

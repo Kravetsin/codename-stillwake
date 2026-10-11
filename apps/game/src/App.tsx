@@ -9,6 +9,7 @@ import { createOverlaySwitch, type OverlaySwitch } from './overlays/switch';
 import { browserPlatform } from './platform/browser';
 import { createCamera, START_ZOOM } from './render/camera';
 import { createGame, type Game } from './session/game';
+import { hostOnRelay, joinOnRelay, link } from './session/relay-link';
 
 /** Every feature's overlay, in FEATURES order. */
 const OVERLAYS = FEATURES.flatMap((f) => (f.overlay ? [{ id: f.id, ...f.overlay }] : []));
@@ -23,6 +24,7 @@ export function App() {
     let ready = false;
     let disposed = false;
     let destroyCamera = () => {};
+    let unlink = () => {};
     let layers: Layer[] = [];
     let overlayLayers: { id: string; layer: Layer }[] = [];
     const switched = createOverlaySwitch(
@@ -72,11 +74,19 @@ export function App() {
         });
         setGame(created);
         setOverlays(switched);
+
+        // `?host` opens a session on the dev relay, `?join=<id>` joins one; dev builds only.
+        const params = new URLSearchParams(location.search);
+        const joining = params.get('join');
+        const hot = import.meta.hot;
+        if (hot && params.has('host')) unlink = hostOnRelay(hot, () => created.host, link.set);
+        else if (hot && joining) unlink = joinOnRelay(hot, joining, link.set);
       });
 
     return () => {
       disposed = true;
       destroyCamera();
+      unlink();
       switched.destroy();
       for (const layer of [...layers, ...overlayLayers.map((o) => o.layer)]) layer.destroy?.();
       if (ready) app.destroy(true, { children: true });

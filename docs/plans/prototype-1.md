@@ -347,6 +347,14 @@ its power set against a material's `strength`.
 **P1-40 · Dev relay** · S · net · after 05
 A small Node WebSocket relay for development; the host is still a game tab. `?host` and `?join=<id>`.
 Done when: two tabs connect through it.
+Built as a plugin of the Vite dev server rather than a process of its own: the relay rides the
+WebSocket every dev tab already holds (`import.meta.hot`), so `pnpm dev` is all it takes and no
+WebSocket library comes in (Node has no server built in). `src/dev/relay.ts` only routes: sessions
+by id, a host and its peers, leaving on close. `?host` connects each joining tab to the tab's `Host`
+over a channel through the relay; `?join=<id>` so far counts the ticks it receives, which the dev
+panel shows; loading the host's world is P1-41. `vite --host` reaches a second machine on the LAN.
+Left out: a load in the hosting tab drops its joined peers, and the host keeps sending to a peer that
+left (the relay drops it), since `Host` has no disconnect yet.
 
 **P1-41 · Joining** · M · net · after 04, 40
 The joiner gets a snapshot, the current tick and the pending commands, loads and catches up. The build
