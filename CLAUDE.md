@@ -98,7 +98,8 @@ export const rooms = withFuzz(roomsModule, fuzzRooms);   // fuzzRooms lives in f
 ### Client features
 
 `apps/game/src/features/<name>/` mirrors a sim module and exports a `Feature`: a `layer` drawn into
-the world every frame and a React `Panel`, listed in `FEATURES` (`pnpm new:module <name> --client`).
+the world every frame, a React `Panel` and an `overlay` switched by a key, listed in `FEATURES`
+(`pnpm new:module <name> --client`).
 Panels read on a timer, never every tick. A feature reads the sim through public queries, changes it
 only by sending commands, and never imports another feature. Game rules live in the sim only; the
 client shows what the sim decided.

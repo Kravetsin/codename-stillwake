@@ -4,13 +4,19 @@ import { useEffect, useRef, useState } from 'react';
 import { perfLayout } from './dev/perf-map';
 import { FEATURES } from './features';
 import type { Layer } from './features/feature';
+import { OverlayBar } from './overlays/OverlayBar';
+import { createOverlaySwitch, type OverlaySwitch } from './overlays/switch';
 import { browserPlatform } from './platform/browser';
 import { createCamera, START_ZOOM } from './render/camera';
 import { createGame, type Game } from './session/game';
 
+/** Every feature's overlay, in FEATURES order. */
+const OVERLAYS = FEATURES.flatMap((f) => (f.overlay ? [{ id: f.id, ...f.overlay }] : []));
+
 export function App() {
   const host = useRef<HTMLDivElement>(null);
   const [game, setGame] = useState<Game>();
+  const [overlays, setOverlays] = useState<OverlaySwitch>();
 
   useEffect(() => {
     const app = new Application();
@@ -18,6 +24,11 @@ export function App() {
     let disposed = false;
     let destroyCamera = () => {};
     let layers: Layer[] = [];
+    let overlayLayers: { id: string; layer: Layer }[] = [];
+    const switched = createOverlaySwitch(
+      Object.fromEntries(OVERLAYS.map((o) => [o.id, o.key])),
+      window,
+    );
     // `?perf` swaps the wreck for the reference world the budgets in CLAUDE.md are measured on.
     const perf = new URLSearchParams(location.search).has('perf');
     const layout = perf ? perfLayout() : wreck;
@@ -46,19 +57,28 @@ export function App() {
 
         layers = FEATURES.flatMap((f) => (f.layer ? [f.layer()] : []));
         for (const layer of layers) world.addChild(layer.view);
+        // Over everything, and updated only while on: an overlay may read the whole ship.
+        overlayLayers = OVERLAYS.map((o) => ({ id: o.id, layer: o.layer() }));
+        for (const { layer } of overlayLayers) world.addChild(layer.view);
 
         app.ticker.add((ticker) => {
           created.frame(ticker.deltaMS);
           const frame = { game: created, screen: app.screen, camera, elapsedMs: ticker.deltaMS };
           for (const layer of layers) layer.update(frame);
+          for (const { id, layer } of overlayLayers) {
+            layer.view.visible = switched.active() === id;
+            if (layer.view.visible) layer.update(frame);
+          }
         });
         setGame(created);
+        setOverlays(switched);
       });
 
     return () => {
       disposed = true;
       destroyCamera();
-      for (const layer of layers) layer.destroy?.();
+      switched.destroy();
+      for (const layer of [...layers, ...overlayLayers.map((o) => o.layer)]) layer.destroy?.();
       if (ready) app.destroy(true, { children: true });
     };
   }, []);
@@ -68,6 +88,7 @@ export function App() {
       <div ref={host} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-0">
         {game && FEATURES.map((f) => (f.Panel ? <f.Panel key={f.id} game={game} /> : null))}
+        {overlays && <OverlayBar overlays={overlays} list={OVERLAYS} />}
       </div>
     </div>
   );

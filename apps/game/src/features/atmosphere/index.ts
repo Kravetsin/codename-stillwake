@@ -3,6 +3,7 @@ import { atmosphere, grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
+import { airOverlay } from './air-overlay';
 
 const TRACK = 0x16212d;
 const OXYGEN = 0x6fd3ff;
@@ -14,6 +15,7 @@ const BAR = 4;
  */
 export const atmosphereFeature: Feature = {
   id: 'atmosphere',
+  overlay: { name: 'overlay.air', key: 'KeyO', layer: airOverlay },
   layer() {
     const view = new Container();
     const gauges = new Graphics();

@@ -33,9 +33,28 @@ export const EN: Readonly<Record<string, string>> = {
   'crew.suit': 'suit',
   'crew.passedOut': 'Passed out: no air',
   'hazards.noWall': 'There is no wall here',
+
+  'overlay.air': 'air',
+  'overlay.pipes': 'pipes',
+  'air.aired': 'Aired · {cells} cells',
+  'air.filling': 'Filling · {aired} of {cells} cells',
+  'air.venting': 'Venting · open to space',
+  'air.vacuum': 'Vacuum · {cells} cells',
+  'air.leak': 'Leaks {leak} every {time} through its hull',
+  'air.holds': 'Its pipes hold {oxygen}',
+  'air.lasts': 'Its pipes hold {oxygen}: enough for {time}',
+  'air.lastsNot': 'Its pipes hold {oxygen}: not enough for the next leak',
+  'air.drains': 'Its pipes hold {oxygen}: drained in {time}',
+  'atmosphere.noVent': 'No vent in this room',
+  'atmosphere.notPiped': 'Its vent has no pipe to a tank',
+  'atmosphere.dry': 'Its pipes hold no oxygen: load a canister into a tank on them',
+  'time.seconds': '{n} s',
+  'time.minutes': '{n} min',
 };
 
-/** The text for `key`, or the key itself while it has none. */
-export function t(key: string): string {
-  return EN[key] ?? key;
+/** The text for `key`, or the key itself while it has none, with each `{name}` in it filled. */
+export function t(key: string, values: Readonly<Record<string, string | number>> = {}): string {
+  return (EN[key] ?? key).replace(/\{(\w+)\}/g, (all, name: string) =>
+    name in values ? String(values[name]) : all,
+  );
 }

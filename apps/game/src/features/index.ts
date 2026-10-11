@@ -6,11 +6,13 @@ import type { Feature } from './feature';
 import { stockFeature } from './stock';
 import { buildingFeature } from './building';
 import { gridFeature } from './grid';
+import { pipesFeature } from './pipes';
 
 /** Every client feature. Layers stack in this order; panels render in this order. */
 export const FEATURES: readonly Feature[] = [
   gridFeature,
   atmosphereFeature,
+  pipesFeature,
   crewFeature,
   buildingFeature,
   stockFeature,

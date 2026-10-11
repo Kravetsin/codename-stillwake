@@ -151,6 +151,64 @@ export function breathe(air: Air, world: World, cell: number, amount: number): n
   return taken;
 }
 
+/** A room's air, as the air overlay shows it. */
+export interface RoomAir {
+  readonly room: number;
+  readonly status: RoomStatus;
+  /** Its cells holding air, of its volume. */
+  readonly aired: number;
+  /** What a leak beat takes from it once aired: each hull cell's leak. */
+  readonly leak: number;
+  /** The oxygen on its vents' networks, each network counted once. */
+  readonly oxygen: number;
+  /**
+   * Ticks its networks last at what this room alone draws: its leak if aired, its vents' drain if
+   * venting. None otherwise, or when nothing is drawn.
+   */
+  readonly lasts: number | undefined;
+  /** Why a room in vacuum gets no air, as an i18n key. */
+  readonly problem: 'atmosphere.noVent' | 'atmosphere.notPiped' | 'atmosphere.dry' | undefined;
+}
+
+/** Every room's air, in `rooms()` order, from one survey. */
+export function roomsAir(air: Seen, world: World): RoomAir[] {
+  const s = survey(air, world);
+  const roomOf = world.rooms.roomOfCells();
+  // Vents standing in each room, piped or not: the survey keeps only the piped ones.
+  const standing = new Set<number>();
+  for (const m of world.grid.machines()) if (m.kind === 'vent') standing.add(roomOf[m.cell] ?? -1);
+  return world.rooms.rooms().map((room) => {
+    const networks = s.ventsIn.get(room.id) ?? [];
+    const oxygen = [...new Set(networks)].reduce((sum, n) => sum + oxygenOn(s, n), 0);
+    const now = status(s, room);
+    const leak = leakOf(world, room);
+    // Venting, each vent drains its network, so a network under two vents drains twice.
+    const lasts =
+      now === 'aired' && leak > 0
+        ? Math.floor(oxygen / leak) * AIR.leakEvery
+        : now === 'venting' && networks.length > 0
+          ? Math.ceil(oxygen / (AIR.ventDrain * networks.length))
+          : undefined;
+    const problem =
+      now !== 'vacuum'
+        ? undefined
+        : !standing.has(room.id)
+          ? 'atmosphere.noVent'
+          : networks.length === 0
+            ? 'atmosphere.notPiped'
+            : 'atmosphere.dry';
+    return {
+      room: room.id,
+      status: now,
+      aired: s.airedIn[room.id] ?? 0,
+      leak,
+      oxygen,
+      lasts,
+      problem,
+    };
+  });
+}
+
 /** The oxygen a room loses through its hull every `AIR.leakEvery` ticks. */
 function leakOf(world: World, room: Room): number {
   let leak = 0;

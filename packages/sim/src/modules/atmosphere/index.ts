@@ -11,10 +11,10 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { StockModule } from '../stock';
-import { breathe, holds, oxygenIn, statusOf, stepAir, type Air } from './air';
+import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 
-export type { RoomStatus } from './air';
+export type { RoomAir, RoomStatus } from './air';
 
 export interface AtmosphereState extends Air {
   /** Ticks the air has run: fill and leak beats are this modulo their rates. */
@@ -77,6 +77,13 @@ const atmosphereModule = defineModule<Deps>()({
         },
         id,
       ),
+    /** Every room's air, for the air overlay: one survey for all rooms, so read it on a timer. */
+    roomsAir: (ctx) =>
+      roomsAir(ctx.state, {
+        grid: ctx.deps.grid.query,
+        rooms: ctx.deps.rooms.query,
+        pipes: ctx.deps.pipes.query,
+      }),
     /** Whether `cell` holds air. */
     airedAt: (ctx, cell: number) => holds(ctx.state.aired, cell),
   },

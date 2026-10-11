@@ -43,7 +43,12 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 ## API
 
 - **Queries:** `oxygenIn(tankId)`; `canisterProblem(tankId)` — why `loadCanister` would be refused, for
-  the client; `roomStatus(roomId)`; `airedAt(cell)`.
+  the client; `roomStatus(roomId)`; `airedAt(cell)`; `roomsAir()` — every room's status, aired cells,
+  leak, the oxygen on its vents' networks (each counted once), how many ticks that lasts at what the
+  room alone draws (its leak if aired, its vents' drain if venting), and why a room in vacuum gets no
+  air (`atmosphere.noVent`, `notPiped` or `dry`). One survey for all rooms: 0.7 ms on the reference
+  world, so the air overlay reads it four times a second, never every tick. It counts neither
+  breathing nor other rooms on the same network.
 - **Operations:** `breathe(cell, amount)` — takes up to `amount` for a hero at `cell` from the vents of
   its room if the room is aired, and returns what it took; nothing anywhere else. Emptied tanks leave
   the list at once.

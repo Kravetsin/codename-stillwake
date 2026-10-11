@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { MODULES } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { EN } from './en';
+import { EN, t } from './en';
 
 /** Every `.ts` file under `dir`, tests left out. */
 function sources(dir: string): string[] {
@@ -28,5 +28,13 @@ describe('english text', () => {
     expect(keys).toContain('grid.occupied');
     expect(keys).toContain('building.noPlan');
     expect([...keys].filter((key) => !(key in EN))).toEqual([]);
+  });
+});
+
+describe('t', () => {
+  it('fills each named value it is given, and leaves the rest as written', () => {
+    expect(t('air.filling', { aired: 3, cells: 96 })).toBe('Filling · 3 of 96 cells');
+    expect(t('air.filling', { aired: 3 })).toBe('Filling · 3 of {cells} cells');
+    expect(t('no.such.key')).toBe('no.such.key');
   });
 });

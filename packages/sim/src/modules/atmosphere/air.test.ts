@@ -351,3 +351,80 @@ describe('air', () => {
     );
   });
 });
+
+describe('rooms air', () => {
+  const of = (w: Scenario, room: number) =>
+    w
+      .query(atmosphere)
+      .roomsAir()
+      .find((r) => r.room === room);
+
+  it('tells an aired room its leak, the oxygen behind it and how long that pays the leak', () => {
+    const { w, room, tanks, fill } = setUp();
+    fill(1);
+    airUp(w, room);
+    const held = oxygen(w, tanks[0] as number);
+    const leak = HULL * MATERIALS.scrap.leak;
+    expect(of(w, room)).toEqual({
+      room,
+      status: 'aired',
+      aired: VOLUME,
+      leak,
+      oxygen: held,
+      lasts: Math.floor(held / leak) * AIR.leakEvery,
+      problem: undefined,
+    });
+  });
+
+  it('tells a venting room how soon its vent drains the network', () => {
+    const { w, room, tanks, fill } = setUp();
+    fill(1);
+    w.do(builder, 'clear', { cell: at(8, 2), layer: 'structure' }).run();
+    const held = oxygen(w, tanks[0] as number);
+    expect(of(w, room)).toMatchObject({
+      status: 'venting',
+      aired: 0,
+      oxygen: held,
+      lasts: Math.ceil(held / AIR.ventDrain),
+    });
+  });
+
+  it('counts a network once for oxygen, and once per vent for the drain', () => {
+    // Two vents in the room, one network: the left vent's pipe runs on to the right one.
+    const { w, room, tanks, fill } = setUp(`
+      #########
+      #V.....V#
+      #TT.....#
+      #TT.....#
+      #########
+    `);
+    for (let x = 2; x <= 7; x++) w.do(builder, 'place', { cell: at(x, 1), placement: pipe });
+    fill(1);
+    w.do(builder, 'clear', { cell: at(8, 2), layer: 'structure' }).run();
+    const held = oxygen(w, tanks[0] as number);
+    expect(of(w, room)).toMatchObject({
+      oxygen: held,
+      lasts: Math.ceil(held / (2 * AIR.ventDrain)),
+    });
+  });
+
+  it('tells a filling room how far it is, and nothing of how long it lasts', () => {
+    const { w, room, fill } = setUp();
+    fill(1);
+    expect(of(w, room)).toMatchObject({ status: 'filling', lasts: undefined, problem: undefined });
+    expect(of(w, room)?.aired).toBeLessThan(VOLUME);
+  });
+
+  it('says why a room stays in vacuum: no vent, a vent with no pipe, or pipes with no oxygen', () => {
+    const bare = scenario(world, '#####\n#...#\n#####');
+    const id = bare.query(rooms).rooms()[0]?.id ?? -1;
+    expect(of(bare, id)).toMatchObject({ status: 'vacuum', problem: 'atmosphere.noVent' });
+
+    const unpiped = scenario(world, ROOM);
+    const room = unpiped.query(rooms).roomAt(at(4, 2)) as number;
+    expect(of(unpiped, room)).toMatchObject({ problem: 'atmosphere.notPiped', lasts: undefined });
+
+    const { w, room: dry } = setUp();
+    expect(of(w, dry)).toMatchObject({ status: 'vacuum', problem: 'atmosphere.dry', oxygen: 0 });
+  });
+});

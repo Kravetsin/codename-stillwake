@@ -38,5 +38,6 @@ export type { Cost, Item } from './stock';
 export { rooms };
 export { pipes };
 export { atmosphere };
+export type { RoomAir, RoomStatus } from './atmosphere';
 export { crew };
 export { hazards };

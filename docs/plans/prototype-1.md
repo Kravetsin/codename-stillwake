@@ -303,6 +303,12 @@ Air: rooms tinted by state; hovering shows volume, leak per minute, the network'
 it lasts. Pipes: every network in its own colour, valve states. Hotkeys switch views. Adds overlays to
 the client feature interface.
 Done when: a playtester answers "why am I losing air?" from the overlay alone.
+Built as an `overlay` on the feature interface (a name, a key, a layer), switched by an overlay bar
+and its keys: O for air, P for pipes. The air overlay tints rooms by status and, under the pointer,
+says what the sim's `atmosphere.roomsAir()` reports: leak, oxygen on the room's pipes and how long
+it lasts, or why it is in vacuum. The pipes overlay, in a new client `pipes` feature, colours each
+network and rings valves by state. `t()` fills `{name}` values. Breathing is left out of "how long
+it lasts", and so are other rooms on a shared network.
 
 **P1-37 · Alerts** · S · client · after 33
 HUD: oxygen per network, suit oxygen, alerts built from module events ("Room venting", "Network
