@@ -5,17 +5,21 @@ export const CELL = 16;
 
 /** The zoom a game starts at: the hero about 84 px tall. */
 export const START_ZOOM = 2;
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
-const WHEEL_STEP = 1.15;
+/**
+ * How far the player may zoom, Terraria's way: a little out, a little in, never far enough to see
+ * where debris comes from. One key press is one step.
+ */
+export const ZOOM = { min: 1, max: 2.5, step: 0.25 } as const;
+/** How far `fit` may zoom out to frame the reference world in development. */
+const FIT_MIN = 0.1;
+// By the key's place, or by what it types, so a layout with the signs elsewhere zooms too.
+const ZOOM_OUT = ['Minus', 'NumpadSubtract', '-'];
+const ZOOM_IN = ['Equal', 'NumpadAdd', '=', '+'];
 
 export interface Camera {
   /** Frames a world rectangle, in cells, with some margin. */
   fit(cells: { x: number; y: number; width: number; height: number }, screen: Size): void;
-  /**
-   * Centres a world point, in cells, called every frame. Dragging the view looks around freely
-   * until the point moves again.
-   */
+  /** Centres a world point, in cells; called every frame. */
   follow(point: { x: number; y: number }, screen: Size): void;
   /** The world point under the mouse, in cells; undefined while the mouse is off the canvas. */
   pointer(): { x: number; y: number } | undefined;
@@ -36,15 +40,21 @@ interface Size {
   readonly height: number;
 }
 
+/** The zoom one step from `zoom` toward `direction`, kept within `ZOOM`. */
+export function zoomStep(zoom: number, direction: -1 | 1): number {
+  return Math.min(ZOOM.max, Math.max(ZOOM.min, zoom + direction * ZOOM.step));
+}
+
 /**
- * Moves and scales `world`. The wheel zooms toward the cursor; the right or middle button drags.
- * The left button is left to the game, which reads it with `takeLeft`: today, building. While following, the wheel zooms
- * around the followed point, since following puts it back in the middle every frame.
+ * Moves and scales `world`: it follows the hero and is never dragged, and `-` and `=` on `keys`
+ * zoom it in steps. The mouse buttons and the wheel are left to the game, which reads the left
+ * button with `takeLeft`.
  */
-export function createCamera(world: Container, canvas: HTMLCanvasElement): Camera {
-  let dragging: { x: number; y: number } | undefined;
-  let looking = false;
-  let followed = { x: NaN, y: NaN };
+export function createCamera(
+  world: Container,
+  canvas: HTMLCanvasElement,
+  keys: EventTarget,
+): Camera {
   let mouse: { x: number; y: number } | undefined;
   let left: LeftButton[] = [];
   let leftDown = false;
@@ -58,31 +68,11 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
-  const zoomAt = (factor: number, sx: number, sy: number) => {
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, world.scale.x * factor));
-    // Keep the world point under the cursor where it is.
-    const wx = (sx - world.x) / world.scale.x;
-    const wy = (sy - world.y) / world.scale.y;
-    world.scale.set(zoom);
-    world.position.set(sx - wx * zoom, sy - wy * zoom);
-  };
-
-  const onWheel = (e: WheelEvent) => {
-    e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    zoomAt(e.deltaY < 0 ? WHEEL_STEP : 1 / WHEEL_STEP, e.clientX - rect.left, e.clientY - rect.top);
-  };
   // One handler for presses, moves and releases, read from the buttons held: with a second button
   // down, the browser reports pressing or releasing another as a move, not as a down or an up.
   const onPointer = (e: PointerEvent) => {
     mouse = onCanvas(e);
     const leftHeld = (e.buttons & 1) !== 0;
-    const panHeld = (e.buttons & 6) !== 0;
-    if (dragging && panHeld) {
-      world.position.set(world.x + e.clientX - dragging.x, world.y + e.clientY - dragging.y);
-    }
-    dragging = panHeld ? { x: e.clientX, y: e.clientY } : undefined;
-    if (panHeld) looking = true;
     if (leftHeld !== leftDown) {
       leftDown = leftHeld;
       left.push({ down: leftHeld, at: toWorld(mouse.x, mouse.y) });
@@ -96,13 +86,20 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
     mouse = undefined;
   };
   const noMenu = (e: Event) => e.preventDefault();
+  // Following centres the hero again on the next frame, so a zoom needs no anchor of its own.
+  const onKey = (e: Event) => {
+    const { code, key } = e as KeyboardEvent;
+    const is = (keys: string[]) => keys.includes(code) || keys.includes(key);
+    const direction = is(ZOOM_OUT) ? -1 : is(ZOOM_IN) ? 1 : 0;
+    if (direction !== 0) world.scale.set(zoomStep(world.scale.x, direction));
+  };
 
-  canvas.addEventListener('wheel', onWheel, { passive: false });
   for (const type of ['pointerdown', 'pointermove', 'pointerup'] as const) {
     canvas.addEventListener(type, onPointer);
   }
   canvas.addEventListener('pointerleave', onLeave);
   canvas.addEventListener('contextmenu', noMenu);
+  keys.addEventListener('keydown', onKey);
 
   return {
     fit(cells, screen) {
@@ -110,8 +107,8 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
       const w = (cells.width + margin * 2) * CELL;
       const h = (cells.height + margin * 2) * CELL;
       const zoom = Math.min(
-        MAX_ZOOM,
-        Math.max(MIN_ZOOM, Math.min(screen.width / w, screen.height / h)),
+        ZOOM.max,
+        Math.max(FIT_MIN, Math.min(screen.width / w, screen.height / h)),
       );
       world.scale.set(zoom);
       world.position.set(
@@ -120,9 +117,6 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
       );
     },
     follow(point, screen) {
-      if (dragging || (looking && point.x === followed.x && point.y === followed.y)) return;
-      looking = false;
-      followed = { x: point.x, y: point.y };
       const zoom = world.scale.x;
       world.position.set(
         screen.width / 2 - point.x * CELL * zoom,
@@ -144,12 +138,12 @@ export function createCamera(world: Container, canvas: HTMLCanvasElement): Camer
       return taken;
     },
     destroy() {
-      canvas.removeEventListener('wheel', onWheel);
       for (const type of ['pointerdown', 'pointermove', 'pointerup'] as const) {
         canvas.removeEventListener(type, onPointer);
       }
       canvas.removeEventListener('pointerleave', onLeave);
       canvas.removeEventListener('contextmenu', noMenu);
+      keys.removeEventListener('keydown', onKey);
     },
   };
 }

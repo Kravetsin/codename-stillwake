@@ -1,6 +1,6 @@
 import type { Container } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
-import { CELL, createCamera } from './camera';
+import { CELL, createCamera, ZOOM, zoomStep } from './camera';
 
 /** Just enough of a Pixi container and a canvas for the camera; tests run without a DOM. */
 function setup() {
@@ -29,31 +29,51 @@ function setup() {
     setPointerCapture: (id: number) => captured.add(id),
     releasePointerCapture: (id: number) => captured.delete(id),
   });
+  const keys = new EventTarget();
   const camera = createCamera(
     world as unknown as Container,
     canvas as unknown as HTMLCanvasElement,
+    keys,
   );
+  const press = (code: string, key = '') =>
+    keys.dispatchEvent(Object.assign(new Event('keydown'), { code, key }));
   /** A pointer event with `buttons` held afterwards, at (x, y) on the canvas. */
   const pointer = (type: string, buttons: number, x: number, y: number) =>
     canvas.dispatchEvent(
       Object.assign(new Event(type), { buttons, clientX: x, clientY: y, pointerId: 1 }),
     );
-  return { world, camera, pointer, captured };
+  return { world, camera, pointer, captured, press };
 }
 
 const screen = { width: 200, height: 100 };
 
 describe('camera', () => {
-  it('pans while the right button is held, and stops when it is let go', () => {
+  it('never moves with a mouse button: the right one or the middle one held and dragged', () => {
     const { world, pointer, captured } = setup();
     pointer('pointerdown', 2, 10, 10);
     pointer('pointermove', 2, 30, 15);
-    expect([world.x, world.y]).toEqual([20, 5]);
+    pointer('pointermove', 6, 50, 25);
+    expect([world.x, world.y]).toEqual([0, 0]);
     expect(captured.size).toBe(1);
-    pointer('pointerup', 0, 30, 15);
-    pointer('pointermove', 0, 60, 60);
-    expect([world.x, world.y]).toEqual([20, 5]);
+    pointer('pointerup', 0, 50, 25);
     expect(captured.size).toBe(0);
+  });
+
+  it('zooms one step a key, minus out and equals in, within its range', () => {
+    const { world, press } = setup();
+    world.scale.set(2);
+    press('Equal');
+    expect(world.scale.x).toBe(2 + ZOOM.step);
+    for (let i = 0; i < 20; i++) press('Equal');
+    expect(world.scale.x).toBe(ZOOM.max);
+    for (let i = 0; i < 20; i++) press('Minus');
+    expect(world.scale.x).toBe(ZOOM.min);
+    press('KeyZ');
+    expect(world.scale.x).toBe(ZOOM.min);
+    // On a layout with the signs elsewhere, by what the key types.
+    press('BracketRight', '+');
+    expect(world.scale.x).toBe(ZOOM.min + ZOOM.step);
+    expect(zoomStep(ZOOM.min, -1)).toBe(ZOOM.min);
   });
 
   it('reads left presses and releases in order, at their world points', () => {
@@ -68,23 +88,6 @@ describe('camera', () => {
     expect(camera.takeLeft()).toEqual([]);
   });
 
-  it('ends a pan whose button is let go while the left one is still held', () => {
-    const { world, camera, pointer, captured } = setup();
-    pointer('pointerdown', 2, 0, 0);
-    pointer('pointermove', 3, 0, 0); // left pressed during the pan: the browser sends a move
-    pointer('pointermove', 1, 0, 0); // right let go: a move again
-    pointer('pointermove', 1, 40, 40); // the left one still held, the view stays
-    expect([world.x, world.y]).toEqual([0, 0]);
-    // No pan is under way, so following works again.
-    camera.follow({ x: 1, y: 1 }, screen);
-    expect([world.x, world.y]).toEqual([100 - CELL, 50 - CELL]);
-    pointer('pointerup', 0, 40, 40);
-    pointer('pointermove', 0, 50, 50);
-    expect([world.x, world.y]).toEqual([100 - CELL, 50 - CELL]);
-    expect(camera.takeLeft().map((b) => b.down)).toEqual([true, false]);
-    expect(captured.size).toBe(0);
-  });
-
   it('reports a left release that comes as a move, while the right button is held', () => {
     const { camera, pointer } = setup();
     pointer('pointerdown', 1, 0, 0);
@@ -94,17 +97,12 @@ describe('camera', () => {
     expect(camera.takeLeft().map((b) => b.down)).toEqual([true, false]);
   });
 
-  it('follows a point, holds still while dragged, and looks around until the point moves', () => {
+  it('follows a point, whatever the mouse does', () => {
     const { world, camera, pointer } = setup();
     camera.follow({ x: 1, y: 1 }, screen);
     expect([world.x, world.y]).toEqual([100 - CELL, 50 - CELL]);
     pointer('pointerdown', 2, 0, 0);
     pointer('pointermove', 2, 7, 0);
-    camera.follow({ x: 2, y: 1 }, screen);
-    expect(world.x).toBe(107 - CELL);
-    pointer('pointerup', 0, 7, 0);
-    camera.follow({ x: 1, y: 1 }, screen);
-    expect(world.x).toBe(107 - CELL);
     camera.follow({ x: 3, y: 1 }, screen);
     expect(world.x).toBe(100 - 3 * CELL);
   });

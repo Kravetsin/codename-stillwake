@@ -2,6 +2,7 @@ import { MACHINES, MATERIALS, type MachineKind, type MaterialId } from '@stillwa
 import type { Placement } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
+import { buildMode } from '../../session/ui';
 
 /** What the left button does in the world while a tool is selected. */
 export type Tool =
@@ -36,3 +37,4 @@ export const TOOLS: readonly Tool[] = [
  * there is one game and one player at this keyboard.
  */
 export const selected = createStore<Tool | undefined>(undefined);
+selected.subscribe(() => buildMode.set(selected.get() !== undefined));

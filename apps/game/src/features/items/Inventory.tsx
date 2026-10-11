@@ -5,10 +5,9 @@ import { css, ITEM_LOOK } from '../../render/item-look';
 import type { Game } from '../../session/game';
 import { openCrate } from '../../session/ui';
 import { clickOn, type Picked } from './click';
+import { ROW, wheelSlot } from './hotbar';
 
 const REFRESH_MS = 100;
-/** Slots in a row: the inventory's first row is the hotbar, chosen with keys 1 to 9. */
-const ROW = 9;
 
 function read(game: Game, crate: number | undefined) {
   const q = game.client.sim.query(items);
@@ -98,11 +97,17 @@ export function Inventory({ game }: { readonly game: Game }) {
       }
     };
     const onMove = (e: globalThis.MouseEvent) => setMouse({ x: e.clientX, y: e.clientY });
+    // Over the world only: a panel under the pointer may want its own scrolling.
+    const onWheel = (e: WheelEvent) => {
+      if (e.target instanceof HTMLCanvasElement) setChosen((slot) => wheelSlot(slot, e.deltaY));
+    };
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousemove', onMove);
+    window.addEventListener('wheel', onWheel);
     return () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('wheel', onWheel);
     };
   }, [open]);
 

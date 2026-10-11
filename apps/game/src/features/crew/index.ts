@@ -1,17 +1,17 @@
 import { HERO } from '@stillwake/content';
-import { crew } from '@stillwake/sim';
-import { Container, Graphics, Text } from 'pixi.js';
-import { t } from '../../i18n/en';
+import { crew, grid, type Sim } from '@stillwake/sim';
+import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
+import { buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
-import { openCrate } from '../../session/ui';
+import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes } from './remote';
+import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
-import { SuitGauge } from './SuitGauge';
 
 const BODY = 0xe8b04a;
 /** Other players' heroes, so a player tells their own apart at a glance. */
@@ -19,26 +19,25 @@ const OTHER = 0x5fc8c0;
 const VISOR = 0x2b3a4a;
 const AIM_READY = 0x7fe08a;
 const AIM_REFUSED = 0xe05555;
-// Neutral, so neither outline is lost against an orange door or a red valve.
-const AIM_FAR = 0xc8d0dc;
-const AIM_IDLE = 0xffffff;
 
 /**
- * Outlines the cell under the pointer: green when E would work it, red when the sim would refuse
- * the work, grey when out of reach, faint when there is nothing to use.
+ * Outlines what E would work under the pointer within reach, a machine's whole footprint: green, or
+ * red when the sim would refuse. Nothing else: no square follows the pointer.
  */
-function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
+function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) {
   g.clear();
-  if (!aim) return;
-  const x = (aim.cell % width) * CELL;
-  const y = Math.floor(aim.cell / width) * CELL;
-  if (!aim.press && !aim.work && aim.crate === undefined) {
-    g.rect(x, y, CELL, CELL).stroke({ width: 1, color: AIM_IDLE, alpha: 0.35 });
-    return;
-  }
-  const problem = aim.work ? aim.work.problem : aim.press?.problem;
-  const colour = !aim.inReach ? AIM_FAR : problem ? AIM_REFUSED : AIM_READY;
-  g.rect(x + 1, y + 1, CELL - 2, CELL - 2).stroke({ width: 2, color: colour });
+  if (!aim?.inReach || (!aim.press && !aim.work && aim.crate === undefined)) return;
+  const q = sim.query(grid);
+  const { width } = q.size();
+  const machine = aim.work ? undefined : q.machineAt(aim.cell);
+  const cells = (machine && q.footprint(machine.kind, machine.cell)) ?? [aim.cell];
+  const xs = cells.map((c) => c % width);
+  const ys = cells.map((c) => Math.floor(c / width));
+  const x = Math.min(...xs) * CELL;
+  const y = Math.min(...ys) * CELL;
+  const w = (Math.max(...xs) + 1) * CELL - x;
+  const h = (Math.max(...ys) + 1) * CELL - y;
+  g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
 
 /** A hero's figure in `colour`, its feet at the origin; `body` flips to face the other way. */
@@ -65,12 +64,13 @@ function place(shown: { figure: Container; body: Graphics }, x: number, y: numbe
  * Other players' heroes, as their peers send them through the host, drawn a little behind so they
  * move smoothly between sends; and this machine's hero: moved by the keyboard against the ship's
  * cells, outside the sim, and followed by the camera. E under the pointer, within reach, toggles a
- * door or valve, loads a tank or opens a crate when pressed, and works a plan while held: one
- * `work` command for every tick the host releases.
+ * door or valve, loads a tank, catches a piece or opens a crate when pressed, and works a plan while
+ * held: one `work` command for every tick the host releases. With no build tool out, what E would
+ * work is outlined, and a prompt says what E does.
  */
 export const crewFeature: Feature = {
   id: 'crew',
-  Panel: SuitGauge,
+  Panel: CrewPanel,
   layer() {
     const own = figureOf(BODY);
     const others = new Container();
@@ -80,17 +80,8 @@ export const crewFeature: Feature = {
     let sendTo: { sendHero(state: unknown): void } | undefined;
     const sender = createHeroSender((hero) => sendTo?.sendHero(hero));
     const aimView = new Graphics();
-    const reason = new Text({
-      text: '',
-      style: {
-        fontFamily: 'monospace',
-        fontSize: 10,
-        fill: 0xffe4e4,
-        stroke: { color: 0x0b0f17, width: 3 },
-      },
-    });
     const view = new Container();
-    view.addChild(aimView, others, own.figure, reason);
+    view.addChild(aimView, others, own.figure);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -153,11 +144,10 @@ export const crewFeature: Feature = {
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
         const aim = pointer && aimAt(sim, game.client.id, current, pointer);
-        drawAim(aimView, ship.width, aim);
-        const problem = aim?.work ? aim.work.problem : aim?.press?.problem;
-        reason.text = problem ? t(problem) : '';
-        // A line below where the build tool writes its reason, so the two never overlap.
-        if (pointer) reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 26);
+        // With a build tool out the building layer shows the pointer's cell and its own reasons.
+        const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);
+        drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);
+        if (!samePrompt(prompt, shownPrompt.get())) shownPrompt.set(prompt);
 
         // The press is taken every frame, so one made out of reach is spent rather than kept.
         // Passed out, E does nothing: a press is spent, a hold works no plan.
@@ -176,6 +166,7 @@ export const crewFeature: Feature = {
       destroy() {
         keys.destroy();
         openCrate.set(undefined);
+        shownPrompt.set(undefined);
       },
     };
   },

@@ -84,7 +84,7 @@ export function App() {
       // Feature layers live in the world, which the camera moves and scales.
       const world = new Container();
       app.stage.addChild(world);
-      const camera = createCamera(world, app.canvas);
+      const camera = createCamera(world, app.canvas, window);
       destroyCamera = () => camera.destroy();
       // The reference world is measured whole on screen; a game starts close on the hero.
       const { width, height } = created.client.sim.query(grid).size();
