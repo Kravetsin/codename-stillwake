@@ -15,6 +15,8 @@ const DESYNC_SLOT = 'desync';
 export interface Session {
   readonly host?: Host;
   readonly client: Client;
+  /** Leaves a session joined from another machine, as a load does. */
+  readonly leave?: () => void;
 }
 
 /** The running game on this machine: a session that a load replaces, and the time that drives it. */
@@ -86,7 +88,9 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
       for (const report of session.client.takeDesyncs()) {
         desyncs += 1;
         console.warn('Desync, resynced from the host:', report);
-        void platform.saves.write(DESYNC_SLOT, JSON.stringify(report, null, 2));
+        platform.saves
+          .write(DESYNC_SLOT, JSON.stringify(report, null, 2))
+          .catch((why: unknown) => console.warn('The desync report was not saved:', why));
       }
       return reports;
     },
@@ -98,6 +102,7 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     async load() {
       const text = await platform.saves.read(DEV_SLOT);
       if (text === undefined) return false;
+      session.leave?.();
       session = ownSession(definition.load(text));
       for (const listener of listeners) listener();
       return true;

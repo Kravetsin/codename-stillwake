@@ -143,6 +143,25 @@ describe('loopback', () => {
   });
 });
 
+describe('a peer leaving', () => {
+  it('is sent nothing more, while the others play on', () => {
+    const host = createHost(0);
+    const clients = [0, 1].map(() => {
+      const [toClient, toHost] = loopback<ToClient, ToHost>();
+      return createClient(game.create(1), toHost, host.connect(toClient));
+    });
+    clients[1]?.send(write('bye'));
+    host.disconnect(1);
+    clients[0]?.sendHero({ x: 1 });
+    host.advance();
+    expect(clients[1]?.update()).toEqual([]);
+    expect(clients[1]?.takeHeroes()).toEqual([]);
+    // What it sent before it left still goes out.
+    clients[0]?.update();
+    expect(clients[0]?.sim.query(board).notes()).toEqual(['0:bye']);
+  });
+});
+
 describe('heroes', () => {
   it('pass through the host to every other peer, stamped with the sender, and never back', () => {
     const host = createHost(0);

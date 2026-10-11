@@ -26,8 +26,10 @@ function startSession(layout: Layout): { session: Promise<Session>; stop: () => 
   if (!hot || !joining) return { session: Promise.resolve(own()), stop: () => {} };
   const joined = joinOnRelay(hot, joining, link.set);
   const session = Promise.race([joinHost(stillwake, joined.channel, BUILD), joined.ended]).then(
-    (client): Session => ({ client }),
+    (client): Session => ({ client, leave: joined.stop }),
     (why: unknown) => {
+      // Left before joining, the page is going: its world is never shown.
+      if (joined.left()) return own();
       // Shown on the dev panel, which keeps what the relay said; a build mismatch it never heard.
       const last = link.get();
       joined.stop();
@@ -107,9 +109,9 @@ export function App() {
       setGame(created);
       setOverlays(switched);
 
-      // `?host` opens this world to tabs joining over the dev relay; dev builds only.
+      // `?host` opens a world of this tab's own to tabs joining over the dev relay; dev builds only.
       const hot = import.meta.hot;
-      if (hot && new URLSearchParams(location.search).has('host')) {
+      if (hot && created.host && new URLSearchParams(location.search).has('host')) {
         unlink = hostOnRelay(hot, () => created.host, link.set);
       }
     });

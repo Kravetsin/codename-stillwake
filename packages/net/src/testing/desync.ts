@@ -95,6 +95,15 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   };
 
   for (let tick = 0; tick < ticks; tick++) {
+    for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
+      const sender = clients[rng.below(clients.length)] as Client;
+      const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
+      const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng);
+      if (!pick) continue;
+      sender.send({ module: m.id, type: pick.type, payload: pick.payload, from: 0 });
+      commands += 1;
+    }
+    // After this tick's commands: the newcomer joins with commands waiting in the host.
     if (tick === joinAt) {
       const [toClient, toHost] = loopback<ToClient, ToHost>();
       host.admit(toClient);
@@ -107,14 +116,6 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
           throw why;
         },
       );
-    }
-    for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
-      const sender = clients[rng.below(clients.length)] as Client;
-      const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
-      const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng);
-      if (!pick) continue;
-      sender.send({ module: m.id, type: pick.type, payload: pick.payload, from: 0 });
-      commands += 1;
     }
     host.advance();
     for (const client of clients) if (rng.below(3) !== 0) update(client);

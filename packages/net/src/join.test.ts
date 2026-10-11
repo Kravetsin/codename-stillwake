@@ -52,6 +52,14 @@ describe('joining a session mid-way', () => {
     await expect(joinHost(game, fromHost, 'b2')).rejects.toThrow('build b1; this is build b2');
   });
 
+  it('leaves the host quiet after a refusal: what it sends next goes nowhere', async () => {
+    const { host } = localSession(game.create(1), 'b1');
+    const [toPeer, fromHost] = loopback<ToClient, ToHost>();
+    host.admit(toPeer);
+    await expect(joinHost(game, fromHost, 'b2')).rejects.toThrow();
+    expect(() => host.advance()).not.toThrow();
+  });
+
   it('is our bug on a host with no world to welcome with', () => {
     const [toPeer] = loopback<ToClient, ToHost>();
     expect(() => createHost(0).admit(toPeer)).toThrow('no world');

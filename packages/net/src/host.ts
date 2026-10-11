@@ -21,6 +21,11 @@ export interface Host {
    * world as it stands, then receives every tick released from now on. Returns its id.
    */
   admit(channel: Channel<ToHost, ToClient>): number;
+  /**
+   * Drops peer `id`, gone from the session: it is sent nothing more, and its hashes are checked no
+   * more. Its commands already received still go out in the next tick.
+   */
+  disconnect(id: number): void;
   /** Releases the next tick, carrying every command received since the last one. */
   advance(): void;
 }
@@ -94,6 +99,12 @@ export function createHost(firstTick: number, world?: WorldSource): Host {
     },
 
     connect,
+
+    disconnect(id) {
+      const at = peers.findIndex((p) => p.id === id);
+      if (at >= 0) peers.splice(at, 1);
+      resyncedAt.delete(id);
+    },
 
     admit(channel) {
       // Our bug: only a session that knows its world opens to joining peers.

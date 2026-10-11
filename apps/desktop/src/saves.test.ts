@@ -24,9 +24,17 @@ describe('desktop saves', () => {
     expect((await readdir(dir)).sort()).toEqual(['desync.json', 'dev.json']);
   });
 
+  it('keep overlapping writes to one slot whole, the last one winning', async () => {
+    const saves = await fresh();
+    const long = 'x'.repeat(3_000_000);
+    const short = 'y'.repeat(2_000_000);
+    await Promise.all([saves.write('dev', long), saves.write('dev', short)]);
+    expect(await saves.read('dev')).toBe(short);
+  });
+
   it('refuse a slot name that is not a plain name', async () => {
     const saves = await fresh();
-    await expect(saves.write('../escape', 'x')).rejects.toThrow('not a save slot name');
+    expect(() => saves.write('../escape', 'x')).toThrow('not a save slot name');
     await expect(saves.read('a/b')).rejects.toThrow('not a save slot name');
   });
 });

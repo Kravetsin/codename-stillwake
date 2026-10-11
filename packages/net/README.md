@@ -29,7 +29,9 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   they need nothing of their own.
 - `joinHost(definition, channel, build)` refuses another build (every peer must run the same
   simulation), loads the world and returns a client that catches up on the ticks that came since.
-- The build is the short commit hash, with `+` for a changed tree, set by the game's Vite config.
+- The build is the short commit hash and, for a changed tree, `+` and a hash of the changes, set by
+  the game's Vite config.
+- `Host.disconnect(id)` drops a peer that left: it is sent nothing more and checked no more.
 
 ## Heroes
 
@@ -40,8 +42,9 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 
 ## Hash checks
 
-- Every client sends `hash` after each `HASH_EVERY` (20) ticks. The host checks the others against
-  peer 0's, holding a report that comes first, and keeps peer 0's last 30.
+- Every client sends `hash` after each `HASH_EVERY` (20) ticks, once its update is done: the host may
+  check it at once and save peer 0's world, which must not be halfway through its ticks. The host
+  checks the others against peer 0's, holding a report that comes first, and keeps peer 0's last 30.
 - A peer that differs gets `resync`: peer 0's world on the host's next tick. The client takes it in
   order with the ticks, so both saves are of one tick, records a `DesyncReport` (each module that
   differs, up to ten paths in it, and whether the rng drifted), and plays on from the host's world.
@@ -60,12 +63,14 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 
 - The dev relay is a plugin of the game's Vite dev server (`apps/game/src/dev/relay.ts`), riding the
   WebSocket every dev tab holds: `?host` opens a session, `?join=<id>` joins it. It routes by session
-  and peer and reads nothing. Release builds will talk over Steam instead.
+  and peer and reads nothing; a tab that leaves is disconnected from its host. Release builds will
+  talk over Steam instead.
+- Ticks are released from the game's frames, which a browser pauses in a hidden tab: put the host and
+  its peers in separate windows, not tabs of one.
 
 ## Deliberately not handled
 
-- A peer that leaves stays a peer of the host until the session ends: the relay drops what is sent
-  to it, and its hero is hidden after three silent seconds.
-- A host that loads a save leaves its joined peers behind; a joined tab that loads a save leaves the
+- Others are told nothing when a peer leaves: its hero is hidden after three silent seconds.
+- A host that loads a save leaves its joined peers behind. A joined tab that loads a save leaves the
   session for a world of its own.
 - No host migration, no anti-cheat: friends trust each other (0002).

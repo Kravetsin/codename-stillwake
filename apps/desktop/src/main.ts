@@ -23,6 +23,12 @@ void app.whenReady().then(() => {
     webPreferences: { preload: path.join(here, '../src/preload.cjs') },
   });
   window.removeMenu();
+  // The window shows the game and nothing else: a file dropped on it, or a link, opens nowhere.
+  window.webContents.on('will-navigate', (event) => {
+    // Reloading the game itself (the dev server does on a change) stays allowed.
+    if (event.url !== window.webContents.getURL()) event.preventDefault();
+  });
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   // The page's console in the shell's own, so a problem in the game shows where it was started.
   window.webContents.on('console-message', (event) => {
     console.log(`[game] ${event.message}`);

@@ -68,6 +68,22 @@ describe('live hash checks', () => {
     expect(peer.sim.hash()).toBe(own.client.sim.hash());
   });
 
+  it('resync from the host player world on the host tick, however the updates fall', async () => {
+    const { own, peer } = await session();
+    (peer.sim.world.slices['drift'] as { position: number }).position += 1;
+    // The peer reports first, its hash waits; the host releases on before its player catches up.
+    while (own.host.tick < HASH_EVERY) own.host.advance();
+    peer.update();
+    own.host.advance();
+    own.client.update();
+    peer.update();
+    expect(peer.takeDesyncs()).toEqual([
+      { tick: HASH_EVERY + 1, rng: false, modules: [{ id: 'drift', paths: ['drift.position'] }] },
+    ]);
+    runTo(own, peer, 2 * HASH_EVERY + 1);
+    expect(peer.sim.hash()).toBe(own.client.sim.hash());
+  });
+
   it('resync a peer once, not again for the hashes it sent before taking the resync', async () => {
     const { own, peer } = await session();
     (peer.sim.world.slices['drift'] as { position: number }).position += 1;

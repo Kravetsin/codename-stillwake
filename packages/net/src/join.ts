@@ -30,6 +30,8 @@ export function join(
     // The host welcomes before it releases any tick to a peer: anything else first is our bug.
     if (message.kind !== 'welcome') throw new Error(`A ${message.kind} came before the welcome.`);
     if (message.build !== build) {
+      // Whatever the host sends after goes nowhere: this peer will not play.
+      deliver = () => {};
       return refused(new Error(`The host runs build ${message.build}; this is build ${build}.`));
     }
     // The client takes the channel from here: every message after the welcome goes to it.

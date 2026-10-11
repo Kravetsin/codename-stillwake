@@ -112,6 +112,26 @@ describe('desync fuzz: the harness itself', () => {
     expect(run.refused).toBeGreaterThan(50);
   });
 
+  it.each(SEEDS)('keeps a joiner in step, and catches it drifting (seed %i)', (seed) => {
+    const joinAt = 20 + (seed % 37);
+    const steady = fuzzDesync(fixtures, { seed, joinAt, ticks: 200 });
+    expect(steady.desync).toBeUndefined();
+    const drifting = fuzzDesync(fixtures, {
+      seed,
+      joinAt,
+      ticks: 200,
+      tamper: (tick, clients) => {
+        if (tick !== joinAt + 10) return;
+        (clients[3]?.sim.world.slices['drift'] as { position: number }).position += 1;
+      },
+    });
+    // Caught by its hash at the next check, or already resynced, saying what drifted.
+    expect(drifting.desync).toBeDefined();
+    for (const report of drifting.desync?.reports ?? []) {
+      expect(report.modules.map((m) => m.id)).toEqual(['drift']);
+    }
+  });
+
   it('catches a client whose world was changed behind the pipeline’s back', () => {
     const run = fuzzDesync(fixtures, {
       seed: 7,

@@ -87,6 +87,9 @@ export function createClient(
 
     update() {
       const reports: TickReport[] = [];
+      // Sent once the loop is done: the host may check a hash at once and save the host player's
+      // world, which must not happen with this client halfway through its ticks.
+      const hashes: { tick: number; hash: string }[] = [];
       for (const message of released.splice(0)) {
         if (message.kind === 'resync') {
           resync(message.save);
@@ -100,8 +103,9 @@ export function createClient(
         }
         reports.push(sim.step(message.commands));
         const tick = sim.world.tick;
-        if (tick % HASH_EVERY === 0) channel.send({ kind: 'hash', tick, hash: sim.hash() });
+        if (tick % HASH_EVERY === 0) hashes.push({ tick, hash: sim.hash() });
       }
+      for (const { tick, hash } of hashes) channel.send({ kind: 'hash', tick, hash });
       return reports;
     },
   };

@@ -47,6 +47,8 @@ export function hostOnRelay(
   report: (status: LinkStatus) => void,
 ): () => void {
   const receivers = new Map<number, (message: ToHost) => void>();
+  // The host's id for each relay peer, given when it was admitted.
+  const ids = new Map<number, number>();
   let session: string | undefined;
   const show = () => report({ role: 'host', session, peers: receivers.size });
   show();
@@ -60,14 +62,17 @@ export function hostOnRelay(
         send: (message) => socket.send(RELAY.toPeer, { peer, message }),
         onMessage: (receive) => receivers.set(peer, receive),
       };
-      host()?.admit(channel);
+      const id = host()?.admit(channel);
+      if (id !== undefined) ids.set(peer, id);
       show();
     },
     [RELAY.fromPeer]: ({ peer, message }: { peer: number; message: ToHost }) => {
       receivers.get(peer)?.(message);
     },
-    // The host keeps sending to a peer that left; the relay drops what has nowhere to go.
     [RELAY.left]: ({ peer }: { peer: number }) => {
+      const id = ids.get(peer);
+      if (id !== undefined) host()?.disconnect(id);
+      ids.delete(peer);
       receivers.delete(peer);
       show();
     },
@@ -88,8 +93,15 @@ export function joinOnRelay(
   socket: HotSocket,
   session: string,
   report: (status: LinkStatus) => void,
-): { channel: Channel<ToClient, ToHost>; ended: Promise<never>; stop: () => void } {
+): {
+  channel: Channel<ToClient, ToHost>;
+  ended: Promise<never>;
+  stop: () => void;
+  /** Whether `stop` ended it: this tab left, rather than the relay or the host failing it. */
+  left: () => boolean;
+} {
   let receive: ((message: ToClient) => void) | undefined;
+  let left = false;
   // As a channel promises: what the host sends before anyone listens is kept, then handed over.
   const waiting: ToClient[] = [];
   let end: (why: Error) => void = () => {};
@@ -124,9 +136,14 @@ export function joinOnRelay(
     },
     ended,
     stop: () => {
+      if (left) return;
+      left = true;
       stop();
       socket.send(RELAY.leave);
       report({ role: 'alone' });
+      // Anyone still waiting to join stops waiting.
+      end(new Error(`Left session ${session}.`));
     },
+    left: () => left,
   };
 }

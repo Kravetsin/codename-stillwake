@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin, type WebSocketClient } from 'vite';
@@ -18,12 +19,17 @@ function relay(): Plugin {
   };
 }
 
-/** The commit this build is made from, with `+` when the tree has changes: peers must match it. */
+/**
+ * The commit this build is made from and, for a tree with changes, a hash of them: peers must match
+ * it, and two different sets of edits on one commit are two builds.
+ */
 function build(): string {
   try {
-    const commit = execSync('git rev-parse --short HEAD').toString().trim();
-    const dirty = execSync('git status --porcelain').toString().trim() !== '';
-    return dirty ? `${commit}+` : commit;
+    const git = (args: string) => execSync(`git ${args}`).toString();
+    const commit = git('rev-parse --short HEAD').trim();
+    const changes = git('diff HEAD') + git('ls-files --others --exclude-standard');
+    if (changes === '') return commit;
+    return `${commit}+${createHash('sha1').update(changes).digest('hex').slice(0, 7)}`;
   } catch {
     return 'unknown';
   }

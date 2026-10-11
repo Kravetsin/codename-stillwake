@@ -75,6 +75,28 @@ describe('two tabs through the relay', () => {
     expect(hosting.get()).toMatchObject({ peers: 0 });
   });
 
+  it('drop a tab that leaves from the host, and end its own wait for the world', async () => {
+    const server = devServer();
+    const own = localSession(stillwake.create(3, wreck), 'b1');
+    const dropped: number[] = [];
+    const host = {
+      ...own.host,
+      admit: (channel: Parameters<typeof own.host.admit>[0]) => own.host.admit(channel),
+      disconnect: (id: number) => dropped.push(id),
+    };
+    hostOnRelay(
+      server.tab(),
+      () => host,
+      () => {},
+    );
+    const joined = joinOnRelay(server.tab(), '1', () => {});
+    await joinHost(stillwake, joined.channel, 'b1');
+    joined.stop();
+    expect(dropped).toEqual([1]);
+    expect(joined.left()).toBe(true);
+    await expect(joined.ended).rejects.toThrow('Left session 1');
+  });
+
   it('refuse a tab running another build', async () => {
     const server = devServer();
     const own = localSession(stillwake.create(3, wreck), 'b1');

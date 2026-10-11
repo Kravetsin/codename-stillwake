@@ -14,6 +14,10 @@ export function localSession(sim: Sim, build = ''): { host: Host; client: Client
     build,
     save() {
       client.update();
+      // Our bug if it is not: a joiner or a resynced peer would start on another tick.
+      if (client.sim.world.tick !== host.tick) {
+        throw new Error(`Saving tick ${client.sim.world.tick} for a host on tick ${host.tick}.`);
+      }
       return client.sim.save();
     },
   });
