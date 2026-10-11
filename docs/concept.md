@@ -38,10 +38,13 @@ A living document: what is decided about the game and what is still open. Techni
   stand on floors and connect to conduits. Materials differ in strength against meteors, air leaks and
   cost. Overlays show air, pipes and power. The player places plans and the hero builds them by hand;
   drones come later.
-- **The screen speaks without words.** What is always on screen shows the ship's state by colour,
-  light and motion: a room losing air pulses red, pipes carrying oxygen glow, a low suit reddens the
+- **The screen speaks without words.** What is always on screen shows the ship's state by colour
+  and motion: a room losing air pulses red, pipes carrying oxygen glow, a low suit reddens the
   screen's edges, air escaping through the hull is seen leaving. Text is on demand, in overlays and by
   the pointer.
+- **Light comes from sources, air has a view of its own.** Lamps on the power network, helmet lamps
+  and starlight through windows light the ship; a dark room means no light, never no air. Air is
+  seen in its own view, as in Oxygen Not Included: the air overlay, cell by cell.
 - **Meteors belong to places.** The starting space is calm; meteors come where the ship goes, such as
   the rings around a planet. A place throws meteors of some power, and a hull cell breaks only if the
   power reaches its material's strength: a strong hull is safe early and gives way in harder places,

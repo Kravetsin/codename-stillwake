@@ -410,6 +410,11 @@ wall as bright as the brightest room among its eight neighbours, space untouched
 added over aired cells, since multiplying cannot light a black interior. A filling room brightens
 cell by cell. Heroes, lit pipes and the red pulse are drawn above, as if by their own light. A pass
 costs 0.7 ms on the reference world, four times a second, through a new `airedCells()` query.
+Taken back after a look: light belongs to lamps, helmet lamps and starlight, and a dark room must
+mean no light, never no air (concept). Air is seen in the air overlay instead, now cell by cell: a
+cell holding air green, a room's cell without it grey, a room open to space red, so a room fills in
+before the eyes. The light map (a pixel per cell, multiplied over the scene) waits in commit
+`584124e` for lamps and power.
 
 **P1-51 · Electron shell** — the game inside Electron, saving files through the platform interface.
 

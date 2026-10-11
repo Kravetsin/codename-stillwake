@@ -1,21 +1,23 @@
-import { atmosphere, grid, rooms, type RoomAir, type RoomStatus } from '@stillwake/sim';
+import { atmosphere, grid, rooms, type RoomAir } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Layer } from '../feature';
 import { explain } from './explain';
 
-const TINT: Record<RoomStatus, number> = {
-  aired: 0x3fc7a0,
-  filling: 0xe0c040,
-  venting: 0xe05050,
-  vacuum: 0x6a7488,
-};
+/** A cell holding air. */
+const AIRED = 0x3fc7a0;
+/** A room's cell with none. */
+const EMPTY = 0x6a7488;
+/** Every cell of a room open to space, whose air is gone. */
+const VENTING = 0xe05050;
 /** The whole ship's air is surveyed at most this often: a big ship has hundreds of rooms. */
 const REFRESH_MS = 250;
 
 /**
- * Rooms tinted by the state of their air, and under the pointer what the sim says of that room's
- * air: what it leaks, what holds it up and for how long, or what it lacks.
+ * The ship's air, cell by cell, as a view of its own: each cell holding air coloured, each room cell
+ * without it grey, a room open to space red; a filling room fills in before the eyes. Under the
+ * pointer, what the sim says of that room's air: what it leaks, what holds it up and for how long,
+ * or what it lacks.
  */
 export function airOverlay(): Layer {
   const tint = new Graphics();
@@ -48,10 +50,15 @@ export function airOverlay(): Layer {
             .roomsAir()
             .map((air) => [air.room, air]),
         );
-        drawRooms(tint, sim.query(grid).size().width, sim.query(rooms).roomOfCells(), (room) => {
-          const air = byRoom.get(room);
-          return air && TINT[air.status];
-        });
+        const mask = new Uint8Array(sim.query(rooms).roomOfCells().length);
+        for (const cell of sim.query(atmosphere).airedCells()) mask[cell] = 1;
+        drawRooms(
+          tint,
+          sim.query(grid).size().width,
+          sim.query(rooms).roomOfCells(),
+          (cell, room) =>
+            byRoom.get(room)?.status === 'venting' ? VENTING : mask[cell] === 1 ? AIRED : EMPTY,
+        );
       }
       const pointer = camera.pointer();
       const room = pointer && sim.query(rooms).roomAt(cellAt(sim.query(grid).size(), pointer));
@@ -70,26 +77,29 @@ function cellAt(size: { width: number; height: number }, p: { x: number; y: numb
 }
 
 /**
- * Rooms' cells in the colour `colourOf` gives each room, none for a room it leaves out: a rectangle
- * per run of a room along a row, one fill per colour.
+ * Rooms' cells in the colour `colourOf` gives each cell of a room, none where it gives none: a
+ * rectangle per run of one colour along a row, one fill per colour.
  */
 export function drawRooms(
   g: Graphics,
   width: number,
   roomOf: Readonly<Int32Array>,
-  colourOf: (room: number) => number | undefined,
+  colourOf: (cell: number, room: number) => number | undefined,
 ): void {
   g.clear();
+  const colour = (cell: number) => {
+    const room = roomOf[cell] ?? -1;
+    return room >= 0 ? colourOf(cell, room) : undefined;
+  };
   const runs = new Map<number, [start: number, length: number][]>();
   for (let start = 0; start < roomOf.length;) {
-    const room = roomOf[start] ?? -1;
+    const here = colour(start);
     let end = start + 1;
-    while (end < roomOf.length && end % width !== 0 && roomOf[end] === room) end++;
-    const colour = room >= 0 ? colourOf(room) : undefined;
-    if (colour !== undefined) {
-      const list = runs.get(colour) ?? [];
+    while (end < roomOf.length && end % width !== 0 && colour(end) === here) end++;
+    if (here !== undefined) {
+      const list = runs.get(here) ?? [];
       list.push([start, end - start]);
-      runs.set(colour, list);
+      runs.set(here, list);
     }
     start = end;
   }
