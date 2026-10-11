@@ -20,20 +20,22 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, is used in them and 
   - **aired** — every cell of it is aired;
   - **filling** — not all aired, and one of its vents stands on a network holding oxygen;
   - **vacuum** — otherwise, a half-aired room with no supply included.
-- **A room's air lies in one patch around its vents.** Each room's cells are ordered breadth first
-  through the room from the vents standing in it (piped or not), in vent id order, neighbours up,
-  left, right, down; a room with no vent is ordered from its middle, the cell nearest the mean of its
-  cells. A room's aired cells are always the start of its order.
-- **When the rooms or the vents' cells change,** each room keeps how many aired cells it holds, laid
-  out again on its new order; cells no longer in a room lose their air. So a door opened onto an empty
-  room spreads the air over both at once, and closed again each part keeps what it holds.
+- **Air stays where it is.** Each room's cells are ordered breadth first through the room from the
+  vents standing in it (piped or not), in vent id order, neighbours up, left, right, down; a room with
+  no vent is ordered from its middle, the cell nearest the mean of its cells. Vents air the first
+  empty cell of the order, and whatever takes air takes the last aired one, so a room's air gathers
+  around its vents and never jumps.
+- **When the rooms or the vents' cells change,** the orders of the rooms they touch are found again
+  and the air stays put; cells no longer in a room lose theirs. So a door opened onto an empty room
+  lets the vents fill it through the doorway, and closed again each part keeps the cells it holds.
 - **A hero breathes in any room holding air,** wherever in it. A breath is paid by the networks of
   the room's vents, in vent id order, as if they put the air back at once; what they cannot pay is
   taken as the last aired cells of the order, the far edge. Only breaths and breaches take air out of
   a room.
 - **A tick of air,** in the simulation phase, in this order:
   1. The rooms and vents are compared with those the orders were found from; on a change, the
-     orders are found again and the air laid out again.
+     orders of the rooms they touch are found again, and cells left outside every room lose their
+     air.
   2. A room open to space loses `AIR.ventLoss` cells from the far edge, and every vent in it — or
      standing in space — drains its network by `AIR.ventDrain`.
   3. Every `AIR.ticksPerCell` ticks, each filling room airs the next cell of its order, paying one
@@ -69,12 +71,12 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, is used in them and 
 
 - A tank holds between nothing and its capacity.
 - Aired cells are sorted, distinct, and each in a room.
-- Each room's aired cells are the start of its order.
+- The orders kept room by room are those found afresh for the whole ship, as after a load.
 
 ## Deliberately not handled
 
-- Air does not thin or flow: a cell holds air or not, and only its count in a room moves it. Laid out
-  again, it jumps to its new place at once.
+- Air does not thin or flow: a cell holds air or not. A door opened onto an empty room does not
+  spill air through by itself; the vents fill it, nearest first.
 - A room with no supply keeps its air whatever its hull leaks: the leak is a cost on the tanks, not
   a loss the player watches.
 - A vent in a venting room drains its whole network, aired rooms on it included: cut it with a valve.

@@ -9,7 +9,8 @@ export type RoomStatus = 'vacuum' | 'filling' | 'aired' | 'venting';
 
 /**
  * The oxygen a tank holds, by machine id; the aired cells, sorted. A cell of air is a unit of
- * oxygen, and a room's aired cells are always the start of its order (`order.ts`).
+ * oxygen. Air stays where it is: vents air the first empty cell of their room's order (`order.ts`),
+ * and whatever takes air takes the last aired one.
  */
 export interface Air {
   tanks: { tank: number; oxygen: number }[];
@@ -35,6 +36,8 @@ interface Survey {
   readonly tanksOn: Map<number, number[]>;
   /** How many cells of each room are aired, by room id: rooms are named by cells. */
   readonly airedIn: Int32Array;
+  /** Per cell, whether it holds air: kept current as the rules below change it. */
+  readonly airedAt: Uint8Array;
   /** Each tank holding oxygen, by id: the very entries of `Air.tanks`. */
   readonly held: Map<number, { readonly tank: number; oxygen: number }>;
 }
@@ -62,12 +65,14 @@ function survey(air: Seen, world: World): Survey {
   }
   const roomOf = world.rooms.roomOfCells();
   const airedIn = new Int32Array(roomOf.length);
+  const airedAt = new Uint8Array(roomOf.length);
   for (const cell of air.aired) {
+    airedAt[cell] = 1;
     const room = roomOf[cell] ?? -1;
     if (room >= 0) airedIn[room] = (airedIn[room] ?? 0) + 1;
   }
   const held = new Map(air.tanks.map((t) => [t.tank, t as { tank: number; oxygen: number }]));
-  return { ventsIn, tanksOn, airedIn, held };
+  return { ventsIn, tanksOn, airedIn, airedAt, held };
 }
 
 export function oxygenIn(air: Seen, tank: number): number {
@@ -143,23 +148,25 @@ interface Edits {
   readonly added: number[];
 }
 
-/**
- * Takes up to `count` cells of air from `room`, the last of its order first; returns how many.
- * `airedIn` is how many aired cells each room holds, kept current.
- */
-function takeFar(
-  airedIn: Int32Array,
-  orders: Orders,
-  room: number,
-  count: number,
-  edits: Edits,
-): number {
-  const held = airedIn[room] ?? 0;
-  const order = orders.get(room);
-  const taken = order ? Math.min(held, count) : 0;
-  for (let i = held - taken; i < held; i++) edits.removed.add(order?.[i] as number);
-  airedIn[room] = held - taken;
+/** Takes up to `count` cells of air from `room`, the aired ones last in its order first. */
+function takeFar(s: Survey, orders: Orders, room: number, count: number, edits: Edits): number {
+  const order = orders.get(room) ?? [];
+  let taken = 0;
+  for (let i = order.length - 1; i >= 0 && taken < count && (s.airedIn[room] ?? 0) > 0; i--) {
+    const cell = order[i] as number;
+    if (!s.airedAt[cell]) continue;
+    s.airedAt[cell] = 0;
+    s.airedIn[room] = (s.airedIn[room] ?? 0) - 1;
+    edits.removed.add(cell);
+    taken++;
+  }
   return taken;
+}
+
+/** The first cell of `room`'s order without air: where its vents put the next. */
+function nextEmpty(s: Survey, orders: Orders, room: number): number | undefined {
+  for (const cell of orders.get(room) ?? []) if (!s.airedAt[cell]) return cell;
+  return undefined;
 }
 
 function applyEdits(air: Air, edits: Edits): void {
@@ -192,36 +199,18 @@ export function breathe(
   const edits: Edits = { removed: new Set(), added: [] };
   let had = 0;
   for (const network of s.ventsIn.get(room) ?? []) had += draw(s, network, amount - had);
-  had += takeFar(s.airedIn, orders, room, amount - had, edits);
+  had += takeFar(s, orders, room, amount - had, edits);
   applyEdits(air, edits);
   if (air.tanks.some((t) => t.oxygen === 0)) air.tanks = air.tanks.filter((t) => t.oxygen > 0);
   return had;
 }
 
-/**
- * Lays the air of the `changed` rooms out again on their orders, each keeping how many aired cells
- * it holds; cells no longer in a room lose theirs. Run when the orders change: a door joins or
- * splits rooms, a vent comes or goes, a wall is built. The other rooms' air stays where it is.
- */
-export function pack(air: Air, world: World, orders: Orders, changed: ReadonlySet<number>): void {
+/** Takes the air out of cells no longer in a room: a wall built on them, a room open wide. */
+export function strand(air: Air, world: World): void {
   const roomOf = world.rooms.roomOfCells();
-  const counts = new Map<number, number>();
-  const kept: number[] = [];
-  for (const cell of air.aired) {
-    const room = roomOf[cell] ?? -1;
-    if (room < 0) continue;
-    if (changed.has(room)) counts.set(room, (counts.get(room) ?? 0) + 1);
-    else kept.push(cell);
+  if (air.aired.some((cell) => (roomOf[cell] ?? -1) < 0)) {
+    air.aired = air.aired.filter((cell) => (roomOf[cell] ?? -1) >= 0);
   }
-  const laid: number[] = [];
-  for (const [room, count] of counts) {
-    const order = orders.get(room);
-    for (let i = 0; i < count; i++) laid.push(order?.[i] as number);
-  }
-  air.aired = merge(
-    kept,
-    laid.sort((a, b) => a - b),
-  );
 }
 
 /** A room's air, as the air overlay shows it. */
@@ -296,7 +285,7 @@ function leakOf(world: World, room: Room): number {
 /**
  * One tick of air, in this order: a room open to space loses `AIR.ventLoss` cells from the far edge,
  * and every vent in it or in space drains its network; on a fill beat each filling room airs the
- * next cell of its order, paid from the first of its vents that can pay; on a leak beat each room
+ * first empty cell of its order, paid from the first of its vents that can pay; on a leak beat each room
  * holding air pays its leak to its vents' networks, as far as they can.
  */
 export function stepAir(air: Air, world: World, orders: Orders, clock: number): void {
@@ -305,7 +294,7 @@ export function stepAir(air: Air, world: World, orders: Orders, clock: number): 
 
   for (const room of world.rooms.rooms()) {
     if (room.openings.length === 0) continue;
-    takeFar(s.airedIn, orders, room.id, AIR.ventLoss, edits);
+    takeFar(s, orders, room.id, AIR.ventLoss, edits);
     for (const network of s.ventsIn.get(room.id) ?? []) draw(s, network, AIR.ventDrain);
   }
   for (const network of s.ventsIn.get('space') ?? []) draw(s, network, AIR.ventDrain);
@@ -314,12 +303,12 @@ export function stepAir(air: Air, world: World, orders: Orders, clock: number): 
     for (const room of world.rooms.rooms()) {
       if (!s.ventsIn.has(room.id) || status(s, room) !== 'filling') continue;
       const network = (s.ventsIn.get(room.id) ?? []).find((n) => oxygenOn(s, n) > 0);
-      const held = s.airedIn[room.id] ?? 0;
-      const next = orders.get(room.id)?.[held];
+      const next = nextEmpty(s, orders, room.id);
       if (network === undefined || next === undefined) continue;
       draw(s, network, 1);
       edits.added.push(next);
-      s.airedIn[room.id] = held + 1;
+      s.airedAt[next] = 1;
+      s.airedIn[room.id] = (s.airedIn[room.id] ?? 0) + 1;
     }
   }
 

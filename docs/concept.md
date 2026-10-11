@@ -28,12 +28,12 @@ A living document: what is decided about the game and what is still open. Techni
   with oxygen in it fills its room cell by cell, a unit of oxygen a cell, outward from the vent. A
   room is a space closed by walls and closed doors around it and back walls behind it, recomputed
   only when something is built, broken or a door moves; a cell holds air or not, and a room's air
-  always lies in one patch around its vents ([0011](decisions/0011-air-lies-around-the-vents.md)).
+  gathers around its vents and stays where it is ([0011](decisions/0011-air-lies-around-the-vents.md)).
   A hero breathes room air in any room holding some, and the suit refills there; the tanks behind
   the room's vents pay for each breath, and without them the breath takes a cell from the patch's
   far edge. A breach or a door left open to space makes a room vent: its air goes and its network
   drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty
-  room joins the two: their air spreads over both and the vents fill the rest. Growth is held back by
+  room joins the two, and the vents fill the rest through the doorway. Growth is held back by
   the fill, a leak through every outer hull cell (its material decides how much), paid from the
   tanks, and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
   same network system.

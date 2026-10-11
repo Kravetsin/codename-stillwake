@@ -5,9 +5,9 @@ export type Orders = ReadonlyMap<number, Int32Array>;
 
 /**
  * Every room's cells, breadth first through the room from the vents standing in it, in the order
- * `vents` lists them, or from its middle when it has none. Neighbours go up, left, right, down. A
- * room's air is always the start of its order: vents add the next cell, whatever uses air takes the
- * last ones.
+ * `vents` lists them, or from its middle when it has none. Neighbours go up, left, right, down. Vents
+ * air the first empty cell of the order and whatever takes air takes the last aired one, so a room's
+ * air gathers around its vents without ever jumping.
  */
 export function orderRooms(
   roomOf: Readonly<Int32Array>,

@@ -11,7 +11,7 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { ItemsModule } from '../items';
-import { breathe, holds, oxygenIn, pack, roomsAir, statusOf, stepAir, type Air } from './air';
+import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, strand, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 import { changedRooms, orderRooms } from './order';
 
@@ -207,13 +207,13 @@ const atmosphereModule = defineModule<Deps>()({
           rooms: ctx.deps.rooms.query,
           pipes: ctx.deps.pipes.query,
         };
-        // Rooms or vents moved: each room's air is laid out again on its new order.
+        // Rooms or vents moved: the orders of those rooms are found again; the air stays put.
         const vents = ventCells(world.grid);
         const { orderedRooms, orderedVents } = ctx.state;
         const changed = changedRooms(orderedRooms, world.rooms.roomOfCells(), orderedVents, vents);
         if (changed.size > 0) {
           order(ctx.state, world, vents, changed);
-          pack(ctx.state, world, ctx.state.orders, changed);
+          strand(ctx.state, world);
         }
         stepAir(ctx.state, world, ctx.state.orders, ctx.state.clock);
       },

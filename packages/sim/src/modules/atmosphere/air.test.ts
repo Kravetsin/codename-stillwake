@@ -65,21 +65,6 @@ const oxygen = (w: Scenario, tank: number) => w.query(atmosphere).oxygenIn(tank)
 const airedIn = (w: Scenario, room: number) =>
   air(w).aired.filter((cell) => w.query(rooms).roomAt(cell) === room);
 
-/** Whether every room's aired cells are the start of its order: one patch, never with holes. */
-function packed(w: Scenario): boolean {
-  const { aired, orders } = air(w);
-  const holding = new Set(aired);
-  let counted = 0;
-  for (const room of w.query(rooms).rooms()) {
-    const order = orders.get(room.id) ?? new Int32Array(0);
-    const n = order.filter((cell) => holding.has(cell)).length;
-    for (let i = 0; i < order.length; i++)
-      if (holding.has(order[i] as number) !== i < n) return false;
-    counted += n;
-  }
-  return counted === aired.length;
-}
-
 /** Whether the orders kept room by room are those found afresh for the whole ship, as after a load. */
 function freshOrders(w: Scenario): boolean {
   const vents = w
@@ -247,7 +232,6 @@ describe('air', () => {
     expect(status(w, room)).toBe('vacuum');
     w.run(10 * AIR.ticksPerCell);
     expect(air(w).aired).toHaveLength(held);
-    expect(packed(w)).toBe(true);
     fill(1);
     expect(status(w, room)).toBe('filling');
     w.run(10 * AIR.ticksPerCell);
@@ -264,7 +248,6 @@ describe('air', () => {
     // The breach is a cell of the room now, with air or without.
     expect(airedIn(w, room).length).toBeLessThanOrEqual(VOLUME + 1 - AIR.ventLoss);
     expect(airedIn(w, room).length).toBeGreaterThan(0);
-    expect(packed(w)).toBe(true);
     expect(oxygen(w, tanks[0] as number)).toBe(before - AIR.ventDrain);
     w.run(2);
     expect(oxygen(w, tanks[0] as number)).toBe(before - 3 * AIR.ventDrain);
@@ -310,18 +293,18 @@ describe('air', () => {
 
   describe('two rooms and a door', () => {
     const TWO = `
-      ############
-      #V......#..#
-      #TT.....D..#
-      #TT.....#..#
-      ############
+      ###############
+      #V......#.....#
+      #TT.....D.....#
+      #TT.....#.....#
+      ###############
     `;
-    const at12 = (x: number, y: number) => y * 12 + x;
+    const at15 = (x: number, y: number) => y * 15 + x;
 
     /** TWO with its left room aired from three canisters; its vent's pipe cut after if asked. */
     function twoRooms(cut = false) {
       const w = scenario(world, TWO).do(items, 'setCreative', { on: true });
-      for (const cell of [at12(1, 1), at12(1, 2), at12(1, 3)]) {
+      for (const cell of [at15(1, 1), at15(1, 2), at15(1, 3)]) {
         w.do(builder, 'place', { cell, placement: pipe });
       }
       w.run();
@@ -332,23 +315,44 @@ describe('air', () => {
           .find((m) => m.kind === 'tank')?.id ?? 0;
       for (let i = 0; i < 3; i++) w.do(atmosphere, 'loadCanister', { tank });
       w.run();
-      const left = w.query(rooms).roomAt(at12(4, 2)) as number;
+      const left = w.query(rooms).roomAt(at15(4, 2)) as number;
       airUp(w, left);
-      if (cut) w.do(builder, 'clear', { cell: at12(1, 2), layer: 'conduit' }).run();
-      return { w, left, door: at12(8, 2), right: at12(10, 2) };
+      if (cut) w.do(builder, 'clear', { cell: at15(1, 2), layer: 'conduit' }).run();
+      return { w, left, door: at15(8, 2), right: at15(10, 2) };
     }
 
-    it('spreads the air of one over both when the door opens, keeping how much there is', () => {
+    it('keeps its air where it is when a door joins it to an empty room', () => {
       const { w, left, door, right } = twoRooms(true);
-      const held = air(w).aired.length;
+      const held = [...air(w).aired];
       w.do(grid, 'toggleDoor', { cell: door }).run();
-      const joined = w.query(rooms).roomAt(at12(4, 2)) as number;
+      const joined = w.query(rooms).roomAt(at15(4, 2)) as number;
       expect(joined).toBe(left);
       expect(w.query(rooms).roomAt(right)).toBe(joined);
-      // Unpiped, nothing fills and nothing is lost: the same air, over both.
-      expect(air(w).aired).toHaveLength(held);
-      expect(packed(w)).toBe(true);
+      // Unpiped, nothing fills and nothing is lost or moved.
+      expect(air(w).aired).toEqual(held);
       expect(status(w, joined)).toBe('vacuum');
+    });
+
+    it('fills the joined room through the doorway, the cells nearest the vent first', () => {
+      const { w, door } = twoRooms();
+      w.do(grid, 'toggleDoor', { cell: door }).run(3);
+      expect(air(w).aired).toContain(door);
+      expect(air(w).aired).toContain(at15(9, 2));
+      expect(air(w).aired).not.toContain(at15(10, 3));
+    });
+
+    it('leaves a little air where it is when the door shuts on it, not where the room would put it', () => {
+      const { w, door, right } = twoRooms();
+      w.do(grid, 'toggleDoor', { cell: door }).run(3);
+      const inRight = air(w).aired.filter((cell) => cell % 15 > 8);
+      expect(inRight.length).toBeGreaterThan(0);
+      w.do(grid, 'toggleDoor', { cell: door }).run();
+      const shut = w.query(rooms).roomAt(right) as number;
+      expect(airedIn(w, shut)).toEqual(inRight);
+      // Its order starts at its middle, yet the air stays where it came in.
+      expect(air(w).orders.get(shut)?.[0]).toBe(at15(11, 2));
+      w.run(AIR.leakEvery);
+      expect(airedIn(w, shut)).toEqual(inRight);
     });
 
     it('fills the rest of the joined room, and shut, each part keeps its air, vent or none', () => {
@@ -360,7 +364,6 @@ describe('air', () => {
       const shut = w.query(rooms).roomAt(right) as number;
       expect(airedIn(w, shut)).toHaveLength(w.query(rooms).room(shut)?.volume ?? -1);
       expect(status(w, shut)).toBe('aired');
-      expect(packed(w)).toBe(true);
       airUp(w, left);
       // No tank pays the right room's leak, and its air stays: only breaths and breaches take it.
       w.run(AIR.leakEvery);
@@ -374,7 +377,6 @@ describe('air', () => {
     airUp(w, room);
     w.do(builder, 'place', { cell: at(5, 2), placement: wall }).run();
     expect(air(w).aired).not.toContain(at(5, 2));
-    expect(packed(w)).toBe(true);
   });
 
   it('lays a room out around a vent built in it, and from its middle with none', () => {
@@ -385,7 +387,7 @@ describe('air', () => {
     expect(air(w).orders.get(room)?.[0]).toBe(at(1, 1));
   });
 
-  it('keeps tanks within their capacity and air in rooms, in one patch each, whatever happens', () => {
+  it('keeps tanks within their capacity and air in rooms, whatever happens', () => {
     const step = fc.oneof(
       fc.record({ type: fc.constant('load' as const) }),
       fc.record({ type: fc.constant('valve' as const) }),
@@ -436,7 +438,6 @@ describe('air', () => {
             expect(typeof w.query(rooms).roomAt(cell)).toBe('number');
             if (i > 0) expect(cell).toBeGreaterThan(cells[i - 1] as number);
           }
-          expect(packed(w)).toBe(true);
           expect(freshOrders(w)).toBe(true);
         }
         // Loaded between beats, a world plays on exactly as the one that never stopped.

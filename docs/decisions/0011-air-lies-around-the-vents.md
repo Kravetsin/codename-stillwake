@@ -24,12 +24,11 @@ works like a power grid". The team wants it understood at a glance, not simulate
 - **Each room has an order of its cells:** outward from the vents standing in it, breadth first through
   the room, in vent id order; in a room with no vent, outward from its middle. Derived from the grid,
   never saved.
-- **A room's air is always the start of its order:** one patch around its vents, never with holes.
-  - Vents add the next cell of the order, as filling did, one cell a beat per room.
-  - When the order changes — a door joins or splits rooms, a vent is built or taken apart, a wall
-    moves — each room keeps how many aired cells it holds, laid out again on its new order. Air
-    joined through a door spreads at once; the old room thins at its far edge. Shut again, each part
-    keeps what it holds.
+- **Air stays where it is.** Vents air the first empty cell of the order, one cell a beat per room;
+  whatever takes air takes the last aired cell of the order, the far edge. So a room's air gathers
+  around its vents without ever jumping. When the order changes — a door joins or splits rooms, a
+  vent is built or taken apart, a wall moves — no cell moves: a door opened onto an empty room lets
+  the vents fill it through the doorway, and shut again each part keeps the cells it holds.
 - **A hero breathes room air in any room holding a cell of it,** wherever in the room, and the suit
   refills there. A breath is paid by the tanks behind the room's vents, as if the vents put the cell
   back at once; what they cannot pay is taken as cells from the end of the order, the far edge. So a
@@ -42,6 +41,8 @@ works like a power grid". The team wants it understood at a glance, not simulate
 ## Rejected
 
 - **Air that flows (amounts per cell, diffusion):** honest, and a different game to balance.
+- **Laying a room's air out again on its new order when the order changes:** a little air let into
+  a room with no vent jumps to the room's middle when its door shuts.
 - **Breathing the cell the head is in:** the client must report every crossing of the air's edge,
   and a breath taken there leaves a hole at head height while the rest stays green.
 - **Breathing free in a room holding air:** a room left half aired would hold free air forever.
@@ -55,8 +56,9 @@ works like a power grid". The team wants it understood at a glance, not simulate
   the vents as the heroes breathe, and the hero breathes it to the last cell.
 - A room filled once and cut off is a store of air: as many breaths as it has cells.
 - A cell costs one unit, not ten, so filling a room is ten times cheaper against the same tanks;
-  breathing and leaks cost what they did. Retuned after a playtest.
-- A room's air jumps to its new place when the order changes; the client may ease it later.
+  breathing costs what it did. Retuned after a playtest.
 - The rooms a door or a wall moves are ordered again, adding a pass over them to a tick that already
   rebuilds the rooms.
+- Breaches drain a network by what a vent can pass, two units a tick, and hull leaks are a third of
+  what they were: a canister in an open airlock lasts about a minute, not half a second.
 - The concept's oxygen paragraph changes with it.

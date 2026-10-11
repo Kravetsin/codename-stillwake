@@ -185,8 +185,8 @@ after P2-04d
 
 - `atmosphere` derives each room's order of cells: breadth first from the vents standing in it, in vent
   id order, or from its middle with none; found again for the rooms a door, a wall or a vent moves.
-  A room's aired cells are always the start of its order; when the order changes, each room keeps its
-  count of aired cells, laid out again.
+  Vents air the first empty cell of the order, and breaths and breaches take the last aired one;
+  when the order changes, the air stays where it is.
 - Vents fill the next cell of the order, paying one unit (`AIR.perCell` goes). A room open to space
   loses `AIR.ventLoss` cells a tick from the far edge. The hull leak is paid once a minute by the
   tanks as far as they can, by any room holding air; what they cannot pay is not taken from the room.
@@ -196,10 +196,9 @@ after P2-04d
 - The overlay's words follow.
   Done when: scenarios: a room fills outward from its vent; a breath with no supply takes the far
   cell; a hero breathes while its room holds a cell of air, then from the suit; a room keeps its air
-  when its leak goes unpaid; a door onto an empty room keeps the count and lays it out on the joined
-  room, and closing it leaves each part its own; a breach empties a room over a few ticks;
-  invariant: each room's aired cells are the start of its order, and the orders kept room by room
-  are those found afresh; `SAVE_FORMAT` bumped; a door toggled on the reference world stays near
+  when its leak goes unpaid; a door onto an empty room moves no air, the vents fill it through the
+  doorway, and closing it leaves each part the cells it holds; a breach empties a room over a few ticks;
+  invariant: the orders kept room by room are those found afresh; `SAVE_FORMAT` bumped; a door toggled on the reference world stays near
   what it cost before.
 
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
