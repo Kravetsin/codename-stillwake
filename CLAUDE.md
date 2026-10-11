@@ -89,8 +89,8 @@ export const rooms = withFuzz(roomsModule, fuzzRooms);   // fuzzRooms lives in f
   command returns a reason, an i18n key `<moduleId>.<why>`, and leaves state untouched. Validate game
   rules, not payload shapes: peers run one build and types guard the shape. Throwing is for broken
   invariants — our bugs.
-- A command says who sent it: the host stamps each with its peer's id, and `apply` reads it as
-  `ctx.from` — a peer has one hero, so it names the hero. `command(module, type, payload, from = 0)`
+- A command says who sent it: the host stamps each with its peer's id, and `validate` and `apply`
+  read it as `ctx.from` — a peer has one hero, so it names the hero; queries never see it. `command(module, type, payload, from = 0)`
   and `scenario.do(…, from)` set it in tests. Modules have no clock: one that needs time counts ticks
   in its own slice, as `atmosphere` and `crew` do.
 - Queries may hand out live state, typed read-only. A client that needs to notice a change compares the
@@ -130,8 +130,9 @@ Every peer must compute the same world from the same commands. In `sim` and `con
   `crew`; physics results enter as commands from the host.
 - Strings are fine: every peer runs the same build, so built-in methods such as `trim` agree. Measure
   text in code points; grapheme counting would need `Intl`.
-- Every command type is drawn by the module's fuzz generator (`fuzz.ts`, attached with `withFuzz`);
-  the desync suite refuses a module with commands and no generator. Let it draw refused commands too.
+- Every command type is drawn by the module's fuzz generator (`fuzz.ts`, attached with `withFuzz`),
+  `fuzz(state, rng, from)` for the peer that will send it; the desync suite refuses a module with
+  commands and no generator. Let it draw refused commands too.
 
 Lint catches the API bans; the desync fuzz test catches the rest.
 

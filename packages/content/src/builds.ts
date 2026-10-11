@@ -1,6 +1,6 @@
 import type { MaterialId } from './materials';
 
-/** Whole units of materials a build takes from the stock, and gives back when taken apart. */
+/** Whole units of materials a build takes from its builder, and gives back when taken apart. */
 export type BuildCost = Readonly<Partial<Record<MaterialId, number>>>;
 
 export interface Build {

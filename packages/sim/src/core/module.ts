@@ -72,10 +72,15 @@ export type FuzzPick<C> = {
 }[keyof C & string];
 
 /**
- * Draws a random command for the desync fuzz test from the module's current state. It should
- * also draw commands the module refuses, so refusals are fuzzed too; `undefined` skips a turn.
+ * Draws a random command for the desync fuzz test from the module's current state, as peer `from`
+ * will send it. It should also draw commands the module refuses, so refusals are fuzzed too;
+ * `undefined` skips a turn.
  */
-export type FuzzImpl<S, C> = (state: DeepReadonly<S>, rng: Rng) => FuzzPick<C> | undefined;
+export type FuzzImpl<S, C> = (
+  state: DeepReadonly<S>,
+  rng: Rng,
+  from: number,
+) => FuzzPick<C> | undefined;
 
 /** What a module sees of a dependency while reading. */
 export type ReadDeps<D extends Deps> = {
@@ -104,6 +109,9 @@ export interface Ctx<S, D extends Deps, E> {
   emit<K extends keyof E & string>(type: K, payload: PayloadOf<E[K]>): void;
 }
 
+/** Context for a command's `validate`: read-only, with `from`, the peer that sent it. */
+export type ValidateCtx<S, D extends Deps> = ReadCtx<S, D> & { readonly from: number };
+
 /** Context for a command's `apply`: `from` is the peer that sent it, which names its hero. */
 export type CommandCtx<S, D extends Deps, E> = Ctx<S, D, E> & { readonly from: number };
 
@@ -112,7 +120,7 @@ export type OperationImpl<S, D extends Deps, E> = (ctx: Ctx<S, D, E>, ...args: n
 
 export interface CommandImpl<S, D extends Deps, E> {
   /** Runs when the command applies, on its stamped tick; return a refusal to turn it down. */
-  readonly validate?: (ctx: ReadCtx<S, D>, payload: never) => Refusal | undefined | void;
+  readonly validate?: (ctx: ValidateCtx<S, D>, payload: never) => Refusal | undefined | void;
   readonly apply: (ctx: CommandCtx<S, D, E>, payload: never) => void;
 }
 

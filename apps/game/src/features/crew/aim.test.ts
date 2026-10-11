@@ -1,4 +1,4 @@
-import { HERO, MACHINES, MATERIALS, STARTING_STOCK } from '@stillwake/content';
+import { HERO, MACHINES, MATERIALS, STARTING_INVENTORY } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
@@ -6,7 +6,7 @@ import {
   cellsOf,
   command,
   grid,
-  stock,
+  items,
   parseLayout,
   stillwake,
   wreck,
@@ -48,13 +48,13 @@ describe('aiming', () => {
 
   it('offers to toggle a door or a valve under the pointer', () => {
     const hero = heroOn(2, 1);
-    expect(aimAt(world, hero, centre(3, 1))).toEqual({
+    expect(aimAt(world, 0, hero, centre(3, 1))).toEqual({
       cell: at(3, 1),
       inReach: true,
       press: { command: command(grid, 'toggleDoor', { cell: at(3, 1) }), problem: undefined },
     });
-    expect(aimAt(world, hero, centre(4, 1))?.press).toBeUndefined();
-    expect(aimAt(world, heroOn(4, 1), centre(5, 1))?.press?.command).toEqual(
+    expect(aimAt(world, 0, hero, centre(4, 1))?.press).toBeUndefined();
+    expect(aimAt(world, 0, heroOn(4, 1), centre(5, 1))?.press?.command).toEqual(
       command(grid, 'toggleValve', { cell: at(5, 1) }),
     );
   });
@@ -68,14 +68,14 @@ describe('aiming', () => {
     // A valve built into the door's cell, by hand, for free.
     const valve = { layer: 'conduit', kind: 'valve' } as const;
     shared.step([
-      command(stock, 'setCreative', { on: true }),
+      command(items, 'setCreative', { on: true }),
       command(building, 'placePlan', { cell: at(3, 1), placement: valve }),
     ]);
     while (shared.query(building).plans().length > 0) {
       shared.step([command(building, 'work', { plan: 1 })]);
     }
     expect(shared.query(grid).conduitAt(at(3, 1)).kind).toBe('valve');
-    expect(aimAt(shared, heroOn(2, 1), centre(3, 1))?.press?.command).toEqual(
+    expect(aimAt(shared, 0, heroOn(2, 1), centre(3, 1))?.press?.command).toEqual(
       command(grid, 'toggleDoor', { cell: at(3, 1) }),
     );
   });
@@ -89,13 +89,15 @@ describe('aiming', () => {
     `);
     const tank = tanked.query(grid).machineAt(at(1, 1));
     if (!tank) throw new Error('no tank');
-    const aim = aimAt(tanked, heroOn(3, 2), centre(2, 2));
+    const aim = aimAt(tanked, 0, heroOn(3, 2), centre(2, 2));
     expect(aim?.press).toEqual({
       command: command(atmosphere, 'loadCanister', { tank: tank.id }),
       problem: undefined,
     });
     tanked.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
-    expect(aimAt(tanked, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('stock.notEnough');
+    expect(aimAt(tanked, 0, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('items.notEnough');
+    // Another hero still carries a canister of their own.
+    expect(aimAt(tanked, 1, heroOn(3, 2), centre(2, 2))?.press?.problem).toBeUndefined();
   });
 
   it('reaches cells whose middle is at most the reach from the middle of the body', () => {
@@ -106,9 +108,9 @@ describe('aiming', () => {
     `);
     const hero = heroOn(1, 1);
     const cellsAway = HERO.reach / UNIT;
-    expect(aimAt(open, hero, centre(1 + cellsAway, 1))?.inReach).toBe(true);
-    expect(aimAt(open, hero, centre(2 + cellsAway, 1))?.inReach).toBe(false);
-    expect(aimAt(open, hero, centre(1 + cellsAway, 2))?.inReach).toBe(false);
+    expect(aimAt(open, 0, hero, centre(1 + cellsAway, 1))?.inReach).toBe(true);
+    expect(aimAt(open, 0, hero, centre(2 + cellsAway, 1))?.inReach).toBe(false);
+    expect(aimAt(open, 0, hero, centre(1 + cellsAway, 2))?.inReach).toBe(false);
   });
 
   it('works a plan before a door in its cell, the oldest plan first', () => {
@@ -124,32 +126,32 @@ describe('aiming', () => {
         placement: { layer: 'conduit', kind: 'pipe' },
       }),
     ]);
-    const aim = aimAt(marked, heroOn(2, 1), centre(3, 1));
+    const aim = aimAt(marked, 0, heroOn(2, 1), centre(3, 1));
     expect(aim).toEqual({ cell: at(3, 1), inReach: true, work: { plan: 1, problem: undefined } });
   });
 
   it("carries the sim's reason when work on a plan would be refused", () => {
     // One steel wall more than the starting steel begins, laid row by row in a hall nine wide.
-    const affordable = Math.floor(STARTING_STOCK.steel / MATERIALS.steel.cost);
+    const affordable = Math.floor(STARTING_INVENTORY.steel / MATERIALS.steel.cost);
     const poor = worldFrom(hall(affordable + 1));
     for (let i = 0; i <= affordable; i++) {
       poor.step([command(building, 'placePlan', { cell: inside(i), placement: steelWall })]);
     }
     for (let id = 1; id <= affordable; id++) poor.step([command(building, 'work', { plan: id })]);
     const [x, y] = [1 + (affordable % 7), 1 + Math.floor(affordable / 7)];
-    const aim = aimAt(poor, heroOn(x - 1, y), centre(x, y));
-    expect(aim?.work).toEqual({ plan: affordable + 1, problem: 'stock.notEnough' });
-    expect(aimAt(poor, heroOn(x - 1, y), centre(x - 1, y))?.work).toEqual({
+    const aim = aimAt(poor, 0, heroOn(x - 1, y), centre(x, y));
+    expect(aim?.work).toEqual({ plan: affordable + 1, problem: 'items.notEnough' });
+    expect(aimAt(poor, 0, heroOn(x - 1, y), centre(x - 1, y))?.work).toEqual({
       plan: affordable,
       problem: undefined,
     });
   });
 
-  it('works a plan the ship can pay for before an older one it cannot', () => {
+  it('works a plan the hero can pay for before an older one it cannot', () => {
     // Nine wide. A tank is planned over a pipe, and the pipe is marked: two plans in cell 15.
     // Below the tank's rows, enough steel walls are begun to leave too little steel for it.
     const walls =
-      Math.floor((STARTING_STOCK.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
+      Math.floor((STARTING_INVENTORY.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
     const tight = worldFrom(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
     for (let i = 0; i < walls; i++) {
       tight.step([command(building, 'placePlan', { cell: 18 + inside(i), placement: steelWall })]);
@@ -160,20 +162,20 @@ describe('aiming', () => {
       command(building, 'deconstruct', { cell: 15, layer: 'conduit' }),
     ]);
     const q = tight.query(building);
-    expect(q.plansAt(15).map((p) => [p.id, q.workProblem(p.id)])).toEqual([
-      [walls + 1, 'stock.notEnough'],
+    expect(q.plansAt(15).map((p) => [p.id, q.workProblem(p.id, 0)])).toEqual([
+      [walls + 1, 'items.notEnough'],
       [walls + 2, undefined],
     ]);
-    const aim = aimAt(tight, heroOn(5, 1), centre(6, 1));
+    const aim = aimAt(tight, 0, heroOn(5, 1), centre(6, 1));
     expect(aim?.work).toEqual({ plan: walls + 2, problem: undefined });
   });
 
   it('aims at nothing off the grid', () => {
     const hero = heroOn(2, 1);
     const { width } = world.query(grid).size();
-    expect(aimAt(world, hero, { x: -0.5, y: 1 })).toBeUndefined();
-    expect(aimAt(world, hero, { x: 2, y: 3.2 })).toBeUndefined();
-    expect(aimAt(world, hero, { x: width + 0.5, y: 1 })).toBeUndefined();
+    expect(aimAt(world, 0, hero, { x: -0.5, y: 1 })).toBeUndefined();
+    expect(aimAt(world, 0, hero, { x: 2, y: 3.2 })).toBeUndefined();
+    expect(aimAt(world, 0, hero, { x: width + 0.5, y: 1 })).toBeUndefined();
   });
 });
 
@@ -192,7 +194,7 @@ describe('the wreck, worked with E', () => {
       return h;
     };
     const use = (hero: Hero, x: number, y: number) => {
-      const aim = aimAt(client.sim, hero, centre(x, y));
+      const aim = aimAt(client.sim, 0, hero, centre(x, y));
       expect(aim?.inReach).toBe(true);
       if (aim?.press) client.send(aim.press.command);
       host.advance();
@@ -257,7 +259,7 @@ describe('what E sends', () => {
       commands: [],
       workedOnTick: -1,
     });
-    const refused: Aim = { ...onPlan, work: { plan: 7, problem: 'stock.notEnough' } };
+    const refused: Aim = { ...onPlan, work: { plan: 7, problem: 'items.notEnough' } };
     expect(usesOf(refused, hold, 5, -1).commands).toEqual([]);
     expect(usesOf(onPlan, { pressed: false, held: false }, 5, 4)).toEqual({
       commands: [],

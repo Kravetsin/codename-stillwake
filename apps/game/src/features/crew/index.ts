@@ -151,7 +151,7 @@ export const crewFeature: Feature = {
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
-        const aim = pointer && aimAt(sim, current, pointer);
+        const aim = pointer && aimAt(sim, game.client.id, current, pointer);
         drawAim(aimView, ship.width, aim);
         const problem = aim?.work ? aim.work.problem : aim?.press?.problem;
         reason.text = problem ? t(problem) : '';

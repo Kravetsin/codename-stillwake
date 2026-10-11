@@ -29,13 +29,18 @@ export interface Aim {
 }
 
 /**
- * What the hero aims at with the pointer at `point`, in cells; nothing off the grid. A plan takes E
- * before anything else in its cell, so a marked door is taken apart rather than opened. Of several
- * plans, the oldest that can be worked, so one the ship cannot pay for does not block the mark beside
- * it; when none can, the oldest, to show why. Then a tank, a door, a valve: a valve under a tank or in
- * a door's cell is not worked with E.
+ * What the hero of peer `peer` aims at with the pointer at `point`, in cells; nothing off the grid.
+ * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
+ * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
+ * block the mark beside it; when none can, the oldest, to show why. Then a tank, a door, a valve: a
+ * valve under a tank or in a door's cell is not worked with E.
  */
-export function aimAt(sim: Sim, hero: Hero, point: { x: number; y: number }): Aim | undefined {
+export function aimAt(
+  sim: Sim,
+  peer: number,
+  hero: Hero,
+  point: { x: number; y: number },
+): Aim | undefined {
   const cells = sim.query(grid).layers();
   const x = Math.floor(point.x);
   const y = Math.floor(point.y);
@@ -46,19 +51,21 @@ export function aimAt(sim: Sim, hero: Hero, point: { x: number; y: number }): Ai
   const inReach = dx * dx + dy * dy <= HERO.reach * HERO.reach;
 
   const plans = sim.query(building);
-  const here = plans.plansAt(cell).map((p) => ({ plan: p.id, problem: plans.workProblem(p.id) }));
+  const here = plans
+    .plansAt(cell)
+    .map((p) => ({ plan: p.id, problem: plans.workProblem(p.id, peer) }));
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
-  const press = pressOf(sim, cell);
+  const press = pressOf(sim, peer, cell);
   return press ? { cell, inReach, press } : { cell, inReach };
 }
 
-function pressOf(sim: Sim, cell: number): Use | undefined {
+function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {
   const machine = sim.query(grid).machineAt(cell);
   if (machine?.kind === 'tank') {
     return {
       command: command(atmosphere, 'loadCanister', { tank: machine.id }),
-      problem: sim.query(atmosphere).canisterProblem(machine.id),
+      problem: sim.query(atmosphere).canisterProblem(machine.id, peer),
     };
   }
   const { structure, conduit } = sim.query(grid).layers();

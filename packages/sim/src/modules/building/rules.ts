@@ -1,7 +1,7 @@
 import type { QueryApi } from '../../core/module';
 import type { GridModule, Layer } from '../grid';
-import type { StockModule } from '../stock';
-import { buildOf } from './costs';
+import type { ItemsModule } from '../items';
+import { buildOf, builtAt, ticksFor } from './costs';
 import type { Action, Plan } from './state';
 
 type Grid = QueryApi<GridModule>;
@@ -80,14 +80,23 @@ export function planProblem(
   return taken ? 'building.planned' : undefined;
 }
 
-/** Why work on plan `id` is refused: it is gone, or it is not begun and the ship cannot pay. */
+/**
+ * Why work on plan `id` by peer `peer` is refused: the plan is gone; it is not begun and the hero
+ * cannot pay; or this tick would take apart what a mark names and the refund does not fit.
+ */
 export function workProblem(
-  stock: QueryApi<StockModule>,
+  grid: Grid,
+  items: QueryApi<ItemsModule>,
   plans: readonly Plan[],
   id: number,
+  peer: number,
 ): string | undefined {
   const plan = plans.find((p) => p.id === id);
   if (!plan) return 'building.noPlan';
-  if ('place' in plan && plan.progress === 0) return stock.shortOf(buildOf(plan.place).cost);
-  return undefined;
+  if ('place' in plan) {
+    return plan.progress === 0 ? items.shortOf(peer, buildOf(plan.place).cost) : undefined;
+  }
+  if (plan.progress + 1 < ticksFor(grid, plan)) return undefined;
+  const built = builtAt(grid, plan.cell, plan.clear);
+  return built && items.fullFor(peer, built.cost);
 }

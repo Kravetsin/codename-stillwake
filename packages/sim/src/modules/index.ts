@@ -8,15 +8,15 @@ import { building } from './building';
 import { crew } from './crew';
 import { grid } from './grid';
 import { hazards } from './hazards';
+import { items } from './items';
 import { pipes } from './pipes';
 import { rooms } from './rooms';
-import { stock } from './stock';
 
 /** Every gameplay module. Registration order only breaks ties; dependencies decide the rest. */
 export const MODULES: readonly AnyModule[] = [
   grid,
   building,
-  stock,
+  items,
   rooms,
   pipes,
   atmosphere,
@@ -33,8 +33,8 @@ export type { Layer, Placement } from './grid';
 export { grid };
 export { building };
 export type { Action, Plan } from './building';
-export { stock };
-export type { Cost, Item } from './stock';
+export { items };
+export type { Cost, Item, Slot, Stack } from './items';
 export { rooms };
 export { pipes };
 export { atmosphere };

@@ -3,16 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { parseLayout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
+import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, crew, grid, MODULES, rooms, stock, stillwake as world, wreck } from '../index';
+import { atmosphere, crew, grid, MODULES, rooms, items, stillwake as world, wreck } from '../index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 
 /**
- * A sealed room nine wide, with a vent above a tank and canisters in the stock. A tank's port is its
- * bottom-left cell, a vent's its own; `pipeUp` lays the pipe joining them.
+ * A sealed room nine wide, with a vent above a tank and canisters in every inventory. A tank's port
+ * is its bottom-left cell, a vent's its own; `pipeUp` lays the pipe joining them.
  */
 const ROOM = `
   #########
@@ -22,6 +23,13 @@ const ROOM = `
   #########
 `;
 const at = (x: number, y: number) => y * 9 + x;
+
+/** The canisters in peer `peer`'s inventory. */
+const canisters = (w: Scenario, peer: number) =>
+  w
+    .query(items)
+    .inventory(peer)
+    .reduce((sum, s) => sum + (s?.item === 'canister' ? s.count : 0), 0);
 
 function setUp(map = ROOM): {
   w: Scenario;
@@ -54,7 +62,7 @@ describe('air machines', () => {
     // Less what the room's first cells cost, if a fill beat came on the same tick.
     const paid = (w.sim.world.slices.atmosphere as { aired: number[] }).aired.length * AIR.perCell;
     expect(w.query(atmosphere).oxygenIn(tank)).toBe(AIR.canister - paid);
-    expect(w.query(stock).items().canister).toBe(2);
+    expect(canisters(w, 0)).toBe(2);
     expect(w.query(atmosphere).roomStatus(room)).toBe('filling');
   });
 
@@ -110,7 +118,14 @@ describe('air machines', () => {
     );
   });
 
-  it('refuses a canister for what is no tank, a tank that would spill, or an empty stock', () => {
+  it("takes the canister from the sender's inventory, no one else's", () => {
+    const { w, tank } = setUp();
+    w.do(atmosphere, 'loadCanister', { tank }, 2).run();
+    expect(w.refusals).toEqual([]);
+    expect([canisters(w, 0), canisters(w, 2)]).toEqual([3, 2]);
+  });
+
+  it('refuses a canister for what is no tank, a tank that would spill, or a sender with none', () => {
     const { w, vent } = setUp();
     w.do(atmosphere, 'loadCanister', { tank: vent })
       .do(atmosphere, 'loadCanister', { tank: 99 })
@@ -123,15 +138,22 @@ describe('air machines', () => {
         .query(grid)
         .machines()
         .find((m) => m.kind === 'tank')?.id ?? 0;
-    full.do(atmosphere, 'loadCanister', { tank: fullTank }).run();
-    expect(full.refusals).toEqual(['stock.notEnough']);
-    full.do(stock, 'setCreative', { on: true }).run();
-    const fits = AIR.tankCapacity / AIR.canister;
+    giveItems(full, 4, { canister: 1 });
+    full
+      .do(atmosphere, 'loadCanister', { tank: fullTank })
+      .do(atmosphere, 'loadCanister', { tank: fullTank }, 4)
+      .run();
+    expect(full.refusals).toEqual(['items.notEnough']);
+    expect(canisters(full, 4)).toBe(0);
+    full.do(atmosphere, 'loadCanister', { tank: fullTank }, 4).run();
+    expect(full.refusals).toEqual(['items.notEnough', 'items.notEnough']);
+    full.do(items, 'setCreative', { on: true }).run();
+    const fits = AIR.tankCapacity / AIR.canister - 1;
     for (let i = 0; i < fits; i++) full.do(atmosphere, 'loadCanister', { tank: fullTank }).run();
-    expect(full.query(atmosphere).oxygenIn(fullTank)).toBe(fits * AIR.canister);
+    expect(full.query(atmosphere).oxygenIn(fullTank)).toBe((fits + 1) * AIR.canister);
     full.do(atmosphere, 'loadCanister', { tank: fullTank }).run();
-    expect(full.refusals).toEqual(['stock.notEnough', 'atmosphere.tankFull']);
-    expect(full.query(atmosphere).canisterProblem(fullTank)).toBe('atmosphere.tankFull');
+    expect(full.refusals).toEqual(['items.notEnough', 'items.notEnough', 'atmosphere.tankFull']);
+    expect(full.query(atmosphere).canisterProblem(fullTank, 0)).toBe('atmosphere.tankFull');
   });
 
   it('keeps tanks in id order whatever order they are loaded in, through a save', () => {
@@ -148,7 +170,7 @@ describe('air machines', () => {
     const tank: Placement = { layer: 'machine', kind: 'tank' };
     w.do(builder, 'place', { cell: at(1, 1), placement: tank })
       .do(builder, 'place', { cell: at(4, 1), placement: tank })
-      .do(stock, 'setCreative', { on: true })
+      .do(items, 'setCreative', { on: true })
       .run();
     const [first, second] = w
       .query(grid)

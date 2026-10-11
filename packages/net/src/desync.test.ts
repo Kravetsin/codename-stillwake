@@ -6,7 +6,7 @@ import {
   defineSim,
   parseLayout,
   stillwake,
-  stock,
+  items,
   wreck,
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
@@ -65,7 +65,7 @@ describe('desync fuzz: the game', () => {
         const first = clients[0];
         if (!first) return;
         if (tick === 0) {
-          first.send(command(stock, 'setCreative', { on: true }));
+          first.send(command(items, 'setCreative', { on: true }));
           for (const at of [cell(2, 2), cell(2, 3), cell(2, 4)]) {
             first.send(command(building, 'placePlan', { cell: at, placement: pipe }));
           }

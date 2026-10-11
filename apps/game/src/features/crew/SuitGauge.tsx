@@ -16,7 +16,7 @@ function read(game: Game) {
 }
 
 /**
- * The suit without a word: a bar under the stock counters that turns red and blinks when the suit
+ * The suit without a word: a bar under the item counters that turns red and blinks when the suit
  * runs low out of room air, red at the screen's edges then, and the screen going dark on passing out.
  */
 export function SuitGauge({ game }: { readonly game: Game }) {

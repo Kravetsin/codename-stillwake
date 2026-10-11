@@ -10,7 +10,7 @@ import {
 import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
-import type { StockModule } from '../stock';
+import type { ItemsModule } from '../items';
 import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 
@@ -21,7 +21,7 @@ export interface AtmosphereState extends Air {
   clock: number;
 }
 
-type Deps = [GridModule, StockModule, RoomsModule, PipesModule];
+type Deps = [GridModule, ItemsModule, RoomsModule, PipesModule];
 
 /**
  * The tanks the map under the map fills: a canister's worth in each tank drawn over an `o`. Ids
@@ -43,29 +43,33 @@ function isTank(grid: Grid, id: number): boolean {
   return grid.machines().some((m) => m.id === id && m.kind === 'tank');
 }
 
-/** Why a canister cannot go into machine `id`: it is no tank, the ship has none, or it would spill. */
+/**
+ * Why peer `peer` cannot put a canister into machine `id`: it is no tank, it would spill, or the
+ * hero carries none.
+ */
 function canisterProblem(
   air: DeepReadonly<Air>,
   grid: Grid,
-  stock: QueryApi<StockModule>,
+  items: QueryApi<ItemsModule>,
   id: number,
+  peer: number,
 ): string | undefined {
   if (!isTank(grid, id)) return 'atmosphere.noTank';
   if (oxygenIn(air, id) + AIR.canister > AIR.tankCapacity) return 'atmosphere.tankFull';
-  return stock.shortOf({ canister: 1 });
+  return items.shortOf(peer, { canister: 1 });
 }
 
 const atmosphereModule = defineModule<Deps>()({
   id: 'atmosphere',
-  dependsOn: ['grid', 'stock', 'rooms', 'pipes'],
+  dependsOn: ['grid', 'items', 'rooms', 'pipes'],
   init: (layout): AtmosphereState => ({ tanks: startingTanks(layout), aired: [], clock: 0 }),
 
   queries: {
     /** The oxygen in tank `id`; none for a tank never filled, or no tank at all. */
     oxygenIn: (ctx, id: number) => oxygenIn(ctx.state, id),
-    /** Why a canister would not go into machine `id`: what the client shows before sending. */
-    canisterProblem: (ctx, id: number) =>
-      canisterProblem(ctx.state, ctx.deps.grid.query, ctx.deps.stock.query, id),
+    /** Why peer `peer`'s canister would not go into machine `id`: what the client shows first. */
+    canisterProblem: (ctx, id: number, peer: number) =>
+      canisterProblem(ctx.state, ctx.deps.grid.query, ctx.deps.items.query, id, peer),
     /** Room `id`'s state: vacuum, filling, aired or venting. */
     roomStatus: (ctx, id: number) =>
       statusOf(
@@ -105,14 +109,20 @@ const atmosphereModule = defineModule<Deps>()({
   },
 
   commands: {
-    /** Puts one canister from the ship's stock into a tank. */
+    /** Puts one canister from the sender's inventory into a tank. */
     loadCanister: {
       validate(ctx, p: { tank: number }) {
-        const why = canisterProblem(ctx.state, ctx.deps.grid.query, ctx.deps.stock.query, p.tank);
+        const why = canisterProblem(
+          ctx.state,
+          ctx.deps.grid.query,
+          ctx.deps.items.query,
+          p.tank,
+          ctx.from,
+        );
         if (why) return refuse(why);
       },
       apply(ctx, p: { tank: number }) {
-        ctx.deps.stock.op.spend({ canister: 1 });
+        ctx.deps.items.op.take(ctx.from, { canister: 1 });
         const held = ctx.state.tanks.find((t) => t.tank === p.tank);
         if (held) held.oxygen += AIR.canister;
         else {

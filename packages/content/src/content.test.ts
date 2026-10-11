@@ -5,7 +5,8 @@ import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
-import { STARTING_STOCK } from './stock';
+import { INVENTORY, ITEMS, STARTING_INVENTORY, type ItemId } from './items';
+import { WRECK } from './wreck';
 
 describe('materials', () => {
   const all = Object.values(MATERIALS);
@@ -65,19 +66,45 @@ describe('hero', () => {
   });
 });
 
-describe('starting stock', () => {
-  it('holds a whole number of every material, none below zero', () => {
-    for (const [material, amount] of Object.entries(STARTING_STOCK)) {
-      expect({ [material]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({
-        [material]: true,
+/** Slots `amounts` fill in an empty inventory, every item in stacks as full as they go. */
+function slotsFor(amounts: Readonly<Partial<Record<ItemId, number>>>): number {
+  return (Object.entries(amounts) as [ItemId, number][]).reduce(
+    (sum, [item, amount]) => sum + Math.ceil(amount / ITEMS[item].stack),
+    0,
+  );
+}
+
+describe('items', () => {
+  it('stack whole numbers, and every material is one', () => {
+    for (const [item, spec] of Object.entries(ITEMS)) {
+      expect({ [item]: Number.isSafeInteger(spec.stack) && spec.stack > 0 }).toEqual({
+        [item]: true,
       });
     }
-    expect(Object.keys(STARTING_STOCK).sort()).toEqual(Object.keys(MATERIALS).sort());
+    for (const material of Object.keys(MATERIALS)) expect(Object.keys(ITEMS)).toContain(material);
+  });
+
+  it('start in every inventory in whole numbers, and fit it with the wreck canisters', () => {
+    expect(Number.isSafeInteger(INVENTORY.slots) && INVENTORY.slots > 0).toBe(true);
+    for (const [item, amount] of Object.entries(STARTING_INVENTORY)) {
+      expect({ [item]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({ [item]: true });
+    }
+    const canisters = WRECK.join('').split('c').length - 1;
+    expect(slotsFor({ ...STARTING_INVENTORY, canister: canisters })).toBeLessThanOrEqual(
+      INVENTORY.slots,
+    );
   });
 });
 
 describe('builds', () => {
   const all = [...Object.values(BUILDS), ...Object.values(MACHINES)];
+
+  it('cost what an empty inventory holds, walls included', () => {
+    const walls = Object.entries(MATERIALS).map(([material, m]) => ({ [material]: m.cost }));
+    for (const cost of [...all.map((build) => build.cost), ...walls]) {
+      expect(slotsFor(cost)).toBeLessThanOrEqual(INVENTORY.slots);
+    }
+  });
 
   it('cost whole units of real materials, something for each, and take whole ticks', () => {
     for (const build of all) {

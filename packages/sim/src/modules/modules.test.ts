@@ -5,7 +5,11 @@ import { createRng, type Rng } from '../core/rng';
 import type { Command, Sim } from '../core/sim';
 import { stillwake, wreck } from './index';
 
-type Fuzz = (state: unknown, rng: Rng) => { type: string; payload: unknown } | undefined;
+type Fuzz = (
+  state: unknown,
+  rng: Rng,
+  from: number,
+) => { type: string; payload: unknown } | undefined;
 
 /** Up to three random commands drawn from the modules' own fuzz generators. */
 function randomCommands(sim: Sim, rng: Rng): Command[] {
@@ -13,10 +17,10 @@ function randomCommands(sim: Sim, rng: Rng): Command[] {
   const commands: Command[] = [];
   for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
     const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
-    const pick = (m.fuzz as Fuzz)(sim.world.slices[m.id], rng);
     // Senders with gaps, so what a module keeps per sender is made out of order too.
-    if (pick)
-      commands.push({ module: m.id, type: pick.type, payload: pick.payload, from: rng.below(5) });
+    const from = rng.below(5);
+    const pick = (m.fuzz as Fuzz)(sim.world.slices[m.id], rng, from);
+    if (pick) commands.push({ module: m.id, type: pick.type, payload: pick.payload, from });
   }
   return commands;
 }

@@ -3,7 +3,7 @@ import { crewFeature } from './crew';
 import { devPanel } from './dev-panel';
 import type { Feature } from './feature';
 // `pnpm new:module <name> --client` adds a feature's import below this line and its id to FEATURES.
-import { stockFeature } from './stock';
+import { itemsFeature } from './items';
 import { buildingFeature } from './building';
 import { gridFeature } from './grid';
 import { pipesFeature } from './pipes';
@@ -15,6 +15,6 @@ export const FEATURES: readonly Feature[] = [
   pipesFeature,
   crewFeature,
   buildingFeature,
-  stockFeature,
+  itemsFeature,
   devPanel,
 ];

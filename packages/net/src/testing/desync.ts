@@ -98,7 +98,7 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
     for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
       const sender = clients[rng.below(clients.length)] as Client;
       const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
-      const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng);
+      const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng, sender.id);
       if (!pick) continue;
       sender.send({ module: m.id, type: pick.type, payload: pick.payload, from: 0 });
       commands += 1;
@@ -133,6 +133,7 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
 type Fuzz = (
   state: unknown,
   rng: ReturnType<typeof createRng>,
+  from: number,
 ) => { type: string; payload: unknown } | undefined;
 
 function hasCommands(m: AnyModule): boolean {

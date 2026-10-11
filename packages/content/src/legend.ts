@@ -15,7 +15,7 @@ export const LEGEND = {
   x: 'valve, closed',
   T: 'oxygen tank: draw its whole footprint',
   V: 'vent',
-  c: 'a canister counted into the starting stock: not an object in the world, and not drawn',
+  c: "a canister in every hero's starting inventory: not an object in the world, and not drawn",
   S: 'where the hero wakes',
 } as const satisfies Readonly<Record<string, string>>;
 

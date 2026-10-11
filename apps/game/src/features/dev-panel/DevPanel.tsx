@@ -1,4 +1,4 @@
-import { command, grid, hazards, rooms, stock, type Sim } from '@stillwake/sim';
+import { command, grid, hazards, items, rooms, type Sim } from '@stillwake/sim';
 import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
 import { link, type LinkStatus } from '../../session/relay-link';
@@ -31,7 +31,7 @@ function read(
     fps: game.fps,
     tick: sim.world.tick,
     hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
-    creative: sim.query(stock).creative(),
+    creative: sim.query(items).creative(),
     link: link.get(),
     desyncs: game.desyncs,
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
@@ -177,8 +177,8 @@ export function DevPanel({ game }: { readonly game: Game }) {
           className={`rounded px-2 py-1 ${reading.creative ? 'bg-amber-700 hover:bg-amber-600' : 'bg-slate-700 hover:bg-slate-600'}`}
           onClick={() => {
             // Read now, not from the last reading: two quick clicks must switch it back.
-            const on = !game.client.sim.query(stock).creative();
-            game.client.send(command(stock, 'setCreative', { on }));
+            const on = !game.client.sim.query(items).creative();
+            game.client.send(command(items, 'setCreative', { on }));
           }}
         >
           creative

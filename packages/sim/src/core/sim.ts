@@ -11,6 +11,7 @@ import {
   type IdOf,
   type QueryApi,
   type ReadCtx,
+  type ValidateCtx,
 } from './module';
 import { EMPTY_LAYOUT, type Layout } from './layout';
 import { rngOver, seedRng, type RngState } from './rng';
@@ -18,7 +19,7 @@ import { rngOver, seedRng, type RngState } from './rng';
 export const TICKS_PER_SECOND = 20;
 
 /** Bumped whenever saved data changes shape; a save of another format is refused. */
-export const SAVE_FORMAT = 7;
+export const SAVE_FORMAT = 8;
 
 /**
  * A player's intent, as it travels from the client through the host to every peer. `from` is the
@@ -283,15 +284,18 @@ function instantiate(ordered: readonly AnyModule[], world: WorldData): Sim {
         if (!impl) throw new Error(`Unknown command '${c.module}.${c.type}'.`);
         // Peers in one process share the command object; each sim must own what it keeps.
         const payload = plainCopy(c.payload) as never;
-        const refusal = impl.validate?.(readCtxs.get(c.module) as AnyReadCtx, payload);
+        // Contexts of its own over the module's, so only this command sees who sent it.
+        const sent = { from: c.from };
+        const readCtx = Object.assign(
+          Object.create(readCtxs.get(c.module) as object) as object,
+          sent,
+        ) as ValidateCtx<unknown, Deps>;
+        const refusal = impl.validate?.(readCtx, payload);
         if (refusal) {
           refused.push({ command: c, reason: refusal.reason });
           continue;
         }
-        // Its own context over the module's, so only `apply` sees who sent it.
-        const ctx = Object.assign(Object.create(ctxs.get(c.module) as object) as object, {
-          from: c.from,
-        });
+        const ctx = Object.assign(Object.create(ctxs.get(c.module) as object) as object, sent);
         impl.apply(ctx as CommandCtx<unknown, Deps, never>, payload);
       }
 

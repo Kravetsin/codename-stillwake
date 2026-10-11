@@ -1,5 +1,5 @@
 import type { Layer, Placement } from '../grid';
-import type { Cost } from '../stock';
+import type { Cost } from '../items';
 
 /** What a plan asks for: something put in a cell, or what a layer of a cell holds taken out. */
 export type Action = { readonly place: Placement } | { readonly clear: Layer };

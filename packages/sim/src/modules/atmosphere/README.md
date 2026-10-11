@@ -2,7 +2,7 @@
 
 Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them and vents into space.
 
-- **Depends on:** `grid` (tanks and vents are its machines), `stock` (canisters), `rooms` (where cells
+- **Depends on:** `grid` (tanks and vents are its machines), `items` (canisters), `rooms` (where cells
   and vents are, hull, openings), `pipes` (which tanks a vent reaches).
 - **State:** `tanks` — the oxygen in each tank holding any, by machine id, in id order; `aired` — the
   cells holding air, sorted; `clock` — ticks run, for the fill and leak beats. All saved. A tank
@@ -32,8 +32,8 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 - **Draws** go tank by tank in tank id order along the network.
 - **Merges and splits follow from cells.** A door opened between an aired and a vacuum room makes one
   room that is filling (or vacuum, with no supply); closed again, each part keeps the cells it had.
-- **Canisters:** a tank holds up to `AIR.tankCapacity`; `loadCanister` takes a canister from the stock
-  (free in creative mode) and adds `AIR.canister`, refused when the tank would spill. A tank taken
+- **Canisters:** a tank holds up to `AIR.tankCapacity`; `loadCanister` takes a canister from the
+  sender's inventory (free in creative mode) and adds `AIR.canister`, refused when the tank would spill. A tank taken
   apart takes its oxygen with it.
 - One pass per tick gathers vents by room, tanks by network and aired cells by room, and every walk
   over cells covers all rooms at once (`rooms.roomOfCells`). On the reference world with every room
@@ -42,8 +42,8 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 
 ## API
 
-- **Queries:** `oxygenIn(tankId)`; `canisterProblem(tankId)` — why `loadCanister` would be refused, for
-  the client; `roomStatus(roomId)`; `airedAt(cell)`; `airedCells()` — every aired cell, sorted, live; `roomsAir()` — every room's status, aired cells,
+- **Queries:** `oxygenIn(tankId)`; `canisterProblem(tankId, peer)` — why that peer's `loadCanister` would be
+  refused, for the client; `roomStatus(roomId)`; `airedAt(cell)`; `airedCells()` — every aired cell, sorted, live; `roomsAir()` — every room's status, aired cells,
   leak, the oxygen on its vents' networks (each counted once), how many ticks that lasts at what the
   room alone draws (its leak if aired, its vents' drain if venting), and why a room in vacuum gets no
   air (`atmosphere.noVent`, `notPiped` or `dry`). One survey for all rooms: 0.7 ms on the reference
@@ -53,7 +53,7 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
   its room if the room is aired, and returns what it took; nothing anywhere else. Emptied tanks leave
   the list at once.
 - **Commands:** `loadCanister { tank }`, refused with `atmosphere.noTank`, `atmosphere.tankFull` or
-  `stock.notEnough`.
+  `items.notEnough`.
 
 ## Invariants
 

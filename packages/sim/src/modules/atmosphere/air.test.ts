@@ -5,7 +5,7 @@ import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, grid, MODULES, rooms, stock } from '../index';
+import { atmosphere, grid, MODULES, rooms, items } from '../index';
 
 const world = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -33,7 +33,7 @@ const PAID_ROWS = Math.floor(AIR.canister / (7 * AIR.perCell));
 
 /** A world from `map` in creative mode, its vent piped to its tank through `valve` if asked. */
 function setUp(map = ROOM, valve = false) {
-  const w = scenario(world, map).do(stock, 'setCreative', { on: true });
+  const w = scenario(world, map).do(items, 'setCreative', { on: true });
   const kind = (cell: number) => (valve && cell === at(1, 2) ? 'valve' : 'pipe');
   for (const cell of [at(1, 1), at(1, 2), at(1, 3)]) {
     w.do(builder, 'place', { cell, placement: { layer: 'conduit', kind: kind(cell) } });
@@ -268,7 +268,7 @@ describe('air', () => {
       #TT.....#..#
       ############
     `;
-    const w = scenario(world, two).do(stock, 'setCreative', { on: true });
+    const w = scenario(world, two).do(items, 'setCreative', { on: true });
     const at12 = (x: number, y: number) => y * 12 + x;
     for (const cell of [at12(1, 1), at12(1, 2), at12(1, 3)]) {
       w.do(builder, 'place', { cell, placement: pipe });

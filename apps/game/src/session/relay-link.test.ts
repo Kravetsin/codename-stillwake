@@ -1,5 +1,5 @@
 import { joinHost, localSession } from '@stillwake/net';
-import { command, stillwake, stock, wreck } from '@stillwake/sim';
+import { command, items, stillwake, wreck } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { createRelay, serve, type RelayClient } from '../dev/relay';
 import { hostOnRelay, joinOnRelay, type HotSocket, type LinkStatus } from './relay-link';
@@ -48,9 +48,9 @@ describe('two tabs through the relay', () => {
     hostOnRelay(server.tab(), () => own.host, hosting.report);
     expect(hosting.get()).toEqual({ role: 'host', session: '1', peers: 0 });
     // The host plays on alone for a while, with a command still pending when the other tab joins.
-    own.client.send(command(stock, 'setCreative', { on: true }));
+    own.client.send(command(items, 'setCreative', { on: true }));
     for (let i = 0; i < 30; i++) own.host.advance();
-    own.client.send(command(stock, 'setCreative', { on: false }));
+    own.client.send(command(items, 'setCreative', { on: false }));
 
     const joining = status();
     const joined = joinOnRelay(server.tab(), '1', joining.report);
@@ -61,7 +61,7 @@ describe('two tabs through the relay', () => {
 
     // Both play on, each sending commands; every tick both have run, their worlds agree.
     for (let i = 0; i < 40; i++) {
-      if (i % 7 === 0) client.send(command(stock, 'setCreative', { on: i % 2 === 0 }));
+      if (i % 7 === 0) client.send(command(items, 'setCreative', { on: i % 2 === 0 }));
       own.host.advance();
       own.client.update();
       client.update();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { crew, dice, first, second, tanks, TWO_TANKS } from './test-modules';
-import { defineModule, event, type AnyModule } from './module';
+import { defineModule, event, refuse, type AnyModule } from './module';
 import { command, defineSim, orderModules } from './sim';
 
 const air = defineSim([crew, tanks]);
@@ -91,8 +91,14 @@ describe('who sent a command', () => {
     id: 'senders',
     dependsOn: [],
     init: () => ({ heard: [] as number[] }),
+    queries: {
+      seesSender: (ctx) => 'from' in ctx,
+    },
     commands: {
       say: {
+        validate(ctx) {
+          if (ctx.from === 3) return refuse('senders.muted');
+        },
         apply(ctx) {
           ctx.state.heard.push(ctx.from);
         },
@@ -108,6 +114,14 @@ describe('who sent a command', () => {
       command(senders, 'say', {}, 1),
     ]);
     expect(sim.world.slices.senders).toEqual({ heard: [2, 0, 1] });
+  });
+
+  it('hands validate the sender too, and queries never', () => {
+    const sim = defineSim([senders]).create(1);
+    const report = sim.step([command(senders, 'say', {}, 3), command(senders, 'say', {}, 1)]);
+    expect(report.refused.map((r) => [r.command.from, r.reason])).toEqual([[3, 'senders.muted']]);
+    expect(sim.world.slices.senders).toEqual({ heard: [1] });
+    expect(sim.query(senders).seesSender()).toBe(false);
   });
 });
 

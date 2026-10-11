@@ -14,6 +14,7 @@ export {
   type Phase,
   type QueryApi,
   type ReadCtx,
+  type ValidateCtx,
   type RebuildCtx,
   type Refusal,
 } from './core/module';

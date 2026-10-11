@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { atmosphere, crew, grid, MODULES, rooms, stock } from '../index';
+import { atmosphere, crew, grid, MODULES, rooms, items } from '../index';
 
 const world = defineSim([...MODULES, builder]);
 
@@ -22,7 +22,7 @@ const OUTSIDE = at(0, 0);
 
 /** A world from ROOM in creative mode, its vent piped to its tank, with `canisters` loaded. */
 function setUp(canisters = 0, map = ROOM): { w: Scenario; tank: number; room: number } {
-  const w = scenario(world, map).do(stock, 'setCreative', { on: true });
+  const w = scenario(world, map).do(items, 'setCreative', { on: true });
   for (const cell of [at(1, 1), at(1, 2), at(1, 3)]) {
     w.do(builder, 'place', { cell, placement: { layer: 'conduit', kind: 'pipe' } });
   }

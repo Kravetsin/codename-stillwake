@@ -55,7 +55,7 @@ export function fuzzBuilding(state: DeepReadonly<BuildingState>, rng: Rng) {
       return { type: 'cancelPlan', payload: { id: rng.below(state.nextPlanId + 2) } } as const;
     default: {
       // Mostly on the oldest plan, so work piles up on one and plans complete within a run; often
-      // on one not begun, so payments drain the stock and its refusal is drawn too.
+      // on one not begun, so payments drain inventories and their refusal is drawn too.
       const oldest = state.plans[0];
       const unbegun = state.plans.filter((p) => p.progress === 0);
       const pick = rng.below(8);

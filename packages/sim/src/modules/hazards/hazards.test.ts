@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { atmosphere, building, grid, hazards, MODULES, rooms, stock } from '../index';
+import { atmosphere, building, grid, hazards, MODULES, rooms, items } from '../index';
 
 const world = defineSim([...MODULES, builder]);
 
@@ -19,7 +19,7 @@ const at = (x: number, y: number) => y * 9 + x;
 
 /** ROOM in creative mode, piped through a valve, its tank loaded and the room aired. */
 function aired(): { w: Scenario; tank: number; room: number } {
-  const w = scenario(world, ROOM).do(stock, 'setCreative', { on: true });
+  const w = scenario(world, ROOM).do(items, 'setCreative', { on: true });
   w.do(builder, 'place', { cell: at(1, 1), placement: { layer: 'conduit', kind: 'pipe' } })
     .do(builder, 'place', { cell: at(1, 2), placement: { layer: 'conduit', kind: 'valve' } })
     .do(builder, 'place', { cell: at(1, 3), placement: { layer: 'conduit', kind: 'pipe' } })
@@ -104,12 +104,15 @@ describe('meteors', () => {
       .do(building, 'deconstruct', { cell: at(8, 2), layer: 'structure' })
       .run();
     const plan = w.query(building).plans()[0]?.id ?? 0;
-    const items = { ...w.query(stock).items() };
+    const held = w
+      .query(items)
+      .inventory(0)
+      .map((s) => s && { ...s });
     w.do(hazards, 'meteorHit', { cell: at(8, 2) })
       .do(building, 'work', { plan })
       .run();
     expect(w.refusals).toEqual([]);
     expect(w.query(building).plans()).toEqual([]);
-    expect(w.query(stock).items()).toEqual(items);
+    expect(w.query(items).inventory(0)).toEqual(held);
   });
 });
