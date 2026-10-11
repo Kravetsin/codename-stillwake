@@ -1,4 +1,4 @@
-import { AIR } from '@stillwake/content';
+import { AIR, BUILDS, DECONSTRUCT_SPEEDUP } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
@@ -6,7 +6,17 @@ import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, crew, grid, MODULES, rooms, items, stillwake as world, wreck } from '../index';
+import {
+  atmosphere,
+  building,
+  crew,
+  grid,
+  MODULES,
+  rooms,
+  items,
+  stillwake as world,
+  wreck,
+} from '../index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -51,6 +61,48 @@ function setUp(map = ROOM): {
   };
   return { w, tank, vent, room, pipeUp };
 }
+
+describe('back walls', () => {
+  const backWall: Placement = { layer: 'back', kind: 'backWall' };
+  /** ROOM with no back wall behind cell (5, 2). */
+  const OPEN_BEHIND = ROOM.replace('#TT.....#', '#TT.. ..#');
+  const statusOf = (w: Scenario) => {
+    const room = w.query(rooms).roomAt(at(3, 2));
+    return typeof room === 'number' ? w.query(atmosphere).roomStatus(room) : undefined;
+  };
+  const work = (w: Scenario, ticks: number) => {
+    for (let i = 0; i < ticks; i++) w.do(building, 'work', { plan: 1 }).run();
+  };
+
+  it('vents a room open behind, and fills it once that back wall is built', () => {
+    const { w, tank, pipeUp } = setUp(OPEN_BEHIND);
+    pipeUp();
+    expect(statusOf(w)).toBe('venting');
+    giveItems(w, 0, BUILDS.backWall.cost);
+    w.do(building, 'placePlan', { cell: at(5, 2), placement: backWall }).run();
+    work(w, BUILDS.backWall.buildTicks);
+    expect(w.query(grid).layers().back[at(5, 2)]).toBe(1);
+    w.do(atmosphere, 'loadCanister', { tank }).run();
+    expect(statusOf(w)).toBe('filling');
+  });
+
+  it('vents an aired room whose back wall is taken apart, and refunds it', () => {
+    const { w, tank, room, pipeUp } = setUp();
+    pipeUp();
+    w.do(atmosphere, 'loadCanister', { tank }).run();
+    w.run((w.query(rooms).room(room)?.volume ?? 0) * AIR.ticksPerCell + 1);
+    expect(statusOf(w)).toBe('aired');
+    w.do(building, 'deconstruct', { cell: at(5, 2), layer: 'back' }).run();
+    work(w, Math.ceil(BUILDS.backWall.buildTicks / DECONSTRUCT_SPEEDUP));
+    expect(statusOf(w)).toBe('venting');
+    expect(
+      w
+        .query(items)
+        .inventory(0)
+        .filter((s) => s?.item === 'scrap'),
+    ).toEqual([{ item: 'scrap', count: BUILDS.backWall.cost.scrap }]);
+  });
+});
 
 describe('air machines', () => {
   it('starts filling a sealed room once a canister is in a tank piped to a vent there', () => {

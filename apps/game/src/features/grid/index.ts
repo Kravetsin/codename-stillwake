@@ -4,7 +4,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
-import { Batch, drawConduit, drawStructure, type Cells } from './draw';
+import { Batch, drawBack, drawConduit, drawStructure, type Cells } from './draw';
 
 const MACHINE_FILL = 0x2a3d4f;
 const MACHINE_EDGE = 0x5f86a8;
@@ -18,11 +18,13 @@ export const gridFeature: Feature = {
   id: 'grid',
   layer() {
     const view = new Container();
+    const backLayer = new Container();
     const chunkLayer = new Container();
     const machineLayer = new Container();
     const conduitLayer = new Container();
-    view.addChild(chunkLayer, machineLayer, conduitLayer);
+    view.addChild(backLayer, chunkLayer, machineLayer, conduitLayer);
 
+    let backChunks: Graphics[] = [];
     let chunks: Graphics[] = [];
     let conduitChunks: Graphics[] = [];
     let seen: Seen | undefined;
@@ -31,11 +33,14 @@ export const gridFeature: Feature = {
     let machinesKey = '';
 
     const redrawChunk = (cells: Cells, index: number) => {
+      const backs = backChunks[index];
       const g = chunks[index];
       const pipes = conduitChunks[index];
-      if (!g || !pipes) return;
+      if (!backs || !g || !pipes) return;
+      backs.clear();
       g.clear();
       pipes.clear();
+      const backBatch = new Batch();
       const batch = new Batch();
       const conduits = new Batch();
       const across = chunksAcross(size.width);
@@ -43,10 +48,12 @@ export const gridFeature: Feature = {
       const cy = Math.floor(index / across) * CHUNK;
       for (let y = cy; y < Math.min(cy + CHUNK, size.height); y++) {
         for (let x = cx; x < Math.min(cx + CHUNK, size.width); x++) {
+          drawBack(backBatch, cells, y * size.width + x);
           drawStructure(batch, cells, y * size.width + x);
           drawConduit(conduits, cells, y * size.width + x);
         }
       }
+      backBatch.drawInto(backs);
       batch.drawInto(g);
       conduits.drawInto(pipes);
     };
@@ -63,11 +70,13 @@ export const gridFeature: Feature = {
 
         if (cells.width !== size.width || cells.height !== size.height) {
           size = { width: cells.width, height: cells.height };
-          for (const g of [...chunks, ...conduitChunks]) g.destroy();
+          for (const g of [...backChunks, ...chunks, ...conduitChunks]) g.destroy();
           const count = chunkCount(size.width, size.height);
+          backChunks = Array.from({ length: count }, () => new Graphics());
           chunks = Array.from({ length: count }, () => new Graphics());
           conduitChunks = Array.from({ length: count }, () => new Graphics());
           if (count > 0) {
+            backLayer.addChild(...backChunks);
             chunkLayer.addChild(...chunks);
             conduitLayer.addChild(...conduitChunks);
           }

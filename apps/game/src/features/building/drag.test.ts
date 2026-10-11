@@ -59,7 +59,8 @@ describe('a drag', () => {
 describe('judging a drag', () => {
   // Seven cells wide: cell (x, y) is y * 7 + x.
   const start = () => {
-    const sim = stillwake.create(1, parseLayout(['#######', '#TT.-.#', '#TT...#', '#######']));
+    // Cell 10 is open, with no back wall: nothing to take apart there.
+    const sim = stillwake.create(1, parseLayout(['#######', '#TT -.#', '#TT...#', '#######']));
     const q = () => ({ grid: sim.query(grid), building: sim.query(building) });
     const run = (...commands: ReturnType<typeof command>[]) => sim.step(commands);
     return { q, run };
@@ -88,7 +89,11 @@ describe('judging a drag', () => {
 
   it('sends nothing where the sim would refuse a mark', () => {
     const { q, run } = start();
-    run(command(building, 'deconstruct', { cell: 0, layer: 'structure' }));
+    // The wall and the wall behind it, both marked: nothing left to mark there.
+    run(
+      command(building, 'deconstruct', { cell: 0, layer: 'structure' }),
+      command(building, 'deconstruct', { cell: 0, layer: 'back' }),
+    );
     expect(judge(deconstruct, [10, 0], q()).map((v) => [v.problem, v.commands])).toEqual([
       ['building.nothingThere', []],
       ['building.planned', []],

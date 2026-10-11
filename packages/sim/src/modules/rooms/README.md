@@ -19,10 +19,11 @@ has a volume, the outer hull it leaks through, and the openings it vents through
 - So an open door joins two rooms into one; a breach or an outer door left open leaves a room a room,
   open to space through that cell; a sealed one-wide closet is a room.
 - A room's **id** is its smallest cell. Its **openings** are its cells touching space or the grid's
-  edge; its **hull** is the walls and closed doors next to it with space or the edge beyond. Both in
+  edge, or with no back wall behind them, found after the flood (space has no back walls); its **hull** is the walls and closed doors next to it with space or the edge beyond. Both in
   cell order; machines count toward volume.
 - Rooms are found again on the tick the structure changes: a system in the derivation phase compares
-  the structure layer with its copy every tick. Read before derivation (in commands or construction),
+  the structure and back layers with their copies every tick. A change of back walls alone moves no
+  room's bounds, so only the openings are found again (`reopen`), a pass with no flood. Read before derivation (in commands or construction),
   rooms are those of the last tick's structure: blind to this tick's changes, but the same on every
   peer, a freshly loaded one included, because nothing changes the grid after derivation.
 
@@ -56,4 +57,5 @@ has a volume, the outer hull it leaks through, and the openings it vents through
 - Any open cell between two solid ones out in space — a notch in the hull, the gap between two
   pillars, a one-cell space between two hull lines — is a tiny room open to space. No vent airs it;
   atmosphere sees a room that vents.
-- A rebuild is a full pass over the grid: about 1 ms on the reference world, on each structure change.
+- A rebuild is a full pass over the grid: about 1.4 ms on the reference world, on each structure
+  change; finding the openings again after back walls change, about 0.2 ms.

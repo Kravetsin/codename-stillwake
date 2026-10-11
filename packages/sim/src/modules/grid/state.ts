@@ -13,6 +13,9 @@ export const STRUCTURE = {
 /** Conduit codes as stored in saves: never reuse or renumber one. */
 export const CONDUIT = { none: 0, pipe: 1, valveOpen: 2, valveClosed: 3 } as const;
 
+/** Back wall codes as stored in saves: never reuse or renumber one. */
+export const BACK = { none: 0, wall: 1 } as const;
+
 export interface Machine {
   readonly id: number;
   readonly kind: MachineKind;
@@ -29,6 +32,8 @@ export interface GridState {
   material: number[];
   /** A CONDUIT code per cell. Conduits run through walls and under machines. */
   conduit: number[];
+  /** A BACK code per cell: the wall behind it, which closes a room behind (ADR 0010). */
+  back: number[];
   machines: Machine[];
   nextMachineId: number;
   /** Derived: the id of the machine covering each cell, 0 for none. */
@@ -39,7 +44,8 @@ export type Placement =
   | { readonly layer: 'structure'; readonly kind: 'wall'; readonly material: MaterialId }
   | { readonly layer: 'structure'; readonly kind: 'floor' | 'ladder' | 'door' }
   | { readonly layer: 'conduit'; readonly kind: 'pipe' | 'valve' }
-  | { readonly layer: 'machine'; readonly kind: MachineKind };
+  | { readonly layer: 'machine'; readonly kind: MachineKind }
+  | { readonly layer: 'back'; readonly kind: 'backWall' };
 
 export type Layer = Placement['layer'];
 

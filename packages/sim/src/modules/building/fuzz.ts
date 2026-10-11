@@ -11,15 +11,16 @@ const PLACEMENTS: readonly Placement[] = [
   ...(['floor', 'ladder', 'door'] as const).map((kind) => ({ layer: 'structure', kind }) as const),
   ...(['pipe', 'valve'] as const).map((kind) => ({ layer: 'conduit', kind }) as const),
   ...(Object.keys(MACHINES) as MachineKind[]).map((kind) => ({ layer: 'machine', kind }) as const),
+  { layer: 'back', kind: 'backWall' },
 ];
-const LAYERS: readonly Layer[] = ['structure', 'conduit', 'machine'];
+const LAYERS: readonly Layer[] = ['structure', 'conduit', 'machine', 'back'];
 
 // The module cannot see the grid. The generic suites fuzz it on the wreck, so cells are drawn from
 // the wreck's size, and marks mostly from the cells where it has something built.
 const WIDTH = WRECK[0]?.length ?? 0;
 const CELLS = WIDTH * WRECK.length;
 const BUILT: readonly number[] = WRECK.flatMap((row, y) =>
-  [...row].flatMap((char, x) => ('#=HDd-vxTVK'.includes(char) ? [y * WIDTH + x] : [])),
+  [...row].flatMap((char, x) => ('#=HDd-vxTVK.'.includes(char) ? [y * WIDTH + x] : [])),
 );
 
 /**

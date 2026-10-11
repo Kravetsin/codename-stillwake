@@ -1,6 +1,6 @@
 import { MACHINES, MATERIALS } from '@stillwake/content';
 import type { DeepReadonly } from '../../core/module';
-import { CONDUIT, STRUCTURE, type GridState, type Machine, type Placement } from './state';
+import { BACK, CONDUIT, STRUCTURE, type GridState, type Machine, type Placement } from './state';
 
 type Grid = DeepReadonly<GridState>;
 
@@ -39,6 +39,9 @@ export function placementProblem(
       return undefined;
     case 'conduit':
       return state.conduit[cell] === CONDUIT.none ? undefined : 'grid.occupied';
+    // Behind anything, and in space: a refusal there would protect nothing.
+    case 'back':
+      return state.back[cell] === BACK.none ? undefined : 'grid.occupied';
     case 'machine': {
       if (!Object.hasOwn(MACHINES, placement.kind)) return 'grid.noSuchMachine';
       const cells = footprint(state, placement.kind, cell);

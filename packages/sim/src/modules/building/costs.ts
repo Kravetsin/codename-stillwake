@@ -26,6 +26,8 @@ export function buildOf(placement: Placement): Build {
       return BUILDS[placement.kind];
     case 'machine':
       return MACHINES[placement.kind];
+    case 'back':
+      return BUILDS.backWall;
   }
 }
 
@@ -45,6 +47,8 @@ export function builtAt(grid: Grid, cell: number, layer: Layer): Build | undefin
       const m = grid.machineAt(cell);
       return m && MACHINES[m.kind];
     }
+    case 'back':
+      return grid.layers().back[cell] === grid.codes().back.wall ? BUILDS.backWall : undefined;
   }
 }
 

@@ -12,7 +12,10 @@ export interface Room {
   readonly volume: number;
   /** Solid cells next to it and to space or the grid's edge, in cell order: what it leaks through. */
   readonly hull: readonly number[];
-  /** Its cells that touch space or the grid's edge, in cell order: what it vents through. */
+  /**
+   * Its cells that touch space or the grid's edge, or have no back wall, in cell order: what it
+   * vents through.
+   */
   readonly openings: readonly number[];
 }
 
@@ -24,14 +27,18 @@ export interface Walls {
   readonly solid: readonly number[];
   /** The code of an open door, which is always an opening. */
   readonly doorOpen: number;
+  /** Per cell, whether a back wall closes it behind: a room cell without one is an opening. */
+  readonly back: readonly number[];
+  readonly backWall: number;
 }
 
 /**
  * Splits the grid into space and rooms. An open cell is an opening when it sits in a wall line: an
  * open door, or a cell with solid cells on both sides or both above and below. Space is a flood from
  * the open cells on the grid's border through open cells that are not openings; a room is a
- * component of the open cells left, openings included. Typed arrays and no allocation per cell: on
- * the reference world this runs on every door toggle.
+ * component of the open cells left, openings included. A room cell with no back wall is open to
+ * space behind, so an opening too: found after the flood, as space has no back walls. Typed arrays
+ * and no allocation per cell: on the reference world this runs on every door toggle.
  */
 export function findRooms(walls: Walls): { roomOf: Int32Array; rooms: Room[] } {
   const { width, height, structure } = walls;
@@ -109,18 +116,16 @@ export function findRooms(walls: Walls): { roomOf: Int32Array; rooms: Room[] } {
   for (let cell = 0; cell < size; cell++) {
     const here = roomOf[cell] as number;
     if (here === SPACE) continue;
-    neighbours(cell);
-    let outside = false;
-    for (let i = 0; i < 4; i++) {
-      const n = near[i] as number;
-      if (n === EDGE || roomOf[n] === SPACE) outside = true;
-    }
-    if (!outside) continue;
+    const outside = outsideOf(roomOf, width, cell);
     if (here !== SOLID) {
-      (rooms[index.get(here) as number]?.openings as number[]).push(cell);
+      if (outside || walls.back[cell] !== walls.backWall) {
+        (rooms[index.get(here) as number]?.openings as number[]).push(cell);
+      }
       continue;
     }
+    if (!outside) continue;
     // A solid cell with the outside beyond it is hull to every room it borders, once each.
+    neighbours(cell);
     for (let i = 0; i < 4; i++) {
       const n = near[i] as number;
       const id = n === EDGE ? SPACE : (roomOf[n] as number);
@@ -134,4 +139,38 @@ export function findRooms(walls: Walls): { roomOf: Int32Array; rooms: Room[] } {
     }
   }
   return { roomOf, rooms };
+}
+
+/** Whether `cell` has space or the grid's edge beside it. */
+function outsideOf(roomOf: Int32Array, width: number, cell: number): boolean {
+  const x = cell % width;
+  if (x === 0 || x === width - 1 || cell < width || cell >= roomOf.length - width) return true;
+  return (
+    roomOf[cell - 1] === SPACE ||
+    roomOf[cell + 1] === SPACE ||
+    roomOf[cell - width] === SPACE ||
+    roomOf[cell + width] === SPACE
+  );
+}
+
+/**
+ * `rooms` with their openings found again for a new back layer, when nothing else changed: back
+ * walls never move a room's bounds, so the flood and the hull stand. A pass over the cells, with
+ * none of the flood's queues: on the reference world it saves most of a rebuild.
+ */
+export function reopen(
+  roomOf: Int32Array,
+  rooms: readonly Room[],
+  width: number,
+  back: readonly number[],
+  backWall: number,
+): Room[] {
+  const openings = new Map<number, number[]>();
+  for (const room of rooms) openings.set(room.id, []);
+  for (let cell = 0; cell < roomOf.length; cell++) {
+    const id = roomOf[cell] as number;
+    if (id < 0) continue;
+    if (back[cell] !== backWall || outsideOf(roomOf, width, cell)) openings.get(id)?.push(cell);
+  }
+  return rooms.map((room) => ({ ...room, openings: openings.get(room.id) ?? [] }));
 }

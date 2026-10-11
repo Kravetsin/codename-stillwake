@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { chunkCount, chunkOf, emptySeen, staleChunks } from './chunks';
 import type { Cells } from './draw';
 
-function cells(width: number, height: number): Cells & { structure: number[]; conduit: number[] } {
+function cells(
+  width: number,
+  height: number,
+): Cells & { structure: number[]; conduit: number[]; back: number[] } {
   const size = width * height;
   return {
     width,
@@ -10,6 +13,7 @@ function cells(width: number, height: number): Cells & { structure: number[]; co
     structure: new Array<number>(size).fill(0),
     material: new Array<number>(size).fill(0),
     conduit: new Array<number>(size).fill(0),
+    back: new Array<number>(size).fill(0),
   };
 }
 
@@ -38,6 +42,8 @@ describe('grid chunks', () => {
     c.structure[5 * W + 20] = 4; // a door, deep inside chunk 1
     expect([...staleChunks(seen, c)]).toEqual([1]);
     expect(staleChunks(seen, c).size).toBe(0);
+    c.back[5 * W + 20] = 1; // and a wall behind it
+    expect([...staleChunks(seen, c)]).toEqual([1]);
   });
 
   it('marks a neighbouring chunk when the change sits on its border', () => {

@@ -1,6 +1,6 @@
 import { defineModule, type QueryApi } from '../../core/module';
 import type { GridModule } from '../grid';
-import { findRooms, SOLID, SPACE, type Room } from './flood';
+import { findRooms, reopen, SOLID, SPACE, type Room } from './flood';
 
 export type { Room } from './flood';
 
@@ -9,31 +9,33 @@ export interface RoomsState {
   roomOf: Int32Array;
   /** Derived: every room, in id order. */
   rooms: Room[];
-  /** Derived: the grid's structure layer the rooms were found in. */
+  /** Derived: the grid's structure and back layers the rooms were found in. */
   builtFrom: Int32Array;
+  builtBack: Int32Array;
 }
 
 function rebuild(state: RoomsState, grid: QueryApi<GridModule>): void {
   const layers = grid.layers();
-  const { structure } = grid.codes();
+  const { structure, back } = grid.codes();
   const found = findRooms({
     width: layers.width,
     height: layers.height,
     structure: layers.structure,
     solid: [structure.wall, structure.doorClosed],
     doorOpen: structure.doorOpen,
+    back: layers.back,
+    backWall: back.wall,
   });
   state.roomOf = found.roomOf;
   state.rooms = found.rooms;
   state.builtFrom = Int32Array.from(layers.structure);
+  state.builtBack = Int32Array.from(layers.back);
 }
 
-/** Whether the grid's structure still is what the rooms were found in. */
-function current(state: Readonly<RoomsState>, structure: readonly number[]): boolean {
-  if (state.builtFrom.length !== structure.length) return false;
-  for (let cell = 0; cell < structure.length; cell++) {
-    if (state.builtFrom[cell] !== structure[cell]) return false;
-  }
+/** Whether `layer` still is `copy`, the one the rooms were found in. */
+function same(copy: Int32Array, layer: readonly number[]): boolean {
+  if (copy.length !== layer.length) return false;
+  for (let cell = 0; cell < layer.length; cell++) if (copy[cell] !== layer[cell]) return false;
   return true;
 }
 
@@ -44,10 +46,11 @@ const roomsModule = defineModule<[GridModule]>()({
     roomOf: new Int32Array(0),
     rooms: [],
     builtFrom: new Int32Array(0),
+    builtBack: new Int32Array(0),
   }),
 
   derived: {
-    keys: ['roomOf', 'rooms', 'builtFrom'],
+    keys: ['roomOf', 'rooms', 'builtFrom', 'builtBack'],
     rebuild(ctx) {
       rebuild(ctx.state, ctx.deps.grid.query);
     },
@@ -75,7 +78,14 @@ const roomsModule = defineModule<[GridModule]>()({
       phase: 'derivation',
       run(ctx) {
         const grid = ctx.deps.grid.query;
-        if (!current(ctx.state, grid.layers().structure)) rebuild(ctx.state, grid);
+        const { structure, back, width } = grid.layers();
+        if (!same(ctx.state.builtFrom, structure)) rebuild(ctx.state, grid);
+        else if (!same(ctx.state.builtBack, back)) {
+          // Only back walls changed: the rooms stand, their openings move.
+          const state = ctx.state;
+          state.rooms = reopen(state.roomOf, state.rooms, width, back, grid.codes().back.wall);
+          state.builtBack = Int32Array.from(back);
+        }
       },
     },
   ],

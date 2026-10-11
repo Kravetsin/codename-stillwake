@@ -30,7 +30,7 @@ export const stillwake = defineSim(MODULES);
 
 /** The map every new game starts from. */
 export const wreck = parseLayout(WRECK, WRECK_UNDER);
-export { CONDUIT, STRUCTURE } from './grid';
+export { BACK, CONDUIT, STRUCTURE } from './grid';
 export type { Layer, Placement } from './grid';
 export { grid };
 export { building };

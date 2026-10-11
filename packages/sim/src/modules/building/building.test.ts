@@ -1,6 +1,7 @@
 import { MACHINES } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { parseLayout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { scenario } from '../../testing/scenario';
@@ -156,6 +157,24 @@ describe('building', () => {
     ]);
   });
 
+  it('plans a back wall behind a planned wall and in space, but not where one stands or is planned', () => {
+    const backWall: Placement = { layer: 'back', kind: 'backWall' };
+    // Space, a wall, two backed cells, one with no back wall, one backed, a wall, space.
+    const w = scenario(world, parseLayout(['   #.. .#   ']))
+      .do(building, 'placePlan', { cell: 6, placement: wall })
+      .do(building, 'placePlan', { cell: 6, placement: backWall })
+      .do(building, 'placePlan', { cell: 0, placement: backWall })
+      .do(building, 'placePlan', { cell: 4, placement: backWall })
+      .do(building, 'placePlan', { cell: 0, placement: backWall })
+      .run();
+    expect(w.refusals).toEqual(['grid.occupied', 'building.planned']);
+    expect(w.query(building).plans()).toEqual([
+      placed(1, 6, wall),
+      placed(2, 6, backWall),
+      placed(3, 0, backWall),
+    ]);
+  });
+
   it('answers a ghost with the reason the command would get', () => {
     const w = scenario(world, OPEN);
     const q = () => w.query(building);
@@ -227,7 +246,7 @@ describe('building', () => {
       ).toEqual([1, 2]);
     });
 
-    it('takes a machine first, then a conduit, then the structure, passing over what is marked', () => {
+    it('takes a machine first, then a conduit, the structure and the back, passing over the marked', () => {
       const w = scenario(withBuilder, ROOM)
         .do(builder, 'place', { cell: cell(1, 1), placement: pipe })
         .do(builder, 'place', { cell: cell(0, 1), placement: pipe })
@@ -238,12 +257,17 @@ describe('building', () => {
       expect(next(cell(1, 1))).toEqual({ layer: 'machine', cell: cell(1, 1) });
       w.do(building, 'deconstruct', { cell: cell(1, 1), layer: 'machine' }).run();
       expect(next(cell(1, 1))).toEqual({ layer: 'conduit', cell: cell(1, 1) });
-      // A pipe in a wall: the pipe, then the wall, then the pipe again, which is already marked.
+      // A pipe in a wall: the pipe, the wall, the wall behind, then the pipe again, already marked.
       expect(next(cell(0, 1))).toEqual({ layer: 'conduit', cell: cell(0, 1) });
       w.do(building, 'deconstruct', { cell: cell(0, 1), layer: 'conduit' }).run();
       expect(next(cell(0, 1))).toEqual({ layer: 'structure', cell: cell(0, 1) });
       w.do(building, 'deconstruct', { cell: cell(0, 1), layer: 'structure' }).run();
+      expect(next(cell(0, 1))).toEqual({ layer: 'back', cell: cell(0, 1) });
+      w.do(building, 'deconstruct', { cell: cell(0, 1), layer: 'back' }).run();
       expect(next(cell(0, 1))).toEqual({ layer: 'conduit', cell: cell(0, 1) });
+      // An empty cell of the room has only the wall behind it.
+      expect(next(cell(5, 1))).toEqual({ layer: 'back', cell: cell(5, 1) });
+      w.do(builder, 'clear', { cell: cell(5, 1), layer: 'back' }).run();
       expect(next(cell(5, 1))).toBeUndefined();
     });
 

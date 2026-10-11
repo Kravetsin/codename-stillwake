@@ -4,6 +4,7 @@ import { footprint, inBounds, placementProblem } from './cells';
 import { fuzzGrid } from './fuzz';
 import { gridFromLayout } from './map';
 import {
+  BACK,
   CONDUIT,
   materialByCode,
   STRUCTURE,
@@ -13,7 +14,7 @@ import {
   type Placement,
 } from './state';
 
-export { CONDUIT, STRUCTURE } from './state';
+export { BACK, CONDUIT, STRUCTURE } from './state';
 export type { GridState, Layer, Machine, Placement } from './state';
 
 export type StructureView =
@@ -76,9 +77,10 @@ const gridModule = defineModule()({
       structure: ctx.state.structure,
       material: ctx.state.material,
       conduit: ctx.state.conduit,
+      back: ctx.state.back,
     }),
     /** The stored codes of each layer, for a module reading `layers()` without importing grid's code. */
-    codes: () => ({ structure: STRUCTURE, conduit: CONDUIT }),
+    codes: () => ({ structure: STRUCTURE, conduit: CONDUIT, back: BACK }),
     structureAt(ctx, cell: number): StructureView {
       switch (ctx.state.structure[cell]) {
         case STRUCTURE.wall:
@@ -143,6 +145,9 @@ const gridModule = defineModule()({
         case 'conduit':
           state.conduit[cell] = placement.kind === 'pipe' ? CONDUIT.pipe : CONDUIT.valveOpen;
           return;
+        case 'back':
+          state.back[cell] = BACK.wall;
+          return;
         case 'machine': {
           const id = state.nextMachineId;
           state.nextMachineId += 1;
@@ -163,6 +168,9 @@ const gridModule = defineModule()({
           return;
         case 'conduit':
           state.conduit[cell] = CONDUIT.none;
+          return;
+        case 'back':
+          state.back[cell] = BACK.none;
           return;
         case 'machine': {
           const id = state.occupancy[cell] ?? 0;

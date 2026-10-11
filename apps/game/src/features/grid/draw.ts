@@ -1,5 +1,5 @@
 import { MATERIALS, type MaterialId } from '@stillwake/content';
-import { CONDUIT, STRUCTURE } from '@stillwake/sim';
+import { BACK, CONDUIT, STRUCTURE } from '@stillwake/sim';
 import type { Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 
@@ -10,6 +10,7 @@ export interface Cells {
   readonly structure: readonly number[];
   readonly material: readonly number[];
   readonly conduit: readonly number[];
+  readonly back: readonly number[];
 }
 
 const MATERIAL_COLOUR: Record<MaterialId, number> = { scrap: 0x5b6170, steel: 0x8f99ad };
@@ -17,6 +18,8 @@ const COLOUR_BY_CODE = new Map<number, number>(
   (Object.keys(MATERIALS) as MaterialId[]).map((id) => [MATERIALS[id].code, MATERIAL_COLOUR[id]]),
 );
 
+/** The wall behind a cell: dark, so the room reads as inside and space as space. */
+const BACK_PANEL = 0x1a2130;
 const FLOOR = 0x9aa3b5;
 const LADDER = 0xb08d57;
 const DOOR = 0xc97a3a;
@@ -59,6 +62,18 @@ export class Batch {
     if (list) list.push(rect);
     else into.set(colour, [rect]);
   }
+}
+
+/** Adds one cell's back wall to `batch`: drawn under everything else in the ship. */
+export function drawBack(batch: Batch, cells: Cells, cell: number): void {
+  if (cells.back[cell] !== BACK.wall) return;
+  batch.fill(
+    BACK_PANEL,
+    (cell % cells.width) * CELL,
+    Math.floor(cell / cells.width) * CELL,
+    CELL,
+    CELL,
+  );
 }
 
 /** Adds one cell's structure to `batch`, at the cell's place in the world. */

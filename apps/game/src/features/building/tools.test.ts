@@ -17,6 +17,7 @@ describe('the toolbar', () => {
       'floor',
       'ladder',
       'door',
+      'backWall',
       'pipe',
       'valve',
       'tank',

@@ -7,8 +7,12 @@ import type { Action, Plan } from './state';
 type Grid = QueryApi<GridModule>;
 type Items = QueryApi<ItemsModule>;
 
-/** Structure and machines exclude each other in a cell; a conduit runs through either. */
-const slotOf = (layer: Layer) => (layer === 'conduit' ? 'conduit' : 'solid');
+/**
+ * Structure and machines exclude each other in a cell; a conduit runs through either, and a back
+ * wall stands behind all three.
+ */
+const slotOf = (layer: Layer) =>
+  layer === 'conduit' ? 'conduit' : layer === 'back' ? 'back' : 'solid';
 
 /** The cells a plan covers: a machine's whole footprint, otherwise its one cell. */
 export function covers(grid: Grid, plan: { readonly cell: number } & Action): readonly number[] {
@@ -29,6 +33,8 @@ export function markedCell(grid: Grid, cell: number, layer: Layer): number | und
       return grid.conduitAt(cell).kind === 'none' ? undefined : cell;
     case 'machine':
       return grid.machineAt(cell)?.cell;
+    case 'back':
+      return grid.layers().back[cell] === grid.codes().back.wall ? cell : undefined;
   }
 }
 
@@ -37,9 +43,9 @@ function isMarked(plans: readonly Plan[], layer: Layer, cell: number): boolean {
 }
 
 /**
- * What deconstruction takes from a cell next: a machine, then a conduit, then the structure, passing
- * over what is marked already, so a second pass over a pipe in a wall marks the wall. When everything
- * there is marked, the top one, which a mark would refuse.
+ * What deconstruction takes from a cell next: a machine, then a conduit, then the structure, then
+ * the back wall, passing over what is marked already, so a second pass over a pipe in a wall marks
+ * the wall. When everything there is marked, the top one, which a mark would refuse.
  */
 export function clearAt(
   grid: Grid,
@@ -47,7 +53,7 @@ export function clearAt(
   cell: number,
 ): { layer: Layer; cell: number } | undefined {
   let top: { layer: Layer; cell: number } | undefined;
-  for (const layer of ['machine', 'conduit', 'structure'] as const) {
+  for (const layer of ['machine', 'conduit', 'structure', 'back'] as const) {
     const at = markedCell(grid, cell, layer);
     if (at === undefined) continue;
     if (!isMarked(plans, layer, at)) return { layer, cell: at };

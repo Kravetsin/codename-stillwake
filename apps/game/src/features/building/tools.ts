@@ -22,6 +22,7 @@ export const TOOLS: readonly Tool[] = [
   ...(['floor', 'ladder', 'door'] as const).map((kind) =>
     place({ layer: 'structure', kind }, t(`tool.${kind}`)),
   ),
+  place({ layer: 'back', kind: 'backWall' }, t('tool.backWall')),
   ...(['pipe', 'valve'] as const).map((kind) =>
     place({ layer: 'conduit', kind }, t(`tool.${kind}`)),
   ),

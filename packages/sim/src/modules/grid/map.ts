@@ -1,6 +1,6 @@
 import { DEFAULT_HULL, MATERIALS } from '@stillwake/content';
 import { cellsOf, machinesOf, type Layout } from '../../core/layout';
-import { CONDUIT, STRUCTURE, type GridState } from './state';
+import { BACK, CONDUIT, STRUCTURE, type GridState } from './state';
 
 const STRUCTURE_CHARS: Readonly<Record<string, number>> = {
   '#': STRUCTURE.wall,
@@ -17,8 +17,9 @@ const CONDUIT_CHARS: Readonly<Record<string, number>> = {
 };
 
 /**
- * The grid a map describes, with the pipes the map under it draws. Machines take ids 1, 2, … in the
- * order `machinesOf` lists them, which is how other modules find a map's machines by id.
+ * The grid a map describes, with the pipes the map under it draws. Every cell but a space has a back
+ * wall, hull walls included, so a map drawn before back walls keeps its meaning. Machines take ids 1,
+ * 2, … in the order `machinesOf` lists them, which is how other modules find a map's machines by id.
  */
 export function gridFromLayout(layout: Layout): GridState {
   const { width, height } = layout;
@@ -29,6 +30,7 @@ export function gridFromLayout(layout: Layout): GridState {
     structure: new Array<number>(size).fill(STRUCTURE.empty),
     material: new Array<number>(size).fill(0),
     conduit: new Array<number>(size).fill(CONDUIT.none),
+    back: new Array<number>(size).fill(BACK.none),
     machines: [],
     nextMachineId: 1,
     occupancy: new Int32Array(0),
@@ -36,6 +38,7 @@ export function gridFromLayout(layout: Layout): GridState {
 
   for (let cell = 0; cell < size; cell++) {
     const char = layout.rows[Math.floor(cell / width)]?.[cell % width] ?? ' ';
+    if (char !== ' ') state.back[cell] = BACK.wall;
     const structure = STRUCTURE_CHARS[char];
     if (structure !== undefined) {
       state.structure[cell] = structure;

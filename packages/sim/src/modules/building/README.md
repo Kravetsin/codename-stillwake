@@ -13,8 +13,8 @@ completes through `grid`'s operations, paid from and refunded to the inventories
 ## Rules
 
 - A plan to place is checked against the grid first (`grid.placementProblem`, whose keys pass through
-  unchanged), then against the other plans: in each cell, structure and machines share one solid slot
-  and a conduit has its own, as in the grid. A machine's plan covers its whole footprint.
+  unchanged), then against the other plans: in each cell, structure and machines share one solid slot,
+  and a conduit and a back wall each have their own, as in the grid. A machine's plan covers its whole footprint.
 - A mark needs something in that layer of that cell, and one thing takes one mark. A crate is
   marked only empty, refused with `building.notEmpty`, and the tick of work that would take it apart
   is refused the same way when items were put into it meanwhile. A machine's mark is
@@ -37,8 +37,8 @@ completes through `grid`'s operations, paid from and refunded to the inventories
 
 - **Queries:** `plans()`; `plansAt(cell)` — every plan covering the cell; `problem(cell, action)` — the
   refusal a `placePlan` or `deconstruct` would get, for the client's ghost; `clearAt(cell)` — what a
-  deconstruct tool takes from a cell next (a machine, then a conduit, then the structure, passing over
-  what is marked already) and where its mark is kept; `workProblem(planId, peer)` — the refusal that
+  deconstruct tool takes from a cell next (a machine, then a conduit, then the structure, then the back
+  wall, passing over what is marked already) and where its mark is kept; `workProblem(planId, peer)` — the refusal that
   peer's `work` would get; `ticksFor(planId)` — the ticks a plan takes in all.
 - **Commands:** `placePlan { cell, placement }`, refused with grid's keys or `building.planned`;
   `deconstruct { cell, layer }`, refused with `building.nothingThere`, `building.planned` or

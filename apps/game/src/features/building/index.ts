@@ -159,6 +159,9 @@ function drawPlans(
         .stroke({ width: 2, color: MARK });
     } else if (p.place.layer === 'conduit') {
       g.rect(x, y + h / 2 - 2, w, 4).fill({ color: PLAN, alpha: 0.7 });
+    } else if (p.place.layer === 'back') {
+      // Faint and edgeless: behind whatever else is planned in the cell.
+      g.rect(x, y, w, h).fill({ color: PLAN, alpha: 0.12 });
     } else {
       g.rect(x + 2, y + 2, w - 4, h - 4)
         .fill({ color: PLAN, alpha: p.place.layer === 'machine' ? 0.15 : 0.25 })

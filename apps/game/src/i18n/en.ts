@@ -17,6 +17,7 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.floor': 'Floor',
   'tool.ladder': 'Ladder',
   'tool.door': 'Door',
+  'tool.backWall': 'Back wall',
   'tool.pipe': 'Pipe',
   'tool.valve': 'Valve',
   'tool.tank': 'Tank',
