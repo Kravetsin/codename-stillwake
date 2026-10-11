@@ -53,12 +53,16 @@ export function createRelay() {
       client.send(RELAY.hosted, { session: id });
     },
 
-    join(client: RelayClient, session: string) {
+    /**
+     * Joins `client` to `session` as a new peer. `token` comes back with the answer, and the peer
+     * with every message from the host, so a tab that joins again can tell its latest join's.
+     */
+    join(client: RelayClient, session: string, token: number) {
       const found = sessions.get(session);
-      if (!found) return client.send(RELAY.refused, { session });
+      if (!found) return client.send(RELAY.refused, { session, token });
       const peer = found.nextPeer++;
       found.peers.set(peer, client);
-      client.send(RELAY.connected, { session });
+      client.send(RELAY.connected, { session, token, peer });
       found.host.send(RELAY.joined, { peer });
     },
 
@@ -70,7 +74,7 @@ export function createRelay() {
 
     /** A host's message to one of its peers; nothing if that peer has gone. */
     toPeer(client: RelayClient, peer: number, message: unknown) {
-      hostOf(client)?.[1].peers.get(peer)?.send(RELAY.fromHost, { message });
+      hostOf(client)?.[1].peers.get(peer)?.send(RELAY.fromHost, { peer, message });
     },
 
     /** A tab gone: a host takes its session with it, a peer leaves its session. */
@@ -100,7 +104,9 @@ export function serve(
   on: (event: string, handler: (data: never, client: RelayClient) => void) => void,
 ): void {
   on(RELAY.host, (_: unknown, client) => relay.host(client));
-  on(RELAY.join, (data: { session: string }, client) => relay.join(client, data.session));
+  on(RELAY.join, (data: { session: string; token: number }, client) =>
+    relay.join(client, data.session, data.token),
+  );
   on(RELAY.toHost, (data: { message: unknown }, client) => relay.toHost(client, data.message));
   on(RELAY.toPeer, (data: { peer: number; message: unknown }, client) =>
     relay.toPeer(client, data.peer, data.message),

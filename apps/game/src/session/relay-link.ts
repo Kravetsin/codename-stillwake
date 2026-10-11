@@ -85,9 +85,13 @@ export function hostOnRelay(
   };
 }
 
+/** Tells this page's joins apart: React in development makes the game, and joins, twice. */
+let joins = 0;
+
 /**
  * Joins session `session` on the relay: the channel to its host, to join the host's world over
- * (`joinHost`), and `ended`, which rejects if the session is not there or its host goes.
+ * (`joinHost`), and `ended`, which rejects if the session is not there or its host goes. Only what
+ * the relay says to this join is heard: an earlier join from this tab may still be answered.
  */
 export function joinOnRelay(
   socket: HotSocket,
@@ -102,6 +106,8 @@ export function joinOnRelay(
 } {
   let receive: ((message: ToClient) => void) | undefined;
   let left = false;
+  const token = ++joins;
+  let me: number | undefined;
   // As a channel promises: what the host sends before anyone listens is kept, then handed over.
   const waiting: ToClient[] = [];
   let end: (why: Error) => void = () => {};
@@ -111,8 +117,13 @@ export function joinOnRelay(
   const show = (state: PeerState) => report({ role: 'peer', session, state });
   show('connecting');
   const stop = listen(socket, {
-    [RELAY.connected]: () => show('connected'),
-    [RELAY.refused]: () => {
+    [RELAY.connected]: (data: { token: number; peer: number }) => {
+      if (data.token !== token) return;
+      me = data.peer;
+      show('connected');
+    },
+    [RELAY.refused]: (data: { token: number }) => {
+      if (data.token !== token) return;
       show('refused');
       end(new Error(`No session ${session} on the relay.`));
     },
@@ -120,12 +131,13 @@ export function joinOnRelay(
       show('host left');
       end(new Error(`The host of session ${session} left.`));
     },
-    [RELAY.fromHost]: ({ message }: { message: ToClient }) => {
+    [RELAY.fromHost]: ({ peer, message }: { peer: number; message: ToClient }) => {
+      if (peer !== me) return;
       if (receive) receive(message);
       else waiting.push(message);
     },
   });
-  socket.send(RELAY.join, { session });
+  socket.send(RELAY.join, { session, token });
   return {
     channel: {
       send: (message) => socket.send(RELAY.toHost, { message }),

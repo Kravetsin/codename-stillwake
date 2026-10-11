@@ -12,13 +12,19 @@ function devServer() {
   const handlers = new Map<string, (data: never, client: RelayClient) => void>();
   serve(createRelay(), (event, handler) => handlers.set(event, handler));
   return {
-    tab(): HotSocket & { close(): void } {
+    /** A tab; `held`, what the server sends it waits for `flush`, as a slow socket would. */
+    tab(held = false): HotSocket & { close(): void; flush(): void } {
       const listeners = new Map<string, Set<(data: never) => void>>();
+      const queue: (() => void)[] = [];
       const client: RelayClient = {
         send: (event, payload) => {
           const data: unknown =
             payload === undefined ? undefined : (JSON.parse(JSON.stringify(payload)) as unknown);
-          for (const listener of listeners.get(event) ?? []) listener(data as never);
+          const deliver = () => {
+            for (const listener of listeners.get(event) ?? []) listener(data as never);
+          };
+          if (held) queue.push(deliver);
+          else deliver();
         },
       };
       const toServer = (event: string, data?: unknown) =>
@@ -29,6 +35,9 @@ function devServer() {
           listeners.set(event, (listeners.get(event) ?? new Set()).add(listener)),
         off: (event, listener) => listeners.get(event)?.delete(listener),
         close: () => toServer('vite:client:disconnect'),
+        flush: () => {
+          for (const deliver of queue.splice(0)) deliver();
+        },
       };
     },
   };
@@ -95,6 +104,26 @@ describe('two tabs through the relay', () => {
     expect(dropped).toEqual([1]);
     expect(joined.left()).toBe(true);
     await expect(joined.ended).rejects.toThrow('Left session 1');
+  });
+
+  it('give a tab that joins again only what its host sends to the latest join', async () => {
+    // As React does in development: the game is made, torn down and made again at once, so what
+    // the host sends the first join reaches the tab after the second has begun.
+    const server = devServer();
+    const own = localSession(stillwake.create(3, wreck), 'b1');
+    hostOnRelay(
+      server.tab(),
+      () => own.host,
+      () => {},
+    );
+    const tab = server.tab(true);
+    const joining = status();
+    joinOnRelay(tab, '1', () => {}).stop();
+    const second = joinOnRelay(tab, '1', joining.report);
+    const client = joinHost(stillwake, second.channel, 'b1');
+    tab.flush();
+    expect((await client).id).toBe(2);
+    expect(joining.get()).toEqual({ role: 'peer', session: '1', state: 'connected' });
   });
 
   it('refuse a tab running another build', async () => {
