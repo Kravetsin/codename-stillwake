@@ -187,7 +187,7 @@ item, ticks), reset when the slot's contents change; at `dismantleTicks` one ite
 Refused with `items.notSalvage` or `items.full`, counting the slot it frees. Progress drawn as a fill
 on the slot.
 Done when: scenarios for completion, the freed slot, both refusals and the reset; fuzz draws
-`dismantle`; `SAVE_FORMAT` 11; one session runs the whole loop: catch, take apart, build.
+`dismantle`; `SAVE_FORMAT` bumped; one session runs the whole loop: catch, take apart, build.
 
 **P2-06 · Tether** · S · client `crew` (the hero state carries the anchor; net unchanged) · after
 P2-01

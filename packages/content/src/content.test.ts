@@ -121,19 +121,23 @@ describe('salvage', () => {
     }
   });
 
-  it('drifts past in rows on the wreck, at whole rates, as salvage items of positive weight', () => {
-    for (const value of [DEBRIS.every, DEBRIS.max, DEBRIS.drift]) {
+  it('drifts past at whole rates under a cell a tick, as salvage items of positive weight', () => {
+    for (const value of [DEBRIS.every, DEBRIS.max, DEBRIS.drift.min, DEBRIS.margin, DEBRIS.lead]) {
       expect(Number.isSafeInteger(value) && value > 0).toBe(true);
     }
     expect(Number.isSafeInteger(DEBRIS.jitter) && DEBRIS.jitter >= 0).toBe(true);
     expect(DEBRIS.jitter).toBeLessThan(DEBRIS.every);
-    expect(DEBRIS.drift).toBeLessThan(1000);
-    const { top, bottom } = DEBRIS.rows;
-    expect(0 <= top && top <= bottom && bottom < WRECK.length).toBe(true);
+    expect(Number.isSafeInteger(DEBRIS.drift.max)).toBe(true);
+    expect(DEBRIS.drift.min <= DEBRIS.drift.max && DEBRIS.drift.max < 1000).toBe(true);
     for (const kind of DEBRIS.kinds) {
       expect(ITEMS[kind.item]).toHaveProperty('yields');
       expect(Number.isSafeInteger(kind.weight) && kind.weight > 0).toBe(true);
     }
+  });
+
+  it("spawns on the wreck's grid, its lead right of the hull", () => {
+    const right = Math.max(...WRECK.map((row) => row.trimEnd().length - 1));
+    expect(right + DEBRIS.lead).toBeLessThan(Math.max(...WRECK.map((row) => row.length)));
   });
 });
 

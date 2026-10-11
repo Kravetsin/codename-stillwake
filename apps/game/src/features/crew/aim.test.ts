@@ -284,7 +284,11 @@ describe('a crate under the pointer', () => {
 
 describe('a piece of debris under the pointer', () => {
   it('is grabbed on a press, or carries why the sim would refuse it', () => {
-    const space = stillwake.create(1, parseLayout(Array<string>(8).fill(' '.repeat(12))));
+    // A hull of one cell in the corner, for the debris to fly past.
+    const space = stillwake.create(
+      1,
+      parseLayout(['#'.padEnd(12), ...Array<string>(7).fill(' '.repeat(12))]),
+    );
     for (let i = 0; i < DEBRIS.every; i++) space.step([]);
     const piece = space.query(debris).pieces()[0];
     if (!piece) throw new Error('no piece');

@@ -2,7 +2,8 @@
 
 - Status: accepted
 - Date: 2026-10-11
-- Supersedes: the "Physics: host-only" line of [0002](0002-coop-model.md), for debris
+- Supersedes: the "Physics: host-only" line of [0002](0002-coop-model.md), for debris; superseded in
+  part by [0009](0009-debris-around-the-ship.md) (where pieces fly, and their speeds)
 
 ## Context
 

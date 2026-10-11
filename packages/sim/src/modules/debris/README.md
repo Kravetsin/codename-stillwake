@@ -1,22 +1,27 @@
 # debris
 
-The pieces of debris drifting past the ship, and catching them ([0006](../../../../../docs/decisions/0006-debris-in-the-simulation.md)).
+The pieces of debris drifting past the ship, and catching them
+([0006](../../../../../docs/decisions/0006-debris-in-the-simulation.md),
+[0009](../../../../../docs/decisions/0009-debris-around-the-ship.md)).
 
-- **Depends on:** `grid` (the grid's size), `crew` (where the sender's hero is), `rooms` (what is
-  space), `items` (the inventory a caught piece goes into).
-- **State:** `pieces` in spawn order, each `{ id, item, x, y }` with its middle in thousandths of a
-  cell; `nextId`, never reused; `clock`, ticks run; `nextSpawn`, the clock the next piece is due at.
-  All saved; nothing is derived.
+- **Depends on:** `grid` (its size and the hull's bounds), `crew` (where the sender's hero is),
+  `rooms` (what is space), `items` (the inventory a caught piece goes into).
+- **State:** `pieces` in spawn order, each `{ id, item, x, y, speed, start, end }`, its middle at
+  `x`, `y` in thousandths of a cell, drifting `speed` a tick from `start` till below `end`;
+  `nextId`, never reused; `clock`, ticks run; `nextSpawn`, the clock the next piece is due at. All
+  saved; nothing is derived.
 
 ## Rules
 
-- In the simulation phase, every tick: the clock advances; every piece moves left by
-  `DEBRIS.drift`, and one whose `x` is below zero is gone. Then, on the clock `nextSpawn`, the next
-  is due `DEBRIS.every` plus `below(DEBRIS.jitter + 1)` ticks on, and a piece spawns if fewer than
-  `DEBRIS.max` are out: at the grid's right edge (`x` = width × 1000 − 1), in the middle of a row
-  drawn with `below` between `DEBRIS.rows.top` and `bottom`, of a kind drawn by weight
-  with `below` walking `DEBRIS.kinds` in order. The first is due on clock `DEBRIS.every`.
-- A row of the band past a small map's bottom is its last row; a map with no cells spawns nothing.
+- In the simulation phase, every tick: the clock advances; every piece moves left by its speed, and
+  one whose `x` is below its `end` is gone.
+- On the clock `nextSpawn`, the next is due `DEBRIS.every` plus `below(DEBRIS.jitter + 1)` ticks
+  on, and a piece spawns if fewer than `DEBRIS.max` are out and there is a hull: the bounds of every
+  cell with a structure in it, found again on each beat. Drawn with `below`, in this order: a row
+  among the hull's and `DEBRIS.margin` above and below; a kind by weight, walking `DEBRIS.kinds` in
+  order; a speed from `DEBRIS.drift.min` to `max`. It starts in the middle of the cell
+  `DEBRIS.lead` right of the hull and ends `DEBRIS.lead` left of it, both kept on the grid. The
+  first is due on clock `DEBRIS.every`.
 - Pieces pass through the hull and each other: nothing collides.
 - `grab { piece }` puts the piece into the sender's inventory as one of its salvage item. Refused
   with `debris.gone` (no such piece out), `debris.notOutside` (the sender's hero, at the cell its
@@ -31,7 +36,7 @@ The pieces of debris drifting past the ship, and catching them ([0006](../../../
 ## Invariants
 
 - Piece ids grow in spawn order and are never reused; no more than `DEBRIS.max` are out.
-- Every piece is on the grid, in a row of the band.
+- Every piece is on the grid, between its `start` and `end`, in the band of the hull it spawned by.
 
 ## Deliberately not handled
 

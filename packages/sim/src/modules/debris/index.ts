@@ -7,12 +7,18 @@ import type { ItemsModule } from '../items';
 import type { RoomsModule } from '../rooms';
 import { fuzzDebris } from './fuzz';
 
-/** One piece drifting past, its middle at `x`, `y` in thousandths of a cell, always on the grid. */
+/**
+ * One piece drifting past, its middle at `x`, `y` in thousandths of a cell, always on the grid. It
+ * drifts left by `speed` a tick from `start` and is gone once `x` is below `end`.
+ */
 export interface Piece {
   id: number;
   item: ItemId;
   x: number;
   y: number;
+  speed: number;
+  start: number;
+  end: number;
 }
 
 export interface DebrisState {
@@ -30,6 +36,27 @@ type Deps = [GridModule, CrewModule, RoomsModule, ItemsModule];
 
 const UNIT = 1000;
 const TOTAL_WEIGHT = DEBRIS.kinds.reduce((sum, kind) => sum + kind.weight, 0);
+
+/** The columns and rows the hull spans: every cell with a structure in it. None for no hull. */
+function hullOf(
+  grid: QueryApi<GridModule>,
+): { left: number; right: number; top: number; bottom: number } | undefined {
+  const { width, structure } = grid.layers();
+  const empty = grid.codes().structure.empty;
+  let hull: { left: number; right: number; top: number; bottom: number } | undefined;
+  for (let cell = 0; cell < structure.length; cell++) {
+    if (structure[cell] === empty) continue;
+    const x = cell % width;
+    const y = Math.floor(cell / width);
+    if (!hull) hull = { left: x, right: x, top: y, bottom: y };
+    else {
+      hull.left = Math.min(hull.left, x);
+      hull.right = Math.max(hull.right, x);
+      hull.bottom = y;
+    }
+  }
+  return hull;
+}
 
 /** The cell under a piece's middle. */
 export function cellOf(piece: Pick<Piece, 'x' | 'y'>, width: number): number {
@@ -131,21 +158,32 @@ const debrisModule = defineModule<Deps>()({
       run(ctx) {
         const state = ctx.state;
         state.clock += 1;
-        for (const piece of state.pieces) piece.x -= DEBRIS.drift;
-        if (state.pieces.some((p) => p.x < 0)) state.pieces = state.pieces.filter((p) => p.x >= 0);
+        for (const piece of state.pieces) piece.x -= piece.speed;
+        if (state.pieces.some((p) => p.x < p.end)) {
+          state.pieces = state.pieces.filter((p) => p.x >= p.end);
+        }
         if (state.clock < state.nextSpawn) return;
         state.nextSpawn = state.clock + DEBRIS.every + ctx.rng.below(DEBRIS.jitter + 1);
+        if (state.pieces.length >= DEBRIS.max) return;
+        // Found again on every beat, so a ship grown taller gets a taller stream.
+        const hull = hullOf(ctx.deps.grid.query);
+        if (!hull) return;
         const { width, height } = ctx.deps.grid.query.size();
-        if (state.pieces.length >= DEBRIS.max || width === 0 || height === 0) return;
-        // A band past a small map's bottom ends at its last row.
-        const top = Math.min(DEBRIS.rows.top, height - 1);
-        const bottom = Math.min(DEBRIS.rows.bottom, height - 1);
+        const top = Math.max(0, hull.top - DEBRIS.margin);
+        const bottom = Math.min(height - 1, hull.bottom + DEBRIS.margin);
         const row = top + ctx.rng.below(bottom - top + 1);
+        const item = kindOf(ctx.rng);
+        const { min, max } = DEBRIS.drift;
+        const speed = min + ctx.rng.below(max - min + 1);
+        const start = Math.min(width - 1, hull.right + DEBRIS.lead) * UNIT + UNIT / 2;
         state.pieces.push({
           id: state.nextId,
-          item: kindOf(ctx.rng),
-          x: width * UNIT - 1,
+          item,
+          x: start,
           y: row * UNIT + UNIT / 2,
+          speed,
+          start,
+          end: Math.max(0, hull.left - DEBRIS.lead) * UNIT,
         });
         state.nextId += 1;
       },

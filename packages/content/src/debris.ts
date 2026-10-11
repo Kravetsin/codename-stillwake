@@ -1,17 +1,20 @@
 import type { ItemId } from './items';
 
 /**
- * Debris drifting past the ship (ADR 0006). Times are in ticks, positions in thousandths of a cell.
- * A piece spawns `every` ticks plus up to `jitter` more after the last, while fewer than `max` are
- * out, at the grid's right edge in a row from `rows` (the top and bottom of the band it flies in);
- * it drifts left by `drift` a tick. Its kind is drawn by weight from `kinds`.
+ * Debris drifting past the ship (ADRs 0006 and 0009). Times are in ticks, positions and speeds in
+ * thousandths of a cell, distances in cells. A piece spawns `every` ticks plus up to `jitter` more
+ * after the last, while fewer than `max` are out: `lead` cells right of the hull, past what the
+ * farthest zoom shows, in a row of the hull's own and `margin` more above and below; it drifts left
+ * at a speed of its own between `drift.min` and `drift.max` a tick, and is gone `lead` cells left
+ * of the hull. Its kind is drawn by weight from `kinds`.
  */
 export const DEBRIS = {
   every: 160,
   jitter: 80,
   max: 20,
-  drift: 40,
-  rows: { top: 6, bottom: 41 },
+  drift: { min: 30, max: 55 },
+  margin: 12,
+  lead: 64,
   kinds: [
     { item: 'scrapChunk', weight: 6 },
     { item: 'hullPlate', weight: 3 },
@@ -21,7 +24,8 @@ export const DEBRIS = {
   readonly every: number;
   readonly jitter: number;
   readonly max: number;
-  readonly drift: number;
-  readonly rows: { readonly top: number; readonly bottom: number };
+  readonly drift: { readonly min: number; readonly max: number };
+  readonly margin: number;
+  readonly lead: number;
   readonly kinds: readonly { readonly item: ItemId; readonly weight: number }[];
 };

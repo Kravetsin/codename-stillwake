@@ -1,27 +1,42 @@
 import { DEBRIS, INVENTORY, ITEMS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout, type Layout } from '../../core/layout';
+import { defineSim } from '../../core/sim';
+import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { crew, items, stillwake as world } from '../index';
-import { cellOf, debris } from './index';
+import { crew, items, MODULES, stillwake as world } from '../index';
+import { cellOf, debris, type Piece } from './index';
+
+const withBuilder = defineSim([...MODULES, builder]);
 
 /**
- * Twenty wide and eight tall, so the band of rows debris flies in ends at the bottom two rows; a
- * room on the left reaches down into them.
+ * Twenty wide and eight tall: a room on the left from top to bottom, space right of it. Pieces
+ * spawn at the right edge, past which their lead would take them, in any row.
  */
 const SPACE = parseLayout([
-  '                    ',
-  '                    ',
   ' #####              ',
   ' #...#              ',
+  ' #...#              ',
   ' #.S.#              ',
+  ' #...#              ',
   ' #...#              ',
   ' #...#              ',
   ' #####              ',
 ]);
 const WIDTH = 20;
 const at = (x: number, y: number) => y * WIDTH + x;
+
+/**
+ * Space all round a small hull, wide and tall enough that neither its lead nor its margin reaches
+ * the grid's edges: the hull spans columns 70 to 75 and rows 25 to 30.
+ */
+const ROOMY = parseLayout(
+  Array.from({ length: 60 }, (_, y) =>
+    y >= 25 && y <= 30 ? `${' '.repeat(70)}######`.padEnd(160) : ' '.repeat(160),
+  ),
+);
+
 const pieces = (w: Scenario) => w.query(debris).pieces();
 /** The first piece, once `DEBRIS.every` ticks have spawned it. */
 function spawned(map: Layout = SPACE): Scenario {
@@ -39,39 +54,86 @@ const count = (w: Scenario, item: string, peer: number) =>
     .query(items)
     .inventory(peer)
     .reduce((sum, s) => sum + (s?.item === item ? s.count : 0), 0);
+/** Every piece seen in `ticks` ticks, by id, as it was when first seen. */
+function watch(w: Scenario, ticks: number): Map<number, Piece> {
+  const seen = new Map<number, Piece>();
+  for (let i = 0; i < ticks; i++) {
+    w.run();
+    for (const p of pieces(w)) if (!seen.has(p.id)) seen.set(p.id, { ...p });
+  }
+  return seen;
+}
 
 describe('debris', () => {
-  it('spawns its first piece on its beat, at the right edge in a row of its band', () => {
-    const w = scenario(world, SPACE).run(DEBRIS.every - 1);
+  it('spawns its first piece on its beat, its lead right of the hull, gone its lead left of it', () => {
+    const w = scenario(world, ROOMY).run(DEBRIS.every - 1);
     expect(pieces(w)).toEqual([]);
     w.run();
     const [piece] = pieces(w);
-    expect(piece).toMatchObject({ id: 1, x: WIDTH * 1000 - 1 });
-    expect([6500, 7500]).toContain(piece?.y);
+    const start = (75 + DEBRIS.lead) * 1000 + 500;
+    expect(piece).toMatchObject({ id: 1, x: start, start, end: (70 - DEBRIS.lead) * 1000 });
     expect(DEBRIS.kinds.map((k) => k.item)).toContain(piece?.item);
   });
 
-  it('drifts every piece left by the same amount a tick, and drops it past the left edge', () => {
-    const w = spawned();
+  it('keeps where a piece spawns and is gone on the grid', () => {
+    const [piece] = pieces(spawned());
+    expect(piece).toMatchObject({ start: 19500, end: 0, x: 19500 });
+  });
+
+  it("flies in the hull's rows and its margin, and in every one of them", () => {
+    const rows = new Set([...watch(scenario(world, ROOMY), 40000).values()].map((p) => p.y));
+    const top = 25 - DEBRIS.margin;
+    const bottom = 30 + DEBRIS.margin;
+    expect([...rows].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: bottom - top + 1 }, (_, i) => (top + i) * 1000 + 500),
+    );
+  });
+
+  it('follows a ship grown taller, found again on every beat', () => {
+    const w = scenario(withBuilder, ROOMY);
+    const wall = { layer: 'structure', kind: 'wall', material: 'scrap' } as const;
+    w.do(builder, 'place', { cell: 55 * 160 + 72, placement: wall }).run();
+    const rows = [...watch(w, 20000).values()].map((p) => Math.floor(p.y / 1000));
+    expect(Math.max(...rows)).toBe(59);
+    expect(Math.min(...rows)).toBe(25 - DEBRIS.margin);
+  });
+
+  it('drifts each piece by a speed of its own within the range, and drops it at its end', () => {
+    const w = spawned(ROOMY);
+    // A copy: what the query hands out is live.
+    const piece = { ...(pieces(w)[0] as Piece) };
     w.run();
-    expect(pieces(w)[0]?.x).toBe(WIDTH * 1000 - 1 - DEBRIS.drift);
-    const ticks = Math.floor((WIDTH * 1000 - 1) / DEBRIS.drift) + 1;
+    expect(pieces(w)[0]?.x).toBe(piece.x - piece.speed);
+    const ticks = Math.floor((piece.x - piece.end) / piece.speed) + 1;
     w.run(ticks - 2);
-    expect(pieces(w)[0]?.x).toBeGreaterThanOrEqual(0);
+    expect(pieces(w).find((p) => p.id === piece.id)).toBeDefined();
     w.run();
-    expect(pieces(w).filter((p) => p.id === 1)).toEqual([]);
+    expect(pieces(w).find((p) => p.id === piece.id)).toBeUndefined();
+
+    const speeds = new Set([...watch(scenario(world, ROOMY), 20000).values()].map((p) => p.speed));
+    for (const speed of speeds) {
+      expect(speed >= DEBRIS.drift.min && speed <= DEBRIS.drift.max).toBe(true);
+    }
+    expect(speeds.size).toBeGreaterThan(3);
+  });
+
+  it('spawns nothing without a hull', () => {
+    const w = scenario(world, parseLayout(Array<string>(8).fill(' '.repeat(20)))).run(1000);
+    expect(pieces(w)).toEqual([]);
   });
 
   it('spawns again within its beat and jitter, never more than its cap, with ids never reused', () => {
-    // So wide that pieces stay out long enough to reach the cap.
-    const w = scenario(world, parseLayout(Array<string>(8).fill(' '.repeat(200))));
+    // A hull so wide that pieces stay out long enough to reach the cap.
+    const long = parseLayout(
+      Array.from({ length: 8 }, (_, y) => (y === 4 ? `${' '.repeat(75)}${'#'.repeat(151)}` : '')),
+    );
+    const w = scenario(world, long);
     let last = 0;
     let spawns = 0;
     let gap: number = DEBRIS.every;
     let peak = 0;
     const gaps = new Set<number>();
-    const kinds = new Set<string>();
-    for (let tick = 1; tick <= 6000; tick++) {
+    for (let tick = 1; tick <= 8000; tick++) {
       w.run();
       const out = pieces(w);
       const newest = out.at(-1);
@@ -86,34 +148,26 @@ describe('debris', () => {
         // Until the cap is first reached no beat is skipped, so gaps are beats.
         if (spawns > 1 && peak < DEBRIS.max) gaps.add(gap);
         gap = 0;
-        kinds.add(newest.item);
       }
       gap += 1;
       peak = Math.max(peak, out.length);
       expect(out.length).toBeLessThanOrEqual(DEBRIS.max);
       expect(out.map((p) => p.id)).toEqual([...out.map((p) => p.id)].sort((a, b) => a - b));
-      for (const p of out) expect(p.x >= 0 && p.x < 200 * 1000 && p.y < 8000).toBe(true);
+      for (const p of out) expect(p.x >= p.end && p.x <= p.start && p.y < 8000).toBe(true);
     }
     expect(peak).toBe(DEBRIS.max);
     // The jitter at work: beats of more than one length.
     expect(gaps.size).toBeGreaterThan(1);
-    expect(kinds).toEqual(new Set(DEBRIS.kinds.map((k) => k.item)));
   });
 
-  it('spawns in every row of its band on a map that holds it, and in none outside it', () => {
-    const w = scenario(
-      world,
-      parseLayout(Array<string>(DEBRIS.rows.bottom + 4).fill(' '.repeat(8))),
+  it('draws every kind, the heavier ones more often', () => {
+    // Short paths and no cap reached: about a hundred spawns, each a draw.
+    const kinds = [...watch(scenario(world, parseLayout(['   #   '])), 20000).values()].map(
+      (p) => p.item,
     );
-    const rows = new Set<number>();
-    for (let i = 0; i < 60000; i++) {
-      w.run();
-      for (const p of pieces(w)) rows.add(Math.floor(p.y / 1000));
-    }
-    const { top, bottom } = DEBRIS.rows;
-    expect([...rows].sort((a, b) => a - b)).toEqual(
-      Array.from({ length: bottom - top + 1 }, (_, i) => top + i),
-    );
+    const share = DEBRIS.kinds.map((k) => kinds.filter((item) => item === k.item).length);
+    expect(share.every((n) => n > 0)).toBe(true);
+    expect(share).toEqual([...share].sort((a, b) => b - a));
   });
 
   it('puts a piece grabbed from space into the inventory as its salvage item', () => {

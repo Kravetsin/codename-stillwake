@@ -1,4 +1,3 @@
-import { DEBRIS } from '@stillwake/content';
 import { debris } from '@stillwake/sim';
 import { Container, Graphics, Texture, TilingSprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
@@ -15,6 +14,19 @@ const STAR_SPEED = 8;
 const PARALLAX = 0.08;
 /** A piece's size, in cells. */
 const PIECE = 0.8;
+/** How far a piece fades in after it spawns and out before it is gone, in thousandths of a cell. */
+const FADE = 8000;
+
+/** How visible a piece is: out of the dark over the start of its path, back into it at the end. */
+export function fadeOf(piece: {
+  readonly x: number;
+  readonly start: number;
+  readonly end: number;
+}) {
+  const into = Math.min(1, (piece.start - piece.x) / FADE);
+  const out = Math.min(1, (piece.x - piece.end) / FADE);
+  return Math.max(0, Math.min(into, out));
+}
 
 /** A tile of stars that repeats without a seam: a pixel's place, size and brightness at random. */
 function starTile(): Texture {
@@ -82,7 +94,6 @@ export const debrisFeature: Feature = {
           g.destroy();
           shown.delete(id);
         }
-        const between = DEBRIS.drift * game.progress;
         for (const piece of pieces) {
           let g = shown.get(piece.id);
           if (!g) {
@@ -90,7 +101,9 @@ export const debrisFeature: Feature = {
             shown.set(piece.id, g);
             piecesView.addChild(g);
           }
-          g.position.set(((piece.x - between) / UNIT) * CELL, (piece.y / UNIT) * CELL);
+          const x = piece.x - piece.speed * game.progress;
+          g.position.set((x / UNIT) * CELL, (piece.y / UNIT) * CELL);
+          g.alpha = fadeOf({ ...piece, x });
           // A slow tumble, each piece its own way.
           g.rotation = (clockMs / 4000) * (piece.id % 2 === 0 ? 1 : -1) + piece.id;
         }
