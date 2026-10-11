@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { defineModule, refuse } from '../../core/module';
+import { parseLayout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
 import { scenario } from '../../testing/scenario';
 import { grid, type GridModule, type Layer, type Placement } from './index';
@@ -95,6 +96,16 @@ describe('the map builds the grid', () => {
     expect(() => scenario(world, `TT\nT.\n`)).toThrow(
       "Map cell (0, 0): a tank is 2×2; draw its whole footprint with 'T'.",
     );
+  });
+});
+
+describe('the map under', () => {
+  it('lays pipes under machines and walls', () => {
+    const layout = parseLayout(['#TT#', '#TTV'], ['', '-- -']);
+    const q = world.create(1, layout).query(grid);
+    expect([4, 5, 6, 7].map((c) => q.conduitAt(c).kind)).toEqual(['pipe', 'pipe', 'none', 'pipe']);
+    expect(q.machines().map((m) => m.kind)).toEqual(['tank', 'vent']);
+    expect(q.structureAt(4).kind).toBe('wall');
   });
 });
 

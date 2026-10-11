@@ -1,10 +1,11 @@
 import { AIR } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
-import { command, defineSim } from '../../core/sim';
+import { parseLayout } from '../../core/layout';
+import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, grid, MODULES, rooms, stock, stillwake as world, wreck } from '../index';
+import { atmosphere, crew, grid, MODULES, rooms, stock, stillwake as world, wreck } from '../index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -92,6 +93,23 @@ describe('air machines', () => {
     expect(w.query(atmosphere).roomStatus(right)).toBe('vacuum');
   });
 
+  it('starts a tank drawn over an o in the map under with a canister of oxygen', () => {
+    // Two tanks and a vent between: machine ids 1, 2 and 3 in reading order; the second is filled.
+    const sim = world.create(1, parseLayout(['TTVTT', 'TT.TT'], ['', '   o']));
+    const tanks = sim
+      .query(grid)
+      .machines()
+      .filter((m) => m.kind === 'tank')
+      .map((m) => sim.query(atmosphere).oxygenIn(m.id));
+    expect(tanks).toEqual([0, AIR.canister]);
+    expect(() => world.create(1, parseLayout(['TT.', 'TT.'], ['  o']))).toThrow(
+      "'o' is under no tank",
+    );
+    expect(() => world.create(1, parseLayout(['TTV', 'TT.'], ['  o']))).toThrow(
+      "'o' is under no tank",
+    );
+  });
+
   it('refuses a canister for what is no tank, a tank that would spill, or an empty stock', () => {
     const { w, vent } = setUp();
     w.do(atmosphere, 'loadCanister', { tank: vent })
@@ -158,21 +176,25 @@ describe('air machines', () => {
     expect(w.query(atmosphere).oxygenIn(tank)).toBe(0);
   });
 
-  it('leaves the wreck without air with a canister in its tank: no pipe joins it to the vent', () => {
+  it('airs room B of the wreck from the start, from a tank piped to its vent', () => {
     const sim = world.create(1, wreck);
     const tank = sim
       .query(grid)
       .machines()
       .find((m) => m.kind === 'tank');
     if (!tank) throw new Error('no tank');
-    sim.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
     expect(sim.query(atmosphere).oxygenIn(tank.id)).toBe(AIR.canister);
-    // Rooms A and B are sealed and empty; room C is open to space through its breach.
-    expect(
+    const statuses = () =>
       sim
         .query(rooms)
         .rooms()
-        .map((room) => sim.query(atmosphere).roomStatus(room.id)),
-    ).toEqual(['vacuum', 'vacuum', 'venting']);
+        .map((room) => sim.query(atmosphere).roomStatus(room.id));
+    // Room A holds the tank but no vent; room C is open to space through its breach.
+    expect(statuses()).toEqual(['vacuum', 'filling', 'venting']);
+    const b = sim.query(rooms).rooms()[1];
+    for (let i = 0; i < (b?.volume ?? 0) * AIR.ticksPerCell; i++) sim.step([]);
+    expect(statuses()).toEqual(['vacuum', 'aired', 'venting']);
+    const spawn = sim.query(crew).spawn();
+    expect(sim.query(rooms).roomAt(spawn)).toBe(b?.id);
   });
 });

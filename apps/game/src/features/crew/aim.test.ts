@@ -180,7 +180,8 @@ describe('aiming', () => {
 describe('the wreck, worked with E', () => {
   const still: Input = { x: 0, y: 0, jump: false };
   const left: Input = { ...still, x: -1 };
-  const up: Input = { ...still, y: -1 };
+  const right: Input = { ...still, x: 1 };
+  const down: Input = { ...still, y: 1 };
 
   it('keeps the hero behind closed doors until they are toggled through the session', () => {
     const { host, client } = localSession(stillwake.create(1, wreck));
@@ -200,22 +201,21 @@ describe('the wreck, worked with E', () => {
     const [spawn] = cellsOf(wreck, 'S');
     if (spawn === undefined) throw new Error('the wreck has no S');
 
-    // Up the ladder from room C: the closed hatch stops the hero's head.
-    let h = heroAt(ship(), spawn);
-    for (let i = 0; i < 400 && Math.floor(h.x / UNIT) !== 42; i++) h = stepHero(h, left, ship());
-    expect(Math.floor(h.x / UNIT)).toBe(42);
-    h = run(h, up, 300);
-    expect(h.y - HERO.height).toBe(24 * UNIT);
-    use(h, 42, 23);
-    h = run(h, up, 120);
-    expect(h.y).toBe(23 * UNIT);
-
-    // Along room B: the closed doorway to room A stops the hero, until it is opened.
-    h = run(h, left, 120);
+    // Along room B, where the hero wakes: the closed doorway to room A stops the hero, until opened.
+    let h = run(heroAt(ship(), spawn), left, 120);
     expect(h.x).toBe(40 * UNIT + HERO.width / 2);
     use(h, 39, 22);
     h = run(h, left, 300);
     expect(h.x).toBe(31 * UNIT + HERO.width / 2);
+
+    // Back over the hatch: closed, it holds the hero up; opened, the ladder leads down to room C.
+    for (let i = 0; i < 400 && Math.floor(h.x / UNIT) !== 42; i++) h = stepHero(h, right, ship());
+    expect(Math.floor(h.x / UNIT)).toBe(42);
+    h = run(h, down, 60);
+    expect(h.y).toBe(23 * UNIT);
+    use(h, 42, 23);
+    h = run(h, down, 300);
+    expect(h.y).toBe(32 * UNIT);
   });
 });
 

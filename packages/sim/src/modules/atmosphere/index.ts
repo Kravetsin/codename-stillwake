@@ -1,4 +1,5 @@
 import { AIR } from '@stillwake/content';
+import { cellsOf, machinesOf, type Layout } from '../../core/layout';
 import {
   defineModule,
   refuse,
@@ -21,6 +22,21 @@ export interface AtmosphereState extends Air {
 }
 
 type Deps = [GridModule, StockModule, RoomsModule, PipesModule];
+
+/**
+ * The tanks the map under the map fills: a canister's worth in each tank drawn over an `o`. Ids
+ * are found as `grid` gives them, in the order `machinesOf` lists a map's machines.
+ */
+function startingTanks(layout: Layout): Air['tanks'] {
+  const oxygen = new Set(cellsOf(layout, 'o', true));
+  const tanks = machinesOf(layout).flatMap((m, i) =>
+    m.kind === 'tank' && m.cells.some((c) => oxygen.has(c)) ? [{ tank: i + 1, ...m }] : [],
+  );
+  const filled = new Set(tanks.flatMap((t) => t.cells));
+  const stray = [...oxygen].find((c) => !filled.has(c));
+  if (stray !== undefined) throw new Error(`Map cell ${stray} under: 'o' is under no tank.`);
+  return tanks.map((t) => ({ tank: t.tank, oxygen: AIR.canister }));
+}
 type Grid = QueryApi<GridModule>;
 
 function isTank(grid: Grid, id: number): boolean {
@@ -42,7 +58,7 @@ function canisterProblem(
 const atmosphereModule = defineModule<Deps>()({
   id: 'atmosphere',
   dependsOn: ['grid', 'stock', 'rooms', 'pipes'],
-  init: (): AtmosphereState => ({ tanks: [], aired: [], clock: 0 }),
+  init: (layout): AtmosphereState => ({ tanks: startingTanks(layout), aired: [], clock: 0 }),
 
   queries: {
     /** The oxygen in tank `id`; none for a tank never filled, or no tank at all. */

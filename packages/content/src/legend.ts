@@ -15,8 +15,18 @@ export const LEGEND = {
   x: 'valve, closed',
   T: 'oxygen tank: draw its whole footprint',
   V: 'vent',
-  c: 'oxygen canister lying loose, for the starting stock',
+  c: 'a canister counted into the starting stock: not an object in the world, and not drawn',
   S: 'where the hero wakes',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type LegendChar = keyof typeof LEGEND;
+
+/**
+ * A map may come with a second one, drawn the same size, of what lies under and inside the first:
+ * what one character per cell cannot show on top.
+ */
+export const LEGEND_UNDER = {
+  ' ': 'nothing',
+  '-': 'pipe, under a wall or a machine as anywhere',
+  o: "a canister's worth of oxygen in the tank drawn over it",
+} as const satisfies Readonly<Record<string, string>>;

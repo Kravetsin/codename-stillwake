@@ -38,7 +38,9 @@ of structure and of other machines. Conduits need only a free conduit slot.
 
 `#` wall of `DEFAULT_HULL`, `=` floor, `H` ladder, `D`/`d` door closed/open, `-` pipe, `v`/`x` valve
 open/closed, `T` tank, `V` vent. A machine is drawn as its whole footprint; a map that draws part of
-one does not load. A map cannot show a pipe inside a wall: use `place` for that.
+one does not load. Pipes under walls and machines are drawn on the map under it (`LEGEND_UNDER`).
+A map's machines take ids 1, 2, … in the order `machinesOf` (in `core/layout`) lists them: by
+their top-left cells in reading order. Other modules find a map's machines by that.
 
 ## Invariants
 

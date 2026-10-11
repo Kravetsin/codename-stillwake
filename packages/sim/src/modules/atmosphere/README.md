@@ -5,7 +5,9 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 - **Depends on:** `grid` (tanks and vents are its machines), `stock` (canisters), `rooms` (where cells
   and vents are, hull, openings), `pipes` (which tanks a vent reaches).
 - **State:** `tanks` — the oxygen in each tank holding any, by machine id, in id order; `aired` — the
-  cells holding air, sorted; `clock` — ticks run, for the fill and leak beats. All saved.
+  cells holding air, sorted; `clock` — ticks run, for the fill and leak beats. All saved. A tank
+  drawn over an `o` on the map under the map starts with `AIR.canister`; an `o` under anything else
+  is a broken map and does not load.
 - **Files:** `air.ts` — the rules below; `index.ts` — the module, its queries and command.
 
 ## Rules

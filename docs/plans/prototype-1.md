@@ -291,6 +291,12 @@ The hero wakes in a room the tank already airs: a pipe drawn on the map from the
 a tank that starts with oxygen. Machines show their ports, pipes are drawn over machines, a tank shows
 its oxygen, and canisters on the map are dropped (they start in the stock, as the counter shows).
 Done when: a new player finds air at the start and can tell what keeps it there.
+Built with a map under the map (`LEGEND_UNDER`): `-` lays a pipe under a wall or machine, `o` fills
+the tank over it with a canister's worth. Parsing a map's machines moved to `machinesOf` in
+`core/layout`, which `grid` and `atmosphere` share. The hero wakes in room B, which is aired five
+seconds in. A tank shows its oxygen as a number and a gauge (a new client `atmosphere` feature);
+machines show their ports as rings; conduits are drawn over machines. Canisters stay counted from the
+map, since tests draw them; the legend now says they are stock, not objects in the world.
 
 **P1-36 · Overlays** · M · client · after 33
 Air: rooms tinted by state; hovering shows volume, leak per minute, the network's oxygen and how long

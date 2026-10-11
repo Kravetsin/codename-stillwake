@@ -1,5 +1,5 @@
-import { DEFAULT_HULL, MACHINES, MATERIALS, type MachineKind } from '@stillwake/content';
-import type { Layout } from '../../core/layout';
+import { DEFAULT_HULL, MATERIALS } from '@stillwake/content';
+import { cellsOf, machinesOf, type Layout } from '../../core/layout';
 import { CONDUIT, STRUCTURE, type GridState } from './state';
 
 const STRUCTURE_CHARS: Readonly<Record<string, number>> = {
@@ -16,11 +16,9 @@ const CONDUIT_CHARS: Readonly<Record<string, number>> = {
   x: CONDUIT.valveClosed,
 };
 
-const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = { T: 'tank', V: 'vent' };
-
 /**
- * The grid a map describes. A machine is drawn as its whole footprint; read in reading order, each
- * unclaimed machine character starts one machine whose footprint must be drawn in full.
+ * The grid a map describes, with the pipes the map under it draws. Machines take ids 1, 2, … in the
+ * order `machinesOf` lists them, which is how other modules find a map's machines by id.
  */
 export function gridFromLayout(layout: Layout): GridState {
   const { width, height } = layout;
@@ -35,13 +33,9 @@ export function gridFromLayout(layout: Layout): GridState {
     nextMachineId: 1,
     occupancy: new Int32Array(0),
   };
-  const claimed = new Set<number>();
 
   for (let cell = 0; cell < size; cell++) {
-    const x = cell % width;
-    const y = Math.floor(cell / width);
-    const char = layout.rows[y]?.[x] ?? ' ';
-
+    const char = layout.rows[Math.floor(cell / width)]?.[cell % width] ?? ' ';
     const structure = STRUCTURE_CHARS[char];
     if (structure !== undefined) {
       state.structure[cell] = structure;
@@ -49,21 +43,9 @@ export function gridFromLayout(layout: Layout): GridState {
     }
     const conduit = CONDUIT_CHARS[char];
     if (conduit !== undefined) state.conduit[cell] = conduit;
-
-    const kind = MACHINE_CHARS[char];
-    if (kind === undefined || claimed.has(cell)) continue;
-    const spec = MACHINES[kind];
-    for (let dy = 0; dy < spec.height; dy++) {
-      for (let dx = 0; dx < spec.width; dx++) {
-        const covered = (y + dy) * width + x + dx;
-        if (x + dx >= width || layout.rows[y + dy]?.[x + dx] !== char || claimed.has(covered)) {
-          throw new Error(
-            `Map cell (${x}, ${y}): a ${kind} is ${spec.width}×${spec.height}; draw its whole footprint with '${char}'.`,
-          );
-        }
-        claimed.add(covered);
-      }
-    }
+  }
+  for (const cell of cellsOf(layout, '-', true)) state.conduit[cell] = CONDUIT.pipe;
+  for (const { kind, cell } of machinesOf(layout)) {
     state.machines.push({ id: state.nextMachineId, kind, cell });
     state.nextMachineId += 1;
   }

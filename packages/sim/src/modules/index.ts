@@ -1,4 +1,4 @@
-import { WRECK } from '@stillwake/content';
+import { WRECK, WRECK_UNDER } from '@stillwake/content';
 import { parseLayout } from '../core/layout';
 import type { AnyModule } from '../core/module';
 import { defineSim } from '../core/sim';
@@ -27,7 +27,7 @@ export const MODULES: readonly AnyModule[] = [
 export const stillwake = defineSim(MODULES);
 
 /** The map every new game starts from. */
-export const wreck = parseLayout(WRECK);
+export const wreck = parseLayout(WRECK, WRECK_UNDER);
 export { CONDUIT, STRUCTURE } from './grid';
 export type { Layer, Placement } from './grid';
 export { grid };

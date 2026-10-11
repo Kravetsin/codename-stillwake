@@ -61,13 +61,10 @@ export class Batch {
   }
 }
 
-/** Adds one cell's structure and conduit to `batch`, at the cell's place in the world. */
-export function drawCell(batch: Batch, cells: Cells, cell: number): void {
-  const col = cell % cells.width;
-  const row = Math.floor(cell / cells.width);
-  const x = col * CELL;
-  const y = row * CELL;
-
+/** Adds one cell's structure to `batch`, at the cell's place in the world. */
+export function drawStructure(batch: Batch, cells: Cells, cell: number): void {
+  const x = (cell % cells.width) * CELL;
+  const y = Math.floor(cell / cells.width) * CELL;
   switch (cells.structure[cell]) {
     case STRUCTURE.wall:
       batch.fill(COLOUR_BY_CODE.get(cells.material[cell] ?? 0) ?? 0xff00ff, x, y, CELL, CELL);
@@ -87,7 +84,14 @@ export function drawCell(batch: Batch, cells: Cells, cell: number): void {
       batch.outline(DOOR, x + 4, y + 1, CELL - 8, CELL - 2);
       break;
   }
+}
 
+/** Adds one cell's conduit to `batch`: drawn over machines, so a pipe shows where it joins one. */
+export function drawConduit(batch: Batch, cells: Cells, cell: number): void {
+  const col = cell % cells.width;
+  const row = Math.floor(cell / cells.width);
+  const x = col * CELL;
+  const y = row * CELL;
   const conduit = cells.conduit[cell] ?? CONDUIT.none;
   if (conduit === CONDUIT.none) return;
   const cx = x + CELL / 2;
