@@ -1,18 +1,18 @@
 import { HERO } from '@stillwake/content';
-import { cellsOf, grid, parseLayout, stillwake, STRUCTURE, wreck } from '@stillwake/sim';
+import { cellsOf, parseLayout, stillwake, STRUCTURE, wreck } from '@stillwake/sim';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { heroAt, stepHero, UNIT, type Hero, type Input, type Ship } from './hero';
+import { heroAt, shipOf, stepHero, UNIT, type Hero, type Input, type Ship } from './hero';
 
 const HALF = HERO.width / 2;
 
-function shipOf(map: string | readonly string[]): Ship {
-  return stillwake.create(1, parseLayout(map)).query(grid).layers();
+function shipFrom(map: string | readonly string[]): Ship {
+  return shipOf(stillwake.create(1, parseLayout(map)));
 }
 
 /** The ship and a hero standing at its S. */
 function start(map: string | readonly string[]): { ship: Ship; hero: Hero } {
-  const ship = shipOf(map);
+  const ship = shipFrom(map);
   const layout = parseLayout(map);
   const [spawn] = cellsOf(layout, 'S');
   if (spawn === undefined) throw new Error('no S');
@@ -452,11 +452,8 @@ describe('hero controller', () => {
   });
 
   it('crosses the whole wreck once its doors are open', () => {
-    const ship = shipOf(wreck.rows);
-    const opened: Ship = {
-      ...ship,
-      structure: ship.structure.map((s) => (s === STRUCTURE.doorClosed ? STRUCTURE.doorOpen : s)),
-    };
+    const ship = shipFrom(wreck.rows);
+    const opened = shipFrom(wreck.rows.map((row) => row.replace(/D/g, 'd')));
     const [spawn] = cellsOf(wreck, 'S');
     if (spawn === undefined) throw new Error('the wreck has no S');
 
@@ -475,6 +472,55 @@ describe('hero controller', () => {
     // With the hatch closed, the hero stands on it.
     const shut = until(ship, heroAt(ship, spawn), left, (x) => column(x) === 42);
     expect(settle(ship, stepHero(shut, down, ship), down).y).toBe(23 * UNIT);
+  });
+
+  describe('in space', () => {
+    // The wreck with every door open, the airlock's two doorways among them.
+    const opened = shipFrom(wreck.rows.map((row) => row.replace(/D/g, 'd')));
+    const [spawn] = cellsOf(wreck, 'S');
+    if (spawn === undefined) throw new Error('the wreck has no S');
+    const { width, height } = opened;
+
+    it('floats out through the airlock, swims four ways to the edges, and falls once back in', () => {
+      // Out through the airlock: past the outer doorway nothing pulls the hero down.
+      let h = settle(opened, heroAt(opened, spawn), right);
+      expect(h.x).toBe(width * UNIT - HALF);
+      expect(h.y).toBe(23 * UNIT);
+
+      // Each way at the swimming speed, and stopped by the grid's edge like a wall.
+      expect(stepHero(h, down, opened).y).toBe(h.y + HERO.swim);
+      h = settle(opened, h, down);
+      expect(h.y).toBe(height * UNIT);
+      h = settle(opened, h, up);
+      expect(h.y - HERO.height).toBe(0);
+      expect(stepHero(h, left, opened).x).toBe(h.x - HERO.swim);
+      h = settle(opened, h, left);
+      expect(h.x).toBe(HALF);
+
+      // Back in level with the doorway: inside the airlock gravity takes the hero to its floor.
+      h = { ...h, x: width * UNIT - HALF, y: 23 * UNIT };
+      h = stepHero(stepHero(h, up, opened), up, opened);
+      expect(h.y).toBe(23 * UNIT - 2 * HERO.swim);
+      h = until(opened, h, left, (x) => column(x) === 58);
+      h = settle(opened, h, still);
+      expect(h.y).toBe(23 * UNIT);
+      expect(h.vy).toBe(0);
+    });
+
+    it('stops with the keys and stays put with nothing pressed, passed out too', () => {
+      const out = settle(opened, heroAt(opened, spawn), right);
+      const moved = stepHero(out, { x: 1, y: -1, jump: false }, opened);
+      expect([moved.x, moved.y]).toEqual([out.x, out.y - HERO.swim]);
+      const away = stepHero(stepHero(out, { x: -1, y: -1, jump: true }, opened), still, opened);
+      expect([away.x, away.y]).toEqual([out.x - HERO.swim, out.y - HERO.swim]);
+      expect(stepHero(away, still, opened)).toEqual({ ...away, vx: 0, vy: 0 });
+    });
+
+    it('wakes in the ship under gravity again', () => {
+      const woke = heroAt(opened, spawn);
+      expect(stepHero(woke, up, opened).y).toBe(woke.y);
+      expect(stepHero({ ...woke, y: woke.y - UNIT }, still, opened).vy).toBe(HERO.gravity);
+    });
   });
 
   it('never ends a step inside a wall, a closed door or past the edge', () => {
@@ -502,7 +548,7 @@ describe('hero controller', () => {
 
     fc.assert(
       fc.property(world, ({ rows, start: cell, inputs }) => {
-        const ship = shipOf(rows.map((r) => r.join('')));
+        const ship = shipFrom(rows.map((r) => r.join('')));
         const blocked = (x: number, y: number) =>
           x < 0 ||
           y < 0 ||

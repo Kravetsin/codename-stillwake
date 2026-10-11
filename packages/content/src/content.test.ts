@@ -53,8 +53,8 @@ describe('hero', () => {
     expect(HERO.width % 2).toBe(0);
   });
 
-  it('walks and climbs less than a cell per step', () => {
-    for (const speed of [HERO.walk, HERO.climb]) expect(speed).toBeLessThan(CELL);
+  it('walks, climbs and swims less than a cell per step', () => {
+    for (const speed of [HERO.walk, HERO.climb, HERO.swim]) expect(speed).toBeLessThan(CELL);
   });
 
   it('jumps onto a ledge three cells high, not four', () => {

@@ -23,7 +23,8 @@ Decisions: [0006](../decisions/0006-debris-in-the-simulation.md) (debris in the 
   piece becomes in an inventory, one of the salvage kinds in `ITEMS`, taken apart into its yields.
 - **Place:** where a stack is, `{ crate?: id, slot }`; no crate means the sender's own inventory.
 - **The wreck's rooms:** A (the tank), B (the vent, where the hero wakes, aired from the start), C
-  (the breach). "Two more rooms aired" means two besides B, A and C or new ones.
+  (the breach), and the airlock off B's right end. "Two more rooms aired" means two besides B and
+  the airlock, A and C or new ones.
 
 ## How to work through it
 
@@ -49,9 +50,11 @@ Wherever the body cell is space, no gravity: input sets the velocity to `HERO.sw
 cell per controller step) in the pressed directions, no inertia, the same box collision. The wreck's
 96 × 48 grid already surrounds the ship with space; past the grid's edge stays solid, an invisible
 wall. Waking from passing out restores gravity. The hero's reported cell may be space; `crew.enter`
-already takes it.
-Done when: controller tests cover floating out through room C's breach, swimming four ways, stopping
-at the grid's edge, swimming back in and falling to the floor, and waking with gravity.
+already takes it. Room C's breach is one cell tall, too small for the hero, so the way out comes
+here: the airlock, a closet two wide between two three-tall doorways off room B's right end, both
+closed at the start.
+Done when: controller tests cover floating out through the airlock, swimming four ways, stopping at
+the grid's edge, swimming back in and falling to the floor, and waking with gravity.
 
 **P2-02 · Inventories replace the stock** · M · core, sim `items`, `building`, `atmosphere`, content ·
 after P1
@@ -145,8 +148,8 @@ Done when: controller tests: the anchor, the body's middle never past `HERO.teth
 along the limit, the clearing; a second window draws the other player's tether.
 
 **P2-07 · Airlock and a scarce start** · S · content · after P2-01, P2-03
-A closet two wide between two three-tall doorways in room B's wall; `STARTING_CRATE` cut so that two
-more rooms cannot be aired without salvage.
+The airlock P2-01 drew, proven; `STARTING_CRATE` cut so that two more rooms cannot be aired without
+salvage.
 Done when: scenarios on the wreck — outer doorway open, room B stays aired; outer closed and inner
 opened, the closet's six cells are aired within six ticks; both open, B vents — and a new player
 cycles the airlock without venting B.

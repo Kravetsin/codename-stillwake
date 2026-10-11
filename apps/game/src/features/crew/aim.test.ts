@@ -14,7 +14,7 @@ import {
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { aimAt, usesOf, type Aim } from './aim';
-import { stepHero, heroAt, UNIT, type Hero, type Input } from './hero';
+import { heroAt, shipOf, stepHero, UNIT, type Hero, type Input } from './hero';
 
 function worldFrom(map: string): Sim {
   return stillwake.create(1, parseLayout(map));
@@ -185,7 +185,7 @@ describe('the wreck, worked with E', () => {
 
   it('keeps the hero behind closed doors until they are toggled through the session', () => {
     const { host, client } = localSession(stillwake.create(1, wreck));
-    const ship = () => client.sim.query(grid).layers();
+    const ship = () => shipOf(client.sim);
     const run = (hero: Hero, input: Input, steps: number) => {
       let h = hero;
       for (let i = 0; i < steps; i++) h = stepHero(h, input, ship());

@@ -1,9 +1,10 @@
 /**
  * The starting wreck: two decks of a broken-off ship section in open space. Room A holds a tank and
  * opens into room B, which holds a vent, through a doorway three cells tall; a hatch in B's floor
- * leads down a ladder to room C, whose right wall has a breach. The hero wakes in room B, which the
- * tank airs from the start. The canisters are counted into the starting stock. Rows are read as
- * written, so the space around the wreck — room to build — stays part of the grid.
+ * leads down a ladder to room C, whose right wall has a breach one cell tall. The hero wakes in room
+ * B, which the tank airs from the start; an airlock off its right end, a closet between two closed
+ * doorways, is the way outside. The canisters are counted into the starting stock. Rows are read as
+ * written, so the space around the wreck — room to build and to swim in — stays part of the grid.
  */
 export const WRECK: readonly string[] = [
   '                                                                                                ',
@@ -25,11 +26,11 @@ export const WRECK: readonly string[] = [
   '                              ###########################                                       ',
   '                              #........#................#                                       ',
   '                              #........#................#                                       ',
-  '                              #........#................#                                       ',
-  '                              #........D................#                                       ',
-  '                              #TT......D................#                                       ',
-  '                              #TT..c...D.....S.V...c....#                                       ',
-  '                              ############D##############                                       ',
+  '                              #........#................####                                    ',
+  '                              #........D................D..D                                    ',
+  '                              #TT......D................D..D                                    ',
+  '                              #TT..c...D.....S.V...c....D..D                                    ',
+  '                              ############D#################                                    ',
   '                                       #..H.............#                                       ',
   '                                       #..H.............#                                       ',
   '                                       #..H.............#                                       ',

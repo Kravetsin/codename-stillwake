@@ -1,13 +1,5 @@
-import { HERO } from '@stillwake/content';
 import { command, crew, grid, rooms, type Command, type Sim } from '@stillwake/sim';
-import { UNIT, type Hero } from './hero';
-
-/** The cell the hero's body is in: the one under the middle of its box. */
-export function bodyCell(hero: Hero, width: number): number {
-  const x = Math.floor(hero.x / UNIT);
-  const y = Math.floor((hero.y - HERO.height / 2) / UNIT);
-  return y * width + x;
-}
+import { bodyCell, type Hero } from './hero';
 
 /**
  * `enter` with the body's cell, when the sim does not know hero `id` yet or puts it in another room

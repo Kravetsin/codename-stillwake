@@ -1,12 +1,12 @@
 import { HERO } from '@stillwake/content';
-import { crew, grid } from '@stillwake/sim';
+import { crew } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import type { Feature } from '../feature';
 import { aimAt, usesOf, type Aim } from './aim';
-import { heroAt, STEP_MS, stepHero, UNIT, type Hero } from './hero';
+import { heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes } from './remote';
 import { reportOf } from './report';
@@ -101,7 +101,7 @@ export const crewFeature: Feature = {
       view,
       update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
-        const ship = sim.query(grid).layers();
+        const ship = shipOf(sim);
         const spawn = sim.query(crew).spawn();
         const me = sim.query(crew).hero(game.client.id);
         const out = (me?.out ?? 0) > 0;

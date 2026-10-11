@@ -15,12 +15,12 @@ describe('the starting wreck', () => {
     expect(rowsWithHull.every((row) => row.startsWith(' ') && row.endsWith(' '))).toBe(true);
   });
 
-  it('holds a tank, a vent, a doorway three tall, a hatch, three canisters and a place to wake', () => {
+  it('holds a tank, a vent, three doorways three tall, a hatch, three canisters and a place to wake', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
     expect(q.machines().map((m) => m.kind)).toEqual(['tank', 'vent']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
-    expect(doors).toEqual(Array(4).fill({ kind: 'door', open: false }));
+    expect(doors).toEqual(Array(10).fill({ kind: 'door', open: false }));
     expect(cellsOf(wreck, 'c')).toHaveLength(3);
     expect(cellsOf(wreck, 'S')).toHaveLength(1);
   });

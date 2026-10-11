@@ -1,5 +1,5 @@
 import { HERO } from '@stillwake/content';
-import { STRUCTURE } from '@stillwake/sim';
+import { grid, rooms, STRUCTURE, type Sim } from '@stillwake/sim';
 
 /** Thousandths of a cell: the unit of every length and speed in `HERO`. */
 export const UNIT = 1000;
@@ -8,11 +8,19 @@ export const STEP_MS = 1000 / 60;
 
 const HALF = HERO.width / 2;
 
-/** The cells the hero moves against, as the grid's `layers` query hands them out. */
+/** The cells the hero moves against, and which of them are space, where the hero floats. */
 export interface Ship {
   readonly width: number;
   readonly height: number;
   readonly structure: readonly number[];
+  readonly space: (cell: number) => boolean;
+}
+
+/** The ship as `sim` sees it now. */
+export function shipOf(sim: Sim): Ship {
+  const { width, height, structure } = sim.query(grid).layers();
+  const where = sim.query(rooms);
+  return { width, height, structure, space: (cell) => where.roomAt(cell) === 'space' };
 }
 
 /** One hero's movement: `x` is the middle of the box and `y` its bottom, where the feet are. */
@@ -44,12 +52,21 @@ export function heroAt(ship: Ship, cell: number): Hero {
   };
 }
 
+/** The cell the hero's body is in: the one under the middle of its box. */
+export function bodyCell(hero: Hero, width: number): number {
+  const x = Math.floor(hero.x / UNIT);
+  const y = Math.floor((hero.y - HERO.height / 2) / UNIT);
+  return y * width + x;
+}
+
 /**
  * One controller step. Walls, closed doors and the grid's edges block; floors and the tops of
- * ladders hold the hero up but let them through from below; ladders are climbed while held.
+ * ladders hold the hero up but let them through from below; ladders are climbed while held. With
+ * the body in space there is no gravity: the hero swims where the keys point and stops with them.
  */
 export function stepHero(hero: Hero, input: Input, ship: Ship): Hero {
   const facing = input.x === 0 ? hero.facing : input.x;
+  if (ship.space(bodyCell(hero, ship.width))) return swim(ship, hero.x, hero.y, input, facing);
   const grab =
     !hero.climbing &&
     input.y !== 0 &&
@@ -73,6 +90,12 @@ function fall(ship: Ship, x: number, y: number, dir: number, vy: number, facing:
   const nx = moveX(ship, x, y, dir * HERO.walk);
   const ny = moveY(ship, nx, y, speed, false);
   return { x: nx, y: ny, vx: nx - x, vy: ny - y === speed ? speed : 0, climbing: false, facing };
+}
+
+function swim(ship: Ship, x: number, y: number, input: Input, facing: -1 | 1): Hero {
+  const nx = moveX(ship, x, y, input.x * HERO.swim);
+  const ny = moveY(ship, nx, y, input.y * HERO.swim, false);
+  return { x: nx, y: ny, vx: nx - x, vy: ny - y, climbing: false, facing };
 }
 
 function climb(ship: Ship, x: number, y: number, dir: number, facing: -1 | 1): Hero {

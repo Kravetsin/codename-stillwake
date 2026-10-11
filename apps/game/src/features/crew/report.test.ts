@@ -1,8 +1,8 @@
 import { HERO } from '@stillwake/content';
 import { command, crew, grid, parseLayout, stillwake, type Sim } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { UNIT, type Hero } from './hero';
-import { bodyCell, reportOf } from './report';
+import { bodyCell, UNIT, type Hero } from './hero';
+import { reportOf } from './report';
 
 /** Nine wide: two rooms three tall either side of a doorway, space above. */
 const sim = () =>

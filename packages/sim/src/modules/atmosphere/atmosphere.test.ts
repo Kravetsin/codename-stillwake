@@ -189,11 +189,11 @@ describe('air machines', () => {
         .query(rooms)
         .rooms()
         .map((room) => sim.query(atmosphere).roomStatus(room.id));
-    // Room A holds the tank but no vent; room C is open to space through its breach.
-    expect(statuses()).toEqual(['vacuum', 'filling', 'venting']);
+    // Room A holds the tank but no vent, the airlock neither; room C is open through its breach.
+    expect(statuses()).toEqual(['vacuum', 'filling', 'vacuum', 'venting']);
     const b = sim.query(rooms).rooms()[1];
     for (let i = 0; i < (b?.volume ?? 0) * AIR.ticksPerCell; i++) sim.step([]);
-    expect(statuses()).toEqual(['vacuum', 'aired', 'venting']);
+    expect(statuses()).toEqual(['vacuum', 'aired', 'vacuum', 'venting']);
     const spawn = sim.query(crew).spawn();
     expect(sim.query(rooms).roomAt(spawn)).toBe(b?.id);
   });
