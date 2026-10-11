@@ -1,6 +1,6 @@
 # 0002 — Co-op model
 
-- Status: accepted
+- Status: accepted; for debris, the physics line is superseded by [0006](0006-debris-in-the-simulation.md)
 - Date: 2026-10-10
 
 ## Context

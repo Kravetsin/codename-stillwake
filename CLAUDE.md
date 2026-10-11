@@ -4,9 +4,10 @@ A 2D side-view space game: an always-moving ship salvages debris and turns it in
 production. PC (Steam), online co-op for 4+ players in host-owned worlds. The game is described in
 `docs/concept.md`; why things are the way they are, in `docs/decisions/`.
 
-Prototype 1 ([`docs/plans/prototype-1.md`](docs/plans/prototype-1.md)) is built: its M0 laid the
-foundation described here. What remains is its playtest ([`docs/playtests/p1.md`](docs/playtests/p1.md));
-then the plan is deleted and the next one, designed from the findings, takes its place.
+Work follows [`docs/plans/prototype-2.md`](docs/plans/prototype-2.md): the next task is the first
+open one there. Prototype 1 ([`docs/plans/prototype-1.md`](docs/plans/prototype-1.md)) is built and its
+M0 laid the foundation described here; its plan goes once its playtest
+([`docs/playtests/p1.md`](docs/playtests/p1.md)) is written up.
 
 ## Stack
 
