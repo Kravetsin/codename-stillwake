@@ -18,7 +18,7 @@ import { rngOver, seedRng, type RngState } from './rng';
 export const TICKS_PER_SECOND = 20;
 
 /** Bumped whenever saved data changes shape; a save of another format is refused. */
-export const SAVE_FORMAT = 6;
+export const SAVE_FORMAT = 7;
 
 /**
  * A player's intent, as it travels from the client through the host to every peer. `from` is the

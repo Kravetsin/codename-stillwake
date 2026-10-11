@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { AIR } from './air';
 import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { CREW } from './crew';
-import { HAZARDS } from './hazards';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
@@ -117,13 +116,5 @@ describe('crew', () => {
       expect(value).toBeGreaterThan(0);
     }
     expect(CREW.refill).toBeLessThan(CREW.suit);
-  });
-});
-
-describe('hazards', () => {
-  it('come at a whole number of ticks, even, so half of it is whole too', () => {
-    expect(Number.isSafeInteger(HAZARDS.meteorEvery)).toBe(true);
-    expect(HAZARDS.meteorEvery % 2).toBe(0);
-    expect(HAZARDS.meteorEvery).toBeGreaterThan(0);
   });
 });

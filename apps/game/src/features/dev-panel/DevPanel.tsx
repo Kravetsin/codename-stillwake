@@ -1,4 +1,4 @@
-import { command, grid, hazards, rooms, stock, TICKS_PER_SECOND, type Sim } from '@stillwake/sim';
+import { command, grid, hazards, rooms, stock, type Sim } from '@stillwake/sim';
 import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
 
@@ -13,8 +13,6 @@ interface Reading {
   tick: number;
   hash: string;
   creative: boolean;
-  /** Seconds until the next meteor falls by itself. */
-  meteorIn: number;
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -31,7 +29,6 @@ function read(
     tick: sim.world.tick,
     hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
     creative: sim.query(stock).creative(),
-    meteorIn: Math.ceil(sim.query(hazards).meteorIn() / TICKS_PER_SECOND),
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -124,8 +121,6 @@ export function DevPanel({ game }: { readonly game: Game }) {
         <dd>{reading.tick}</dd>
         <dt>hash</dt>
         <dd>{reading.hash}</dd>
-        <dt>meteor</dt>
-        <dd>{reading.creative ? 'off in creative' : `in ${reading.meteorIn} s`}</dd>
       </dl>
       <div className="mb-2 flex gap-2">
         <button

@@ -334,6 +334,14 @@ bar that turns red and blinks when low out of room air, with red at the screen's
 screen goes dark on passing out. `alerts` left the feature interface: each feature draws its own
 sign, so nothing read them. Air escaping through the hull waits for art.
 
+**P1-39 · Meteors wait for places** · S · sim `hazards` · after 35
+The random meteor of 35 comes out: the starting space is calm, and meteors belong to places the ship
+reaches later (concept). `meteorHit` stays, from the dev panel, to try a breach and its repair.
+Done when: no meteor falls by itself, and the concept says where they will.
+Built by removing the random system, `HAZARDS` and the dev panel's countdown; `hazards` keeps no
+state and depends on `grid` alone, so `SAVE_FORMAT` is 7. The random meteor returns with places,
+its power set against a material's `strength`.
+
 ## M3 — A second player
 
 **P1-40 · Dev relay** · S · net · after 05

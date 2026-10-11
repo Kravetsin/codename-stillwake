@@ -112,7 +112,7 @@ const buildingModule = defineModule<Deps>()({
   systems: [
     {
       // A mark whose thing a meteor broke has nothing left to take apart. In derivation, after every
-      // construction system, so a random meteor's hit is seen on its tick too.
+      // construction system, so a hit made in any phase before is seen on its tick.
       phase: 'derivation',
       run(ctx) {
         const grid = ctx.deps.grid.query;

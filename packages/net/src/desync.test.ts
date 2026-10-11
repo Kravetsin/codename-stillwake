@@ -4,11 +4,9 @@ import {
   command,
   defineModule,
   defineSim,
-  hazards,
   parseLayout,
   stillwake,
   stock,
-  type Sim,
   wreck,
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
@@ -22,24 +20,6 @@ describe('desync fuzz: the game', () => {
     const run = fuzzDesync(stillwake, { seed, layout: wreck });
     expect(run.desync).toBeUndefined();
     expect(run.ticks).toBe(600);
-  });
-
-  it('keeps every client in sync past the first meteor on the wreck', () => {
-    const first = stillwake.create(5, wreck).query(hazards).meteorIn();
-    let seen: Sim | undefined;
-    const run = fuzzDesync(stillwake, {
-      seed: 5,
-      layout: wreck,
-      ticks: first + 200,
-      tamper: (_tick, clients) => {
-        seen = clients[0]?.sim;
-      },
-    });
-    expect(run.desync).toBeUndefined();
-    // Past the first meteor, its draws ran: the next is due later than the first was.
-    const slice = seen?.world.slices.hazards as { nextHit: number } | undefined;
-    expect(seen?.world.tick).toBeGreaterThan(first);
-    expect(slice?.nextHit).toBeGreaterThan(first);
   });
 
   it('keeps every client in sync while air fills, leaks and vents, and heroes breathe it', () => {
