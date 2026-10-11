@@ -246,6 +246,11 @@ trend arrow; why it falls is for the overlays and alerts (P1-36, P1-37).
 event drawn from the seeded PRNG (interval in `content`, off in creative mode). A wall plan on the hole
 repairs it.
 Done when: a hit makes the room vent, and a valve or a repair stops it.
+Built as `meteorHit { cell }`, refused unless the cell is a wall; a hit clears the wall and the pipe
+through it, with no refund. The random meteor falls on a wall of the rooms' outer hull, first after
+`HAZARDS.meteorEvery` ticks, then every half to one and a half of that. The dev panel has a meteor
+button and the countdown. A deconstruction mark on a broken wall is dropped by `building`. The save
+gains a hazards slice: `SAVE_FORMAT` is 5.
 
 **P1-36 · Overlays** · M · client · after 33
 Air: rooms tinted by state; hovering shows volume, leak per minute, the network's oxygen and how long

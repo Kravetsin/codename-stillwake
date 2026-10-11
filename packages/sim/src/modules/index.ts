@@ -7,6 +7,7 @@ import { atmosphere } from './atmosphere';
 import { building } from './building';
 import { crew } from './crew';
 import { grid } from './grid';
+import { hazards } from './hazards';
 import { pipes } from './pipes';
 import { rooms } from './rooms';
 import { stock } from './stock';
@@ -20,6 +21,7 @@ export const MODULES: readonly AnyModule[] = [
   pipes,
   atmosphere,
   crew,
+  hazards,
 ];
 
 export const stillwake = defineSim(MODULES);
@@ -37,3 +39,4 @@ export { rooms };
 export { pipes };
 export { atmosphere };
 export { crew };
+export { hazards };

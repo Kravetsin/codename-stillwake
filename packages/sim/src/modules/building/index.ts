@@ -17,10 +17,12 @@ function complete(ctx: Ctx<BuildingState, Deps, never>, plan: Plan): void {
     // Plans claim their slots, so nothing can fill one first: a refusal here is our bug.
     grid.op.place(plan.cell, plan.place);
   } else {
+    // What a mark names may be gone already, to a meteor: then there is nothing to refund.
     const built = builtAt(grid.query, plan.cell, plan.clear);
-    if (!built) throw new Error(`building: plan ${plan.id} marks nothing at ${plan.cell}`);
-    grid.op.clear(plan.cell, plan.clear);
-    stock.op.refund(built.cost);
+    if (built) {
+      grid.op.clear(plan.cell, plan.clear);
+      stock.op.refund(built.cost);
+    }
   }
   ctx.state.plans = ctx.state.plans.filter((p) => p.id !== plan.id);
 }
@@ -106,6 +108,19 @@ const buildingModule = defineModule<Deps>()({
       },
     },
   },
+
+  systems: [
+    {
+      // A mark whose thing a meteor broke has nothing left to take apart. In derivation, after every
+      // construction system, so a random meteor's hit is seen on its tick too.
+      phase: 'derivation',
+      run(ctx) {
+        const grid = ctx.deps.grid.query;
+        const gone = (p: Plan) => 'clear' in p && markedCell(grid, p.cell, p.clear) === undefined;
+        if (ctx.state.plans.some(gone)) ctx.state.plans = ctx.state.plans.filter((p) => !gone(p));
+      },
+    },
+  ],
 });
 
 export type BuildingModule = typeof buildingModule;

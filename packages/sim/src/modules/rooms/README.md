@@ -22,9 +22,9 @@ has a volume, the outer hull it leaks through, and the openings it vents through
   edge; its **hull** is the walls and closed doors next to it with space or the edge beyond. Both in
   cell order; machines count toward volume.
 - Rooms are found again on the tick the structure changes: a system in the derivation phase compares
-  the structure layer with its copy every tick. Read rooms in systems at or after derivation, never in
-  commands (validation or apply) or in construction: a peer that loaded mid-game has fresh rooms there
-  while one that played on may not.
+  the structure layer with its copy every tick. Read before derivation (in commands or construction),
+  rooms are those of the last tick's structure: blind to this tick's changes, but the same on every
+  peer, a freshly loaded one included, because nothing changes the grid after derivation.
 
 ## API
 
@@ -40,7 +40,7 @@ has a volume, the outer hull it leaks through, and the openings it vents through
 - A room is closed: an open neighbour of a room cell is in the room, or is space beside one of its
   openings.
 - What the rooms are depends on the grid alone: the same after a load as before it.
-- The grid's structure changes only before derivation (in commands), so rooms are current at the end
+- The grid's structure changes only before derivation (in commands or construction), so rooms are current at the end
   of every tick. A module that changes it later must move this system or accept a tick of lag.
 
 ## Deliberately not handled

@@ -24,7 +24,9 @@ of structure and of other machines. Conduits need only a free conduit slot.
   `codes` (what those codes mean), `structureAt(cell)`, `conduitAt(cell)`, `machineAt(cell)`, `machines`,
   `portsOf(machine)`, `footprint(kind, cell)`, `placementProblem(cell, placement)`.
 - **Operations:** `place(cell, placement)` — the caller checks `placementProblem` first, a problem here
-  throws; `clear(cell, layer)` — for machines, removes the whole machine covering the cell.
+  throws; `clear(cell, layer)` — for machines, removes the whole machine covering the cell. Both only
+  in commands or construction: rooms and pipes read before derivation trust that nothing changes the
+  grid after it, on every peer alike, a freshly loaded one included.
 - **Commands:** `toggleDoor { cell }`, refused with `grid.noDoor`; `toggleValve { cell }`, refused with
   `grid.noValve`.
 - **Refusal keys from `placementProblem`:** `grid.outOfBounds`, `grid.occupied`, `grid.machineInTheWay`,

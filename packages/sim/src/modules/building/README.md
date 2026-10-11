@@ -50,8 +50,9 @@ completes through `grid`'s operations, paid from and refunded to `stock`.
 
 ## Deliberately not handled
 
-- Plans left stale by a grid change: plans claim their slots, so nothing can fill one first; when
-  meteors arrive (P1-35) and can break what a mark names, completion must handle it. Today it throws.
+- Plans left stale by a grid change: plans claim their slots, so nothing can fill one first. A mark
+  whose thing a meteor broke is dropped in the derivation phase of the hit's tick, refunding nothing;
+  completed by work on that tick before the drop, it refunds nothing either.
 - Reach: the client checks it. Heroes live on the client until P1-34, and friends trust each other.
 - Swapping in place (a scrap wall to steel): mark it, then plan the new one once it is gone.
 - What was built in creative mode refunds its cost when taken apart, so creative mode can fill the

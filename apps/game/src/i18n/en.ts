@@ -32,6 +32,7 @@ export const EN: Readonly<Record<string, string>> = {
   'stock.creative': 'creative',
   'crew.suit': 'suit',
   'crew.passedOut': 'Passed out: no air',
+  'hazards.noWall': 'There is no wall here',
 };
 
 /** The text for `key`, or the key itself while it has none. */
