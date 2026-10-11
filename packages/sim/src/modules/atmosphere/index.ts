@@ -10,11 +10,14 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { StockModule } from '../stock';
+import { holds, oxygenIn, statusOf, stepAir, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 
-export interface AtmosphereState {
-  /** The oxygen in each tank that holds any, by the tank's machine id, in id order. */
-  tanks: { tank: number; oxygen: number }[];
+export type { RoomStatus } from './air';
+
+export interface AtmosphereState extends Air {
+  /** Ticks the air has run: fill and leak beats are this modulo their rates. */
+  clock: number;
 }
 
 type Deps = [GridModule, StockModule, RoomsModule, PipesModule];
@@ -24,69 +27,49 @@ function isTank(grid: Grid, id: number): boolean {
   return grid.machines().some((m) => m.id === id && m.kind === 'tank');
 }
 
-type Tanks = DeepReadonly<AtmosphereState['tanks']>;
-
-function oxygenIn(tanks: Tanks, id: number): number {
-  return tanks.find((t) => t.tank === id)?.oxygen ?? 0;
-}
-
 /** Why a canister cannot go into machine `id`: it is no tank, the ship has none, or it would spill. */
 function canisterProblem(
-  tanks: Tanks,
+  air: DeepReadonly<Air>,
   grid: Grid,
   stock: QueryApi<StockModule>,
   id: number,
 ): string | undefined {
   if (!isTank(grid, id)) return 'atmosphere.noTank';
-  if (oxygenIn(tanks, id) + AIR.canister > AIR.tankCapacity) return 'atmosphere.tankFull';
+  if (oxygenIn(air, id) + AIR.canister > AIR.tankCapacity) return 'atmosphere.tankFull';
   return stock.shortOf({ canister: 1 });
 }
 
 const atmosphereModule = defineModule<Deps>()({
   id: 'atmosphere',
   dependsOn: ['grid', 'stock', 'rooms', 'pipes'],
-  init: (): AtmosphereState => ({ tanks: [] }),
+  init: (): AtmosphereState => ({ tanks: [], aired: [], clock: 0 }),
 
   queries: {
     /** The oxygen in tank `id`; none for a tank never filled, or no tank at all. */
-    oxygenIn: (ctx, id: number) => oxygenIn(ctx.state.tanks, id),
+    oxygenIn: (ctx, id: number) => oxygenIn(ctx.state, id),
     /** Why a canister would not go into machine `id`: what the client shows before sending. */
     canisterProblem: (ctx, id: number) =>
-      canisterProblem(ctx.state.tanks, ctx.deps.grid.query, ctx.deps.stock.query, id),
-    /**
-     * `'filling'` while a vent in room `id` stands on a network with oxygen in one of its tanks,
-     * otherwise `'vacuum'`. How fast air flows, leaks and vents comes with the air rules (P1-33).
-     */
-    roomStatus(ctx, id: number): 'filling' | 'vacuum' {
-      const { grid, rooms, pipes } = ctx.deps;
-      const machines = grid.query.machines();
-      const kindOf = (machine: number) => machines.find((m) => m.id === machine)?.kind;
-      const supplied = machines.some(
-        (vent) =>
-          vent.kind === 'vent' &&
-          rooms.query.roomAt(vent.cell) === id &&
-          pipes.query
-            .networksOf(vent.id)
-            .some((network) =>
-              (pipes.query.network(network)?.machines ?? []).some(
-                (m) => kindOf(m) === 'tank' && oxygenIn(ctx.state.tanks, m) > 0,
-              ),
-            ),
-      );
-      return supplied ? 'filling' : 'vacuum';
-    },
+      canisterProblem(ctx.state, ctx.deps.grid.query, ctx.deps.stock.query, id),
+    /** Room `id`'s state: vacuum, filling, aired or venting. */
+    roomStatus: (ctx, id: number) =>
+      statusOf(
+        ctx.state,
+        {
+          grid: ctx.deps.grid.query,
+          rooms: ctx.deps.rooms.query,
+          pipes: ctx.deps.pipes.query,
+        },
+        id,
+      ),
+    /** Whether `cell` holds air. */
+    airedAt: (ctx, cell: number) => holds(ctx.state.aired, cell),
   },
 
   commands: {
     /** Puts one canister from the ship's stock into a tank. */
     loadCanister: {
       validate(ctx, p: { tank: number }) {
-        const why = canisterProblem(
-          ctx.state.tanks,
-          ctx.deps.grid.query,
-          ctx.deps.stock.query,
-          p.tank,
-        );
+        const why = canisterProblem(ctx.state, ctx.deps.grid.query, ctx.deps.stock.query, p.tank);
         if (why) return refuse(why);
       },
       apply(ctx, p: { tank: number }) {
@@ -109,6 +92,18 @@ const atmosphereModule = defineModule<Deps>()({
         const grid = ctx.deps.grid.query;
         if (ctx.state.tanks.every((t) => isTank(grid, t.tank))) return;
         ctx.state.tanks = ctx.state.tanks.filter((t) => isTank(grid, t.tank));
+      },
+    },
+    {
+      // After derivation, so rooms and networks are those of this tick.
+      phase: 'simulation',
+      run(ctx) {
+        ctx.state.clock += 1;
+        stepAir(
+          ctx.state,
+          { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query, pipes: ctx.deps.pipes.query },
+          ctx.state.clock,
+        );
       },
     },
   ],

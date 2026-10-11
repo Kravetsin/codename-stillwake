@@ -60,6 +60,11 @@ const roomsModule = defineModule<[GridModule]>()({
       if (id === undefined || id === SOLID) return undefined;
       return id === SPACE ? 'space' : id;
     },
+    /**
+     * Per cell, live and read-only: a room's id (never negative), or a negative number for space and
+     * solid cells. For a module that walks every cell; one cell at a time, use `roomAt`.
+     */
+    roomOfCells: (ctx): Readonly<Int32Array> => ctx.state.roomOf,
     room: (ctx, id: number) => ctx.state.rooms.find((room) => room.id === id),
     rooms: (ctx) => ctx.state.rooms,
   },

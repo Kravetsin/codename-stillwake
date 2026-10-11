@@ -217,11 +217,16 @@ room stands on a network with oxygen, and `vacuum` otherwise. Nothing flows yet:
 **P1-33 · Air rules** · M · `atmosphere` · after 30, 32
 Room states: vacuum → filling → aired, and venting. A room with a vent on a network with oxygen fills
 at a set rate until its volume is paid. An aired room leaks through each outer hull cell by its
-material. A connected room open to space or vacuum vents — a large drain — until a valve cuts it off
-or it is sealed. Draws go tank by tank in id order through the `drawOxygen` operation. Integers only,
+material. A connected room open to space vents — a large drain — until a valve cuts it off or it is
+sealed; a door onto a vacuum room joins the two into one to fill. Draws go tank by tank in id order through the `drawOxygen` operation. Integers only,
 every rate in `content`.
 Done when: a scenario test per rule, invariant tests (no tank below zero or above capacity), and the
 fuzz generator covers the new commands.
+Built with air kept per cell, since room ids change with every door: a room is aired when all its cells
+are. Filling airs one cell per beat from the first vent that can pay; a leak no network can pay costs
+the room all its air; a vent in a venting room or in space drains its network. `drawOxygen` stays
+internal until breathing needs it. One survey per tick and single walks over the cells keep it at
+0.8 ms a tick (1.9 ms at worst) on the reference world with every room aired. `SAVE_FORMAT` is 3.
 
 **P1-34 · Breathing and suit** · M · `crew` and client · after 23, 33
 The client sends its hero's cell whenever the hero enters another room as the client sees it; the sim

@@ -157,7 +157,7 @@ describe('air machines', () => {
       .do(atmosphere, 'loadCanister', { tank: first })
       .do(atmosphere, 'loadCanister', { tank: second })
       .run();
-    expect(w.sim.world.slices.atmosphere).toEqual({
+    expect(w.sim.world.slices.atmosphere).toMatchObject({
       tanks: [
         { tank: first, oxygen: AIR.canister },
         { tank: second, oxygen: 2 * AIR.canister },
@@ -170,11 +170,11 @@ describe('air machines', () => {
     const { w, tank } = setUp();
     w.do(atmosphere, 'loadCanister', { tank }).run();
     w.do(builder, 'clear', { cell: at(1, 2), layer: 'machine' }).run();
-    expect(w.sim.world.slices.atmosphere).toEqual({ tanks: [] });
+    expect(w.sim.world.slices.atmosphere).toMatchObject({ tanks: [] });
     expect(w.query(atmosphere).oxygenIn(tank)).toBe(0);
   });
 
-  it('leaves the wreck in vacuum with a canister in its tank: no pipe joins it to the vent', () => {
+  it('leaves the wreck without air with a canister in its tank: no pipe joins it to the vent', () => {
     const sim = world.create(1, wreck);
     const tank = sim
       .query(grid)
@@ -183,8 +183,12 @@ describe('air machines', () => {
     if (!tank) throw new Error('no tank');
     sim.step([{ module: 'atmosphere', type: 'loadCanister', payload: { tank: tank.id } }]);
     expect(sim.query(atmosphere).oxygenIn(tank.id)).toBe(AIR.canister);
-    for (const room of sim.query(rooms).rooms()) {
-      expect(sim.query(atmosphere).roomStatus(room.id)).toBe('vacuum');
-    }
+    // Rooms A and B are sealed and empty; room C is open to space through its breach.
+    expect(
+      sim
+        .query(rooms)
+        .rooms()
+        .map((room) => sim.query(atmosphere).roomStatus(room.id)),
+    ).toEqual(['vacuum', 'vacuum', 'venting']);
   });
 });
