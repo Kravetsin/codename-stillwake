@@ -3,6 +3,7 @@ import {
   atmosphere,
   building,
   command,
+  debris,
   CONDUIT,
   grid,
   STRUCTURE,
@@ -19,7 +20,8 @@ export interface Use {
 
 /**
  * The cell under the pointer and what E does there: works a plan while held, or, when pressed,
- * toggles a door or valve, puts a canister into a tank or opens crate `crate`.
+ * toggles a door or valve, puts a canister into a tank, grabs a piece of debris or opens crate
+ * `crate`.
  */
 export interface Aim {
   readonly cell: number;
@@ -49,7 +51,7 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
  * block the mark beside it; when none can, the oldest, to show why. Then a crate, a tank, a door, a
- * valve: a valve under a machine or in a door's cell is not worked with E.
+ * valve: a valve under a machine or in a door's cell is not worked with E. Last, a piece of debris.
  */
 export function aimAt(
   sim: Sim,
@@ -73,7 +75,17 @@ export function aimAt(
   const machine = sim.query(grid).machineAt(cell);
   if (machine?.kind === 'crate') return { cell, inReach, crate: machine.id };
   const press = pressOf(sim, peer, cell);
-  return press ? { cell, inReach, press } : { cell, inReach };
+  if (press) return { cell, inReach, press };
+  const piece = sim.query(debris).pieceAt(cell);
+  if (!piece) return { cell, inReach };
+  return {
+    cell,
+    inReach,
+    press: {
+      command: command(debris, 'grab', { piece: piece.id }),
+      problem: sim.query(debris).grabProblem(peer, piece.id),
+    },
+  };
 }
 
 function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {

@@ -1,19 +1,29 @@
 import type { MaterialId } from './materials';
 
+/** What a salvage item is taken apart into: materials and canisters, never more salvage. */
+export type Yields = Readonly<Partial<Record<MaterialId | 'canister', number>>>;
+
 export interface ItemSpec {
   /** The most of it one inventory slot holds. */
   readonly stack: number;
+  /** A salvage item, caught as debris, is taken apart by hand into these. */
+  readonly yields?: Yields;
+  /** Ticks of a hero's work to take one apart; given with `yields`. */
+  readonly dismantleTicks?: number;
 }
 
 /**
  * Everything a hero carries, by the id saves store: never rename one. Every material is an item by
- * the same id.
+ * the same id; the salvage items are what debris becomes when caught.
  */
 export const ITEMS = {
   scrap: { stack: 500 },
   steel: { stack: 500 },
   canister: { stack: 5 },
-} as const satisfies Readonly<Record<MaterialId | 'canister', ItemSpec>>;
+  scrapChunk: { stack: 10, yields: { scrap: 12 }, dismantleTicks: 40 },
+  hullPlate: { stack: 5, yields: { steel: 6, scrap: 4 }, dismantleTicks: 80 },
+  supplyPod: { stack: 1, yields: { canister: 1, scrap: 6 }, dismantleTicks: 120 },
+} as const satisfies Readonly<Record<string, ItemSpec>>;
 
 export type ItemId = keyof typeof ITEMS;
 

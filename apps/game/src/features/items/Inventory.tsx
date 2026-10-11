@@ -1,7 +1,7 @@
-import type { ItemId } from '@stillwake/content';
 import { items, type Place, type Slot } from '@stillwake/sim';
 import { useEffect, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
+import { css, ITEM_LOOK } from '../../render/item-look';
 import type { Game } from '../../session/game';
 import { openCrate } from '../../session/ui';
 import { clickOn, type Picked } from './click';
@@ -9,13 +9,6 @@ import { clickOn, type Picked } from './click';
 const REFRESH_MS = 100;
 /** Slots in a row: the inventory's first row is the hotbar, chosen with keys 1 to 9. */
 const ROW = 9;
-
-/** Each item at a glance, until there is art: a colour, and a shape for what is not a material. */
-const ICONS: Readonly<Record<ItemId, { readonly colour: string; readonly round: boolean }>> = {
-  scrap: { colour: '#b0703c', round: false },
-  steel: { colour: '#a9bccf', round: false },
-  canister: { colour: '#5fd0ff', round: true },
-};
 
 function read(game: Game, crate: number | undefined) {
   const q = game.client.sim.query(items);
@@ -28,11 +21,11 @@ function read(game: Game, crate: number | undefined) {
 }
 
 function Icon({ slot }: { readonly slot: NonNullable<Slot> }) {
-  const icon = ICONS[slot.item];
+  const icon = ITEM_LOOK[slot.item];
   return (
     <span
       className={`absolute inset-2 ${icon.round ? 'rounded-full' : 'rounded-sm'}`}
-      style={{ background: icon.colour }}
+      style={{ background: css(icon.colour) }}
     />
   );
 }

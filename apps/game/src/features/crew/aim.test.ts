@@ -1,10 +1,12 @@
-import { HERO, MACHINES, MATERIALS, STARTING_CRATE } from '@stillwake/content';
+import { DEBRIS, HERO, MACHINES, MATERIALS, STARTING_CRATE } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
   building,
   cellsOf,
   command,
+  crew,
+  debris,
   grid,
   items,
   parseLayout,
@@ -277,6 +279,26 @@ describe('a crate under the pointer', () => {
     expect(crateInReach(room, heroOn(1 + reach, row), crate.id)).toBe(true);
     expect(crateInReach(room, heroOn(2 + reach, row), crate.id)).toBe(false);
     expect(crateInReach(room, heroOn(1, row), crate.id + 1)).toBe(false);
+  });
+});
+
+describe('a piece of debris under the pointer', () => {
+  it('is grabbed on a press, or carries why the sim would refuse it', () => {
+    const space = stillwake.create(1, parseLayout(Array<string>(8).fill(' '.repeat(12))));
+    for (let i = 0; i < DEBRIS.every; i++) space.step([]);
+    const piece = space.query(debris).pieces()[0];
+    if (!piece) throw new Error('no piece');
+    const [x, y] = [Math.floor(piece.x / UNIT), Math.floor(piece.y / UNIT)];
+    const grab = command(debris, 'grab', { piece: piece.id });
+    // The sim knows no hero outside yet.
+    expect(aimAt(space, 0, heroOn(x - 2, y), centre(x, y))?.press).toEqual({
+      command: grab,
+      problem: 'debris.notOutside',
+    });
+    space.step([command(crew, 'enter', { cell: y * 12 + x - 2 })]);
+    const aim = aimAt(space, 0, heroOn(x - 2, y), centre(x, y));
+    expect(aim?.press).toEqual({ command: grab, problem: undefined });
+    expect(usesOf(aim, { pressed: true, held: true }, 3, -1).commands).toEqual([grab]);
   });
 });
 

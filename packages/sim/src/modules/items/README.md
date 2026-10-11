@@ -16,7 +16,8 @@ machine id; and creative mode, the world setting in which nothing is ever taken
 
 - An inventory is `INVENTORY.slots` slots, a crate `CRATE.slots`, each a stack (`{ item, count }`,
   from 1 to the item's `ITEMS` stack limit) or `null`. Items are known by their id in `ITEMS`; every
-  material is one. The inventory's first row is the hotbar.
+  material is one, and the salvage items, with `yields`, are what caught debris becomes. The
+  inventory's first row is the hotbar.
 - **Giving** puts each item onto the stacks of that item in slot order, up to their limit, then into
   the empty slots in slot order. It gives all of a cost or none of it.
 - **Taking** takes each item from the last slots first, so the hotbar is the last to empty. It takes

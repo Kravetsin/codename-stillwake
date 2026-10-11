@@ -38,7 +38,7 @@ PR; every tunable in content with a content test; every refusal key with English
 | Module       | Owns                                                       | Depends on                        |
 | ------------ | ---------------------------------------------------------- | --------------------------------- |
 | `items`      | every stack: inventories by peer id, crates, creative mode | `grid`                            |
-| `debris`     | the pieces drifting past the ship                          | `crew`, `rooms`, `items`          |
+| `debris`     | the pieces drifting past the ship                          | `grid`, `crew`, `rooms`, `items`  |
 | `building`   | as P1, paying from and refunding to the sender             | `grid`, `items`                   |
 | `atmosphere` | as P1, `loadCanister` taking from the sender               | `grid`, `items`, `rooms`, `pipes` |
 | `stock`      | removed by P2-02                                           | —                                 |
@@ -114,7 +114,7 @@ content · after P2-02
   `y` in thousandths of a cell. A saved clock; the next spawn falls `DEBRIS.every` plus
   `below(DEBRIS.jitter + 1)` ticks after the last, if fewer than `DEBRIS.max` pieces are out: at the
   right edge, in a row drawn with `below` from `DEBRIS.rows` (top and bottom rows of the band around
-  the ship, on the grid), its kind by `below(total weight)` walking `DEBRIS.kinds` in order. Every
+  the ship, on the grid; past a small map's bottom, its last row), its kind by `below(total weight)` walking `DEBRIS.kinds` in order. Every
   piece moves left by `DEBRIS.drift` (thousandths of a cell a tick) and is removed once `x` is below
   zero.
 - `grab { piece }` (a piece id) puts the piece into the sender's inventory as its salvage item;

@@ -5,7 +5,9 @@ import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
-import { CRATE, INVENTORY, ITEMS, STARTING_CRATE, type ItemId } from './items';
+import { DEBRIS } from './debris';
+import { CRATE, INVENTORY, ITEMS, STARTING_CRATE, type ItemId, type ItemSpec } from './items';
+import { WRECK } from './wreck';
 
 describe('materials', () => {
   const all = Object.values(MATERIALS);
@@ -90,6 +92,48 @@ describe('items', () => {
       expect({ [item]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({ [item]: true });
     }
     expect(slotsFor(STARTING_CRATE)).toBeLessThanOrEqual(CRATE.slots);
+  });
+});
+
+describe('salvage', () => {
+  const specs: [string, ItemSpec][] = Object.entries(ITEMS);
+
+  it('comes apart in whole ticks into whole amounts of items that are not salvage', () => {
+    for (const [id, spec] of specs) {
+      expect({ [id]: (spec.yields === undefined) === (spec.dismantleTicks === undefined) }).toEqual(
+        {
+          [id]: true,
+        },
+      );
+      if (!spec.yields) continue;
+      expect(Number.isSafeInteger(spec.dismantleTicks) && (spec.dismantleTicks ?? 0) > 0).toBe(
+        true,
+      );
+      const yields = Object.entries(spec.yields);
+      expect(yields.length).toBeGreaterThan(0);
+      for (const [item, amount] of yields) {
+        expect(Object.keys(ITEMS)).toContain(item);
+        expect(ITEMS[item as ItemId]).not.toHaveProperty('yields');
+        expect(Number.isSafeInteger(amount) && amount > 0).toBe(true);
+      }
+      // Taken apart in its own slot, one piece yields what that slot and an empty inventory hold.
+      expect(slotsFor(spec.yields)).toBeLessThanOrEqual(INVENTORY.slots);
+    }
+  });
+
+  it('drifts past in rows on the wreck, at whole rates, as salvage items of positive weight', () => {
+    for (const value of [DEBRIS.every, DEBRIS.max, DEBRIS.drift]) {
+      expect(Number.isSafeInteger(value) && value > 0).toBe(true);
+    }
+    expect(Number.isSafeInteger(DEBRIS.jitter) && DEBRIS.jitter >= 0).toBe(true);
+    expect(DEBRIS.jitter).toBeLessThan(DEBRIS.every);
+    expect(DEBRIS.drift).toBeLessThan(1000);
+    const { top, bottom } = DEBRIS.rows;
+    expect(0 <= top && top <= bottom && bottom < WRECK.length).toBe(true);
+    for (const kind of DEBRIS.kinds) {
+      expect(ITEMS[kind.item]).toHaveProperty('yields');
+      expect(Number.isSafeInteger(kind.weight) && kind.weight > 0).toBe(true);
+    }
   });
 });
 
