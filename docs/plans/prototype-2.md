@@ -139,6 +139,30 @@ what limits building.
 Done when: no grid line shows with no tool out; a test of the grid near the pointer; the camera says
 what it shows; the wreck test holds the margin.
 
+**P2-04b · A Terraria camera and the E prompt** · S · client · after P2-04a
+The camera follows the hero and is never dragged; `-` and `=` zoom it within a small range (about
+1× to 2.5×), and the wheel turns the hotbar instead, wrapping round its nine slots. The cell square
+under the pointer shows only with a build tool out. Without one, what E would work within reach (a
+plan, door, valve, tank, crate or piece) is outlined, and a prompt at the bottom middle says what E
+does there, "[E] Open crate", "[Hold E] Build"; it turns red with the sim's reason when the sim would
+refuse. Nothing out of reach is offered.
+Done when: tests for the zoom range, the wheel on the hotbar and what the prompt says; no mouse button
+moves the camera.
+
+**P2-04c · Debris around the ship** · S · sim `debris`, content, client, ADR 0009 · after P2-04b
+The band debris flies in is the ship's rows and `DEBRIS.margin` around them, from the hull's bounds
+found on each spawn beat, so a ship grown taller gets a taller stream. A piece spawns `DEBRIS.lead`
+cells right of the hull, past what the farthest zoom shows, and is gone `DEBRIS.lead` left of it,
+both kept on the piece and on the grid; each drifts at its own speed, drawn between
+`DEBRIS.drift.min` and `max` (ADR 0009 revisits 0006's one rate). The client fades a piece in over
+the start of its path and out over the end.
+Done when: scenarios for the band following a taller ship, spawn and removal points, speeds within
+range; content tests; `SAVE_FORMAT` bumped; ADR 0009.
+
+**P2-04d · Back walls** · M or L · sim, content, client · after P2-04c
+A layer of the ship the player builds behind its cells, as Terraria's walls; how it changes air and
+maps is being designed (design → review → plan).
+
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
 inventory, sent each tick the left button is held with that slot selected. Progress per hero (slot,
