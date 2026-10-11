@@ -2,6 +2,7 @@ import { createRng, type AnyModule, type Layout, type SimDefinition } from '@sti
 import { loopback } from '../channel';
 import { createClient, type Client } from '../client';
 import { createHost } from '../host';
+import type { DesyncReport } from '../diff';
 import { join } from '../join';
 import type { ToClient, ToHost } from '../protocol';
 
@@ -25,8 +26,15 @@ export interface DesyncRun {
   readonly ticks: number;
   readonly commands: number;
   readonly refused: number;
-  /** The first check at which the clients' hashes differed, if any. */
-  readonly desync?: { readonly tick: number; readonly hashes: readonly string[] };
+  /**
+   * The first check at which the clients differed, if any: their hashes then, and what the host's
+   * resyncs reported, since a resync may have mended a client before the check.
+   */
+  readonly desync?: {
+    readonly tick: number;
+    readonly hashes: readonly string[];
+    readonly reports: readonly DesyncReport[];
+  };
 }
 
 /**
@@ -62,7 +70,9 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   const clients = Array.from({ length: count }, () => {
     const [toClient, toHost] = loopback<ToClient, ToHost>();
     const id = host.connect(toClient);
-    return createClient(definition.create(seed, layout), toHost, id);
+    return createClient(definition.create(seed, layout), toHost, id, (save) =>
+      definition.load(save),
+    );
   });
   const fuzzable = definition.modules.filter((m) => m.fuzz);
   const rng = createRng(seed ^ 0x5eed);
@@ -77,9 +87,11 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   const check = () => {
     for (const client of clients) update(client);
     const hashes = clients.map((client) => client.sim.hash());
-    return new Set(hashes).size === 1
+    // The host resyncs a drifted peer on its own; a resync is a desync all the same.
+    const reports = clients.flatMap((client) => client.takeDesyncs());
+    return new Set(hashes).size === 1 && reports.length === 0
       ? undefined
-      : { tick: (clients[0] as Client).sim.world.tick, hashes };
+      : { tick: (clients[0] as Client).sim.world.tick, hashes, reports };
   };
 
   for (let tick = 0; tick < ticks; tick++) {

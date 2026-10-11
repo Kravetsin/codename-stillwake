@@ -41,5 +41,24 @@ export interface PeerHeroMessage {
   readonly state: unknown;
 }
 
-export type ToHost = CommandMessage | HeroMessage;
-export type ToClient = TickMessage | WelcomeMessage | PeerHeroMessage;
+/** A peer's hash of its world once it has run up to `tick`, every `HASH_EVERY` ticks. */
+export interface HashMessage {
+  readonly kind: 'hash';
+  readonly tick: number;
+  readonly hash: string;
+}
+
+/**
+ * The host's world for a peer whose hash differed, saved on the tick the host releases next: the
+ * peer reports how it differed, then plays on from it.
+ */
+export interface ResyncMessage {
+  readonly kind: 'resync';
+  readonly save: string;
+}
+
+/** How often peers hash their worlds: a hash of the reference world costs about 9 ms. */
+export const HASH_EVERY = 20;
+
+export type ToHost = CommandMessage | HeroMessage | HashMessage;
+export type ToClient = TickMessage | WelcomeMessage | PeerHeroMessage | ResyncMessage;

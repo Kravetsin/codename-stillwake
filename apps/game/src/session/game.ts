@@ -5,6 +5,8 @@ import { BUILD } from './build';
 import { createClock } from './clock';
 
 const DEV_SLOT = 'dev';
+/** Where the latest desync report goes, for whoever hunts the bug. */
+const DESYNC_SLOT = 'desync';
 
 /**
  * A session this machine plays in: its own, with the host that releases its ticks, or one joined
@@ -26,6 +28,8 @@ export interface Game {
   readonly progress: number;
   /** Frames per second, smoothed. */
   readonly fps: number;
+  /** How often the host has caught this machine's world drifting and resynced it. */
+  readonly desyncs: number;
   /** Advances time by `elapsedMs`, releases the ticks due if this machine hosts, and runs them. */
   frame(elapsedMs: number): readonly TickReport[];
   save(): Promise<void>;
@@ -46,6 +50,7 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
   const listeners = new Set<() => void>();
   let speed = 1;
   let fps = 0;
+  let desyncs = 0;
 
   return {
     get host() {
@@ -66,6 +71,9 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     get fps() {
       return fps;
     },
+    get desyncs() {
+      return desyncs;
+    },
 
     frame(elapsedMs) {
       if (elapsedMs > 0)
@@ -73,7 +81,14 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
       // A joined session's ticks come from its host; the clock still paces drawing between them.
       const due = clock.advance(elapsedMs * speed);
       if (session.host) for (let n = due; n > 0; n--) session.host.advance();
-      return session.client.update();
+      const reports = session.client.update();
+      // A determinism bug: the host has already mended the world, so the report is all that is left.
+      for (const report of session.client.takeDesyncs()) {
+        desyncs += 1;
+        console.warn('Desync, resynced from the host:', report);
+        void platform.saves.write(DESYNC_SLOT, JSON.stringify(report, null, 2));
+      }
+      return reports;
     },
 
     async save() {

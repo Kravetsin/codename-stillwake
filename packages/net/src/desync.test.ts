@@ -122,7 +122,10 @@ describe('desync fuzz: the harness itself', () => {
       },
     });
     expect(run.desync?.tick).toBe(40);
-    expect(new Set(run.desync?.hashes).size).toBe(2);
+    // The host caught it on the first hash after, and resynced the client: it says what drifted.
+    expect(run.desync?.reports).toEqual([
+      { tick: 40, rng: false, modules: [{ id: 'drift', paths: ['drift.position'] }] },
+    ]);
   });
 
   it('refuses a module that has commands but no fuzz generator', () => {

@@ -15,6 +15,7 @@ interface Reading {
   hash: string;
   creative: boolean;
   link: LinkStatus;
+  desyncs: number;
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -32,6 +33,7 @@ function read(
     hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
     creative: sim.query(stock).creative(),
     link: link.get(),
+    desyncs: game.desyncs,
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -138,7 +140,10 @@ export function DevPanel({ game }: { readonly game: Game }) {
         {describeLink(reading.link) && (
           <>
             <dt>net</dt>
-            <dd>{describeLink(reading.link)}</dd>
+            <dd>
+              {describeLink(reading.link)}
+              {reading.desyncs > 0 && ` · resynced ${reading.desyncs}×`}
+            </dd>
           </>
         )}
       </dl>

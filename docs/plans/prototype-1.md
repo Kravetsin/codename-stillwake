@@ -388,6 +388,17 @@ Clients report hashes every 20 ticks. On a mismatch the host sends a snapshot an
 desync report: a diff of the two states, module by module. A hash of the reference world costs about
 9 ms (measured in P1-22): once a second fits the budget, more often would not.
 Done when: an injected desync is caught, reported and repaired.
+Built with peer 0, the host player's client, as the reference: the one whose world joiners are
+welcomed with. Every client sends `hash` after each `HASH_EVERY` (20) ticks; the host checks the
+others' against peer 0's, holding one that comes first, and sends a peer that differs a `resync`:
+peer 0's world on the host's next tick. The client takes it in order with the ticks, so both are of
+one tick, writes a report (`diffSaves`: each module that differs, with up to ten paths, and the rng),
+then plays on from the host's world; reports of the world it dropped are not checked again. The game
+writes the latest to the `desync` slot and the console; the dev panel counts resyncs. The fuzz suite
+counts a resync as a desync, so a repair cannot hide one from CI. Checked in two tabs: five scrap
+added behind the pipeline's back were caught at the next check, reported as `stock.items.scrap`,
+and taken back; the hashes then matched on a shared tick. Single-player hashes too, about 9 ms a
+second on the reference world, which the budget allows.
 
 ## Stretch
 

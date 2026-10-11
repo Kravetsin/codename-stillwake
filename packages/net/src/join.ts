@@ -37,6 +37,7 @@ export function join(
       send: (out) => channel.send(out),
       onMessage: (handler) => (deliver = handler),
     };
-    joined(createClient(definition.load(message.save), rest, message.id));
+    const load = (save: string) => definition.load(save);
+    joined(createClient(load(message.save), rest, message.id, load));
   });
 }

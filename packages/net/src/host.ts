@@ -4,7 +4,8 @@ import type { ToClient, ToHost } from './protocol';
 
 /**
  * Orders the session: collects every peer's commands and releases them tick by tick. It runs no
- * world of its own; the host player's game is a client like any other.
+ * world of its own; the host player's game is a client like any other, the first to connect (id 0),
+ * and the one every other peer's hashes are checked against: a peer that differs is resynced.
  */
 export interface Host {
   /** The next tick `advance` releases. */
@@ -24,12 +25,15 @@ export interface Host {
   advance(): void;
 }
 
-/** Where a host gets the world it welcomes a joining peer with. */
+/** Where a host gets the world it welcomes a joining peer with: peer 0's, the host player's. */
 export interface WorldSource {
   readonly build: string;
   /** The world saved on the tick the host releases next. */
   save(): string;
 }
+
+/** Peer 0's hashes are kept for this many checks: a peer further behind is not checked. */
+const KEPT = 30;
 
 /**
  * `firstTick` is the world's current tick: 0 for a new game, later for a loaded one. A host with no
@@ -40,6 +44,32 @@ export function createHost(firstTick: number, world?: WorldSource): Host {
   let pending: Command[] = [];
   const peers: { id: number; channel: Channel<ToHost, ToClient> }[] = [];
   let nextPeer = 0;
+  // Peer 0's hash by tick; others' reports that came first wait for it.
+  const truth = new Map<number, string>();
+  const waiting = new Map<number, { id: number; hash: string }[]>();
+  // The tick each peer was last resynced on: reports older than it are of the world it dropped.
+  const resyncedAt = new Map<number, number>();
+
+  const check = (id: number, at: number, hash: string) => {
+    if (at <= (resyncedAt.get(id) ?? -1) || truth.get(at) === hash) return;
+    const peer = peers.find((p) => p.id === id);
+    if (!world || !peer) return;
+    resyncedAt.set(id, tick);
+    peer.channel.send({ kind: 'resync', save: world.save() });
+  };
+
+  const report = (id: number, at: number, hash: string) => {
+    if (id !== 0) {
+      if (truth.has(at)) check(id, at, hash);
+      else waiting.set(at, [...(waiting.get(at) ?? []), { id, hash }]);
+      return;
+    }
+    truth.set(at, hash);
+    for (const old of truth.keys()) if (truth.size > KEPT) truth.delete(old);
+    for (const other of waiting.get(at) ?? []) check(other.id, at, other.hash);
+    waiting.delete(at);
+    for (const old of waiting.keys()) if (old < at) waiting.delete(old);
+  };
 
   const connect = (channel: Channel<ToHost, ToClient>) => {
     const id = nextPeer;
@@ -51,6 +81,7 @@ export function createHost(firstTick: number, world?: WorldSource): Host {
         for (const peer of peers) if (peer.id !== id) peer.channel.send(passed);
         return;
       }
+      if (message.kind === 'hash') return report(id, message.tick, message.hash);
       // A new object, so the sender is the host's word, whatever the client wrote.
       pending.push({ ...message.command, from: id });
     });
