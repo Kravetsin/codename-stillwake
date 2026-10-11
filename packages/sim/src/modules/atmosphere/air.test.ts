@@ -83,6 +83,7 @@ describe('air', () => {
     fill(1);
     airUp(w, room);
     expect(aired(w).aired).toHaveLength(VOLUME);
+    expect(w.query(atmosphere).airedCells()).toEqual(aired(w).aired);
     expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - VOLUME * AIR.perCell);
     w.run(AIR.ticksPerCell * 3);
     expect(oxygen(w, tanks[0] as number)).toBe(AIR.canister - VOLUME * AIR.perCell);

@@ -43,7 +43,7 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 ## API
 
 - **Queries:** `oxygenIn(tankId)`; `canisterProblem(tankId)` — why `loadCanister` would be refused, for
-  the client; `roomStatus(roomId)`; `airedAt(cell)`; `roomsAir()` — every room's status, aired cells,
+  the client; `roomStatus(roomId)`; `airedAt(cell)`; `airedCells()` — every aired cell, sorted, live; `roomsAir()` — every room's status, aired cells,
   leak, the oxygen on its vents' networks (each counted once), how many ticks that lasts at what the
   room alone draws (its leak if aired, its vents' drain if venting), and why a room in vacuum gets no
   air (`atmosphere.noVent`, `notPiped` or `dry`). One survey for all rooms: 0.7 ms on the reference

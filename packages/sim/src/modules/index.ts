@@ -36,6 +36,7 @@ export type { Action, Plan } from './building';
 export { stock };
 export type { Cost, Item } from './stock';
 export { rooms };
+export { SOLID, SPACE } from './rooms';
 export { pipes };
 export { atmosphere };
 export type { RoomAir, RoomStatus } from './atmosphere';

@@ -404,6 +404,12 @@ second on the reference world, which the budget allows.
 
 **P1-50 · Light on graybox** — a per-cell light map multiplied over the scene: aired rooms lit,
 venting rooms pulsing red, vacuum dark. To judge the mood early.
+Built in `atmosphere`'s layer as two textures of a pixel per cell, stretched smooth over the ship: a
+light multiplied over what is drawn below (an aired cell lit, a room's other cells in twilight, a
+wall as bright as the brightest room among its eight neighbours, space untouched), and a faint glow
+added over aired cells, since multiplying cannot light a black interior. A filling room brightens
+cell by cell. Heroes, lit pipes and the red pulse are drawn above, as if by their own light. A pass
+costs 0.7 ms on the reference world, four times a second, through a new `airedCells()` query.
 
 **P1-51 · Electron shell** — the game inside Electron, saving files through the platform interface.
 

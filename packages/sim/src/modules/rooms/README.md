@@ -29,7 +29,7 @@ has a volume, the outer hull it leaks through, and the openings it vents through
 ## API
 
 - **Queries:** `roomAt(cell)` — a room's id, `'space'`, or nothing for a solid cell or off the grid;
-  `roomOfCells()` — the same for every cell at once, live and read-only, negative for space and solid,
+  `roomOfCells()` — the same for every cell at once, live and read-only, `SPACE` or `SOLID` (exported),
   for a module walking the whole grid; `room(id)`; `rooms()` in id order, each
   `{ id, volume, hull, openings }`.
 - **Commands, operations, events:** none.

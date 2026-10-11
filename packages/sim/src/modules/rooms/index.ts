@@ -2,7 +2,7 @@ import { defineModule, type QueryApi } from '../../core/module';
 import type { GridModule } from '../grid';
 import { findRooms, SOLID, SPACE, type Room } from './flood';
 
-export type { Room } from './flood';
+export { SOLID, SPACE, type Room } from './flood';
 
 export interface RoomsState {
   /** Derived: per cell, the id of its room, SPACE or SOLID. */

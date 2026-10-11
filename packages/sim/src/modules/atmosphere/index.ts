@@ -84,6 +84,8 @@ const atmosphereModule = defineModule<Deps>()({
         rooms: ctx.deps.rooms.query,
         pipes: ctx.deps.pipes.query,
       }),
+    /** Every cell holding air, sorted: live and read-only, for drawing the whole ship's air at once. */
+    airedCells: (ctx) => ctx.state.aired,
     /** Whether `cell` holds air. */
     airedAt: (ctx, cell: number) => holds(ctx.state.aired, cell),
   },
