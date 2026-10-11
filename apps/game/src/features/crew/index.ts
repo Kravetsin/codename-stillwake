@@ -7,16 +7,17 @@ import { buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
-import { heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero } from './hero';
+import { createFigure, type Figure } from './figure';
+import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship } from './hero';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes } from './remote';
+import { poseOf } from './pose';
 import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
 
 const BODY = 0xe8b04a;
 /** Other players' heroes, so a player tells their own apart at a glance. */
 const OTHER = 0x5fc8c0;
-const VISOR = 0x2b3a4a;
 const AIM_READY = 0x7fe08a;
 const AIM_REFUSED = 0xe05555;
 
@@ -40,24 +41,10 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
 
-/** A hero's figure in `colour`, its feet at the origin; `body` flips to face the other way. */
-function figureOf(colour: number): { figure: Container; body: Graphics } {
-  const w = (HERO.width / UNIT) * CELL;
-  const h = (HERO.height / UNIT) * CELL;
-  const body = new Graphics()
-    .rect(-w / 2, -h, w, h)
-    .fill(colour)
-    .rect(w * 0.1, -h * 0.85, w * 0.4, h * 0.25)
-    .fill(VISOR);
-  const figure = new Container();
-  figure.addChild(body);
-  return { figure, body };
-}
-
-/** Places `figure` at a hero's feet, in pixels, facing the way it faces. */
-function place(shown: { figure: Container; body: Graphics }, x: number, y: number, facing: number) {
-  shown.figure.position.set((x / UNIT) * CELL, (y / UNIT) * CELL);
-  shown.body.scale.x = facing;
+/** Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out. */
+function show(figure: Figure, hero: Hero, ship: Ship, out: boolean, elapsedMs: number) {
+  const inSpace = ship.space(bodyCell(hero, ship.width));
+  figure.show(hero, poseOf(hero, inSpace, out), elapsedMs);
 }
 
 /**
@@ -72,16 +59,16 @@ export const crewFeature: Feature = {
   id: 'crew',
   Panel: CrewPanel,
   layer() {
-    const own = figureOf(BODY);
+    const own = createFigure(BODY);
     const others = new Container();
-    const shownOthers = new Map<number, { figure: Container; body: Graphics }>();
+    const shownOthers = new Map<number, Figure>();
     const remote = createRemoteHeroes();
     let clockMs = 0;
     let sendTo: { sendHero(state: unknown): void } | undefined;
     const sender = createHeroSender((hero) => sendTo?.sendHero(hero));
     const aimView = new Graphics();
     const view = new Container();
-    view.addChild(aimView, others, own.figure);
+    view.addChild(aimView, others, own.view);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -121,24 +108,24 @@ export const crewFeature: Feature = {
         for (const { from, state } of game.client.takeHeroes())
           remote.add(from, state as Hero, clockMs);
         const heard = remote.at(clockMs);
-        for (const [id, shown] of shownOthers)
-          shown.figure.visible = heard.some((h) => h.id === id);
+        for (const [id, shown] of shownOthers) shown.view.visible = heard.some((h) => h.id === id);
         for (const { id, hero: other } of heard) {
           let shown = shownOthers.get(id);
           if (!shown) {
-            shown = figureOf(OTHER);
+            shown = createFigure(OTHER);
             shownOthers.set(id, shown);
-            others.addChild(shown.figure);
+            others.addChild(shown.view);
           }
-          shown.figure.visible = true;
-          place(shown, other.x, other.y, other.facing);
+          shown.view.visible = true;
+          const otherOut = (sim.query(crew).hero(id)?.out ?? 0) > 0;
+          show(shown, other, ship, otherOut, elapsedMs);
         }
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
         const between = clock.progress();
         const x = previous.x + (current.x - previous.x) * between;
         const y = previous.y + (current.y - previous.y) * between;
-        place(own, x, y, current.facing);
+        show(own, { ...current, x, y }, ship, out, elapsedMs);
         camera.follow({ x: x / UNIT, y: (y - HERO.height / 2) / UNIT }, screen);
 
         // Aimed after following, so the pointer is read where the camera now is.
