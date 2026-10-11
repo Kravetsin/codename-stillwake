@@ -16,12 +16,12 @@ const SETTLE_MS = 30;
 const W = (HERO.width / UNIT) * CELL;
 const H = (HERO.height / UNIT) * CELL;
 /** Where the parts sit, in pixels from the feet, which are at the origin; forward is +x. */
-const HIP = H * 0.36;
+const HIP = H * 0.42;
 const SHOULDER = H * 0.68;
 const NECK = H * 0.71;
 /** A limb starts half its width above its joint, so a leg is that much longer to reach the floor. */
 const LEG = { width: W * 0.34, length: HIP + W * 0.17 };
-const ARM = { width: W * 0.27, length: H * 0.32 };
+const ARM = { width: W * 0.27, length: H * 0.3 };
 /** How far the air pack sticks out behind the middle: what a body lying on its back rests on. */
 const BACK = W * 0.62;
 
@@ -86,7 +86,8 @@ export function createFigure(colour: number) {
   const body = new Container();
   body.pivot.set(0, -H / 2);
   body.position.set(0, -H / 2);
-  body.addChild(backLeg, backArm, torso, helmet, frontLeg, frontArm);
+  // Both legs come out from under the body, which hides their joints; the near arm hangs in front.
+  body.addChild(backArm, backLeg, frontLeg, torso, helmet, frontArm);
   const view = new Container();
   view.addChild(body);
 
