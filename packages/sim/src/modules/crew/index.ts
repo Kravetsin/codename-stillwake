@@ -32,6 +32,8 @@ const crewModule = defineModule<[AtmosphereModule]>()({
   queries: {
     spawn: (ctx) => ctx.state.spawn,
     hero: (ctx, id: number) => ctx.state.heroes.find((h) => h.hero === id),
+    /** Every hero, in id order: live and read-only, for counting who breathes where. */
+    heroes: (ctx) => ctx.state.heroes,
   },
 
   commands: {

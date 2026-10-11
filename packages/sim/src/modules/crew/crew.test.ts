@@ -118,11 +118,12 @@ describe('crew', () => {
     // The vent's pipe cut: nothing pays, nothing fills.
     w.do(builder, 'clear', { cell: at(1, 2), layer: 'conduit' }).run();
     w.do(crew, 'enter', { cell: at(4, 1) }).run();
+    const clock = airClock(w);
     breaths(w, 1);
     expect(hero(w)?.suit).toBe(CREW.suit);
-    // The corner farthest from the vent went first.
+    // The corner farthest from the vent went first; the hull leaks the room's air too.
     expect(aired(w)).not.toContain(at(7, 3));
-    expect(aired(w)).toHaveLength(20);
+    expect(aired(w)).toHaveLength(21 - 1 - leaked(LEAK, clock, airClock(w)));
   });
 
   it('breathes while its room holds a cell of air, then from the suit', () => {
@@ -131,11 +132,13 @@ describe('crew', () => {
     w.do(builder, 'clear', { cell: at(1, 2), layer: 'conduit' }).run();
     // At the far end, where the air goes first: still in a room holding air.
     w.do(crew, 'enter', { cell: at(7, 3) }).run();
-    breaths(w, 21);
+    for (let i = 0; i < 30 && aired(w).length > 0; i++) breaths(w, 1);
     expect(aired(w)).toEqual([]);
-    expect(hero(w)?.suit).toBe(CREW.suit);
+    // The last breath may have found the room just emptied by the leak.
+    expect(hero(w)?.suit).toBeGreaterThanOrEqual(CREW.suit - 1);
+    const suit = hero(w)?.suit ?? 0;
     breaths(w, 2);
-    expect(hero(w)?.suit).toBe(CREW.suit - 2);
+    expect(hero(w)?.suit).toBe(suit - 2);
   });
 
   it('falls back on the suit once the room starts venting', () => {

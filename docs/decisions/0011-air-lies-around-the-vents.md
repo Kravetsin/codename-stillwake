@@ -34,9 +34,10 @@ works like a power grid". The team wants it understood at a glance, not simulate
   back at once; what they cannot pay is taken as cells from the end of the order, the far edge. So a
   room with no supply runs out under its heroes, a breath a cell, its air shrinking toward the vents.
   Machines that will need air (a furnace) take it the same way.
-- **Only breaths and breaches take air out of a room.** A breach takes a few cells a tick from the
-  far edge while the vents drain their networks. The hull leak stays a cost on the tanks, paid once a
-  minute as far as they can; what they cannot pay is not taken from the room.
+- **The hull leak is used like a breath,** a little every tick, by every room holding air: paid by
+  its tanks, and in a room with no supply taken from its own air. So a room leaks the same whether a
+  door joins it to a room with a vent or not; only who pays changes. A breach takes a few cells a
+  tick from the far edge while the vents drain their networks.
 
 ## Rejected
 
@@ -46,15 +47,17 @@ works like a power grid". The team wants it understood at a glance, not simulate
 - **Breathing the cell the head is in:** the client must report every crossing of the air's edge,
   and a breath taken there leaves a hole at head height while the rest stays green.
 - **Breathing free in a room holding air:** a room left half aired would hold free air forever.
-- **A leak the tanks cannot pay taking cells:** air disappearing from a room nobody is in, the
-  confusion this decision removes.
+- **A leak the tanks cannot pay left unpaid:** a room with no vent then never leaks, and opening a
+  door onto it halves the time the tanks last, as their pipes start paying its leak.
+- **The leak lost all at once a minute:** air vanishing from a room in one go.
 - **Keeping room status as the test for breathing:** what this decision fixes.
 
 ## Consequences
 
 - With a supply, nobody sees breathing: the tanks pay. Without one, the air visibly shrinks toward
   the vents as the heroes breathe, and the hero breathes it to the last cell.
-- A room filled once and cut off is a store of air: as many breaths as it has cells.
+- A room filled once and cut off holds its air for a while, as its hull lets it: steel keeps it
+  three times as long as scrap.
 - A cell costs one unit, not ten, so filling a room is ten times cheaper against the same tanks;
   breathing costs what it did. Retuned after a playtest.
 - The rooms a door or a wall moves are ordered again, adding a pass over them to a tick that already

@@ -188,15 +188,15 @@ after P2-04d
   Vents air the first empty cell of the order, and breaths and breaches take the last aired one;
   when the order changes, the air stays where it is.
 - Vents fill the next cell of the order, paying one unit (`AIR.perCell` goes). A room open to space
-  loses `AIR.ventLoss` cells a tick from the far edge. The hull leak is paid once a minute by the
-  tanks as far as they can, by any room holding air; what they cannot pay is not taken from the room.
+  loses `AIR.ventLoss` cells a tick from the far edge. The hull leak is used a little every tick by any
+  room holding air, like a breath: paid by the tanks, or taken from the room's own air.
 - `breathe(cell, amount)` takes up to `amount` in a room holding any air, none otherwise: paid by
   the room's vents' networks, and what they cannot pay taken as the last aired cells. The client is
   unchanged: it reports the room.
 - The overlay's words follow.
   Done when: scenarios: a room fills outward from its vent; a breath with no supply takes the far
-  cell; a hero breathes while its room holds a cell of air, then from the suit; a room keeps its air
-  when its leak goes unpaid; a door onto an empty room moves no air, the vents fill it through the
+  cell; a hero breathes while its room holds a cell of air, then from the suit; a room with no supply leaks
+  its own air; a door onto an empty room moves no air, the vents fill it through the
   doorway, and closing it leaves each part the cells it holds; a breach empties a room over a few ticks;
   invariant: the orders kept room by room are those found afresh; `SAVE_FORMAT` bumped; a door toggled on the reference world stays near
   what it cost before.

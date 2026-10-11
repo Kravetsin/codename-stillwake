@@ -1,4 +1,4 @@
-import { atmosphere, grid, rooms, type RoomAir } from '@stillwake/sim';
+import { atmosphere, crew, grid, rooms, type RoomAir } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Layer } from '../feature';
@@ -64,7 +64,15 @@ export function airOverlay(): Layer {
       const room = pointer && sim.query(rooms).roomAt(cellAt(sim.query(grid).size(), pointer));
       const air = typeof room === 'number' ? byRoom.get(room) : undefined;
       const volume = air && sim.query(rooms).room(air.room)?.volume;
-      tip.text = air && volume !== undefined ? explain(air, volume).join('\n') : '';
+      // Heroes awake in the room breathe its air: the forecast counts them.
+      const breathers =
+        air === undefined
+          ? 0
+          : sim
+              .query(crew)
+              .heroes()
+              .filter((h) => h.out === 0 && sim.query(rooms).roomAt(h.cell) === air.room).length;
+      tip.text = air && volume !== undefined ? explain(air, volume, breathers).join('\n') : '';
       if (pointer) tip.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);
     },
   };

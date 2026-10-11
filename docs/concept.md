@@ -33,9 +33,9 @@ A living document: what is decided about the game and what is still open. Techni
   the room's vents pay for each breath, and without them the breath takes a cell from the patch's
   far edge. A breach or a door left open to space makes a room vent: its air goes and its network
   drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty
-  room joins the two, and the vents fill the rest through the doorway. Growth is held back by
-  the fill, a leak through every outer hull cell (its material decides how much), paid from the
-  tanks, and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
+  room joins the two, and the vents fill the rest through the doorway. Every outer hull cell
+  leaks a little all the time (its material decides how much), paid like a breath: from the tanks,
+  or from the room's own air without them. Growth is held back by the fill, the leak and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
   same network system.
 - **Building is cell by cell, in layers.** Structure: hull walls of different materials, floors,
   ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.

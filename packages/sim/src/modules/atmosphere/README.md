@@ -28,10 +28,10 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, is used in them and 
 - **When the rooms or the vents' cells change,** the orders of the rooms they touch are found again
   and the air stays put; cells no longer in a room lose theirs. So a door opened onto an empty room
   lets the vents fill it through the doorway, and closed again each part keeps the cells it holds.
-- **A hero breathes in any room holding air,** wherever in it. A breath is paid by the networks of
-  the room's vents, in vent id order, as if they put the air back at once; what they cannot pay is
-  taken as the last aired cells of the order, the far edge. Only breaths and breaches take air out of
-  a room.
+- **What uses air** — a hero's breath, a room's hull leak — is paid by the networks of the room's
+  vents, in vent id order, as if they put the air back at once; what they cannot pay is taken as the
+  last aired cells of the order, the far edge. A hero breathes in any room holding air, wherever in
+  it.
 - **A tick of air,** in the simulation phase, in this order:
   1. The rooms and vents are compared with those the orders were found from; on a change, the
      orders of the rooms they touch are found again, and cells left outside every room lose their
@@ -41,9 +41,10 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, is used in them and 
   3. Every `AIR.ticksPerCell` ticks, each filling room airs the next cell of its order, paying one
      unit from the first of its vents (in id order) whose network holds any. More vents do not fill
      it faster.
-  4. Every `AIR.leakEvery` ticks (a minute), every other room holding air pays its leak — each hull
-     cell's material `leak`, or `AIR.doorLeak` for a closed door — to its vents' networks, as far as
-     they can. What they cannot pay is not taken from the room.
+  4. Every other room holding air uses its leak — each hull cell's material `leak`, or
+     `AIR.doorLeak` for a closed door, every `AIR.leakEvery` ticks — spread over the minute: on each
+     tick what is due by its end less what was by its start, so a minute's total is exact. A room's
+     leak is found once per room object: rooms are new objects whenever the structure changes.
 - **Draws** go tank by tank in tank id order along the network.
 - **Canisters:** a tank holds up to `AIR.tankCapacity`; `loadCanister` takes a canister from the
   sender's inventory (free in creative mode) and adds `AIR.canister`, refused when the tank would
@@ -77,8 +78,6 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, is used in them and 
 
 - Air does not thin or flow: a cell holds air or not. A door opened onto an empty room does not
   spill air through by itself; the vents fill it, nearest first.
-- A room with no supply keeps its air whatever its hull leaks: the leak is a cost on the tanks, not
-  a loss the player watches.
 - A vent in a venting room drains its whole network, aired rooms on it included: cut it with a valve.
 - A wall facing a one-cell gap is no hull: the gap is a tiny room open to space, not space (see
   `rooms`), so two modules built one cell apart do not leak through the walls they face.

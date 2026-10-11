@@ -29,9 +29,24 @@ describe('what the air overlay says', () => {
       `Leaks 198 every ${span(AIR.leakEvery)} through its hull`,
       'Its pipes hold 1280: enough for 6 min',
     ]);
-    expect(explain({ ...aired, oxygen: 0, lasts: 0 }, 96)[2]).toBe(
-      'Its pipes are dry: its air goes through the hull',
-    );
+    // With no supply, its own 96 cells go through the hull: 96 of 198 a minute.
+    expect(explain({ ...aired, oxygen: 0, lasts: 0 }, 96)[2]).toBe('No supply: its air lasts 30 s');
+  });
+
+  it('counts who breathes in the room, a unit a breath, into how long the air lasts', () => {
+    const aired = room({ status: 'aired', aired: 96, leak: 198, oxygen: 1280 });
+    // 198 leaked and 60 breathed a minute: 1280 last a little under five minutes.
+    expect(explain(aired, 96, 1)[2]).toBe('Its pipes hold 1280: enough for 4 min');
+    expect(explain({ ...aired, leak: 0 }, 96)[2]).toBe('Its pipes hold 1280: enough for ∞');
+  });
+
+  it('tells a room holding air with no supply how much it holds and how long it lasts', () => {
+    expect(explain(room({ aired: 30, leak: 60, problem: 'atmosphere.noVent' }), 48)).toEqual([
+      'Holds air · 30 of 48 cells',
+      `Leaks 60 every ${span(AIR.leakEvery)} through its hull`,
+      'No supply: its air lasts 30 s',
+      'No vent in this room',
+    ]);
   });
 
   it('tells a venting room how soon its pipes drain, if it has a piped vent to drain them', () => {

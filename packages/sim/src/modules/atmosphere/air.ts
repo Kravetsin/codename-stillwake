@@ -197,12 +197,21 @@ export function breathe(
   const s = survey(air, world);
   if (!s.airedIn[room]) return 0;
   const edits: Edits = { removed: new Set(), added: [] };
-  let had = 0;
-  for (const network of s.ventsIn.get(room) ?? []) had += draw(s, network, amount - had);
-  had += takeFar(s, orders, room, amount - had, edits);
+  const had = use(s, orders, room, amount, edits);
   applyEdits(air, edits);
   if (air.tanks.some((t) => t.oxygen === 0)) air.tanks = air.tanks.filter((t) => t.oxygen > 0);
   return had;
+}
+
+/**
+ * Uses up to `amount` of `room`'s air: paid by the networks of its vents in vent id order, as if
+ * they put back at once what is used, and what they cannot pay taken as cells from the far edge.
+ * Returns how much was had.
+ */
+function use(s: Survey, orders: Orders, room: number, amount: number, edits: Edits): number {
+  let had = 0;
+  for (const network of s.ventsIn.get(room) ?? []) had += draw(s, network, amount - had);
+  return had + takeFar(s, orders, room, amount - had, edits);
 }
 
 /** Takes the air out of cells no longer in a room: a wall built on them, a room open wide. */
@@ -247,7 +256,7 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
     // Venting, each vent drains its network, so a network under two vents drains twice.
     const lasts =
       now === 'aired' && leak > 0
-        ? Math.floor(oxygen / leak) * AIR.leakEvery
+        ? Math.floor((oxygen * AIR.leakEvery) / leak)
         : now === 'venting' && networks.length > 0
           ? Math.ceil(oxygen / (AIR.ventDrain * networks.length))
           : undefined;
@@ -271,22 +280,32 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
   });
 }
 
+/**
+ * Each room's leak, found once: a room is a new object whenever the structure changes, and nothing
+ * else changes what its hull is made of.
+ */
+const leaks = new WeakMap<Room, number>();
+
 /** The cells of air a room loses through its hull every `AIR.leakEvery` ticks. */
 function leakOf(world: World, room: Room): number {
+  const known = leaks.get(room);
+  if (known !== undefined) return known;
   let leak = 0;
   for (const cell of room.hull) {
     const s = world.grid.structureAt(cell);
     if (s.kind === 'wall') leak += MATERIALS[s.material].leak;
     else if (s.kind === 'door') leak += AIR.doorLeak;
   }
+  leaks.set(room, leak);
   return leak;
 }
 
 /**
  * One tick of air, in this order: a room open to space loses `AIR.ventLoss` cells from the far edge,
  * and every vent in it or in space drains its network; on a fill beat each filling room airs the
- * first empty cell of its order, paid from the first of its vents that can pay; on a leak beat each room
- * holding air pays its leak to its vents' networks, as far as they can.
+ * first empty cell of its order, paid from the first of its vents that can pay; then every other
+ * room holding air uses its hull leak, spread over each \`AIR.leakEvery\` ticks: paid by its vents'
+ * networks, and what they cannot pay taken from its air's far edge.
  */
 export function stepAir(air: Air, world: World, orders: Orders, clock: number): void {
   const s = survey(air, world);
@@ -312,13 +331,13 @@ export function stepAir(air: Air, world: World, orders: Orders, clock: number): 
     }
   }
 
-  if (clock % AIR.leakEvery === 0) {
-    // What the networks cannot pay is not taken from the room: only breaths and breaches take air.
-    for (const room of world.rooms.rooms()) {
-      if (room.openings.length > 0 || !s.airedIn[room.id]) continue;
-      let unpaid = leakOf(world, room);
-      for (const network of s.ventsIn.get(room.id) ?? []) unpaid -= draw(s, network, unpaid);
-    }
+  // Each tick's share of a minute's leak: what is due by its end, less what was by its start.
+  const beat = clock % AIR.leakEvery;
+  const dueBy = (leak: number, ticks: number) => Math.floor((leak * ticks) / AIR.leakEvery);
+  for (const room of world.rooms.rooms()) {
+    if (room.openings.length > 0 || !s.airedIn[room.id]) continue;
+    const leak = leakOf(world, room);
+    use(s, orders, room.id, dueBy(leak, beat + 1) - dueBy(leak, beat), edits);
   }
 
   applyEdits(air, edits);

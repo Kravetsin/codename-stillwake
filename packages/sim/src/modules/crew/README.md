@@ -25,7 +25,8 @@ holding any, the suit anywhere else, passing out when the suit runs dry.
 
 ## API
 
-- **Queries:** `spawn()`; `hero(id)` — `{ hero, cell, suit, out }`.
+- **Queries:** `spawn()`; `hero(id)` — `{ hero, cell, suit, out }`; `heroes()` — all of them, in id
+  order.
 - **Commands:** `enter { cell }`; no refusals: a cell off the grid or in a wall is simply no air.
 
 ## Invariants

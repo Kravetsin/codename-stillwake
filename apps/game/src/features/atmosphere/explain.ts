@@ -1,4 +1,4 @@
-import { AIR } from '@stillwake/content';
+import { AIR, CREW } from '@stillwake/content';
 import { TICKS_PER_SECOND, type RoomAir } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 
@@ -11,20 +11,31 @@ export function span(ticks: number): string {
 }
 
 /**
- * What the air overlay says of a room of `volume` cells: its state, then why — what it leaks, what
- * holds it up and for how long, or what it lacks. Only what the sim reported; no rule of its own.
+ * How long `units` of oxygen last a room leaking `leak` a minute with `breathers` heroes breathing in
+ * it, a breath a unit; `∞` when nothing draws. A forecast for the player, not a rule: a suit's refill
+ * and other rooms on the same pipes are left out.
  */
-export function explain(air: RoomAir, volume: number): string[] {
-  const oxygen = air.oxygen;
+function lasting(units: number, leak: number, breathers: number): string {
+  const perMinute = leak + (breathers * AIR.leakEvery) / CREW.breathEvery;
+  return perMinute > 0 ? span(Math.floor((units * AIR.leakEvery) / perMinute)) : '∞';
+}
+
+/**
+ * What the air overlay says of a room of `volume` cells with `breathers` heroes awake in it: its
+ * state, then why — what it leaks, what holds it up and for how long, or what it lacks. Only what
+ * the sim reported, and a forecast from it.
+ */
+export function explain(air: RoomAir, volume: number, breathers = 0): string[] {
+  const { oxygen, leak } = air;
+  const leaks = t('air.leak', { leak, time: span(AIR.leakEvery) });
+  // With no supply, the room lives on its own air.
+  const lasts =
+    oxygen > 0
+      ? t('air.lasts', { oxygen, time: lasting(oxygen, leak, breathers) })
+      : t('air.lastsNot', { time: lasting(air.aired, leak, breathers) });
   switch (air.status) {
     case 'aired':
-      return [
-        t('air.aired', { cells: volume }),
-        t('air.leak', { leak: air.leak, time: span(AIR.leakEvery) }),
-        air.lasts === undefined || air.lasts > 0
-          ? t('air.lasts', { oxygen, time: air.lasts === undefined ? '∞' : span(air.lasts) })
-          : t('air.lastsNot', { oxygen }),
-      ];
+      return [t('air.aired', { cells: volume }), leaks, lasts];
     case 'filling':
       return [t('air.filling', { aired: air.aired, cells: volume }), t('air.holds', { oxygen })];
     case 'venting':
@@ -34,6 +45,13 @@ export function explain(air: RoomAir, volume: number): string[] {
         ...(air.lasts === undefined ? [] : [t('air.drains', { oxygen, time: span(air.lasts) })]),
       ];
     case 'vacuum':
-      return [t('air.vacuum', { cells: volume }), ...(air.problem ? [t(air.problem)] : [])];
+      return air.aired > 0
+        ? [
+            t('air.holding', { aired: air.aired, cells: volume }),
+            leaks,
+            lasts,
+            ...(air.problem ? [t(air.problem)] : []),
+          ]
+        : [t('air.vacuum', { cells: volume }), ...(air.problem ? [t(air.problem)] : [])];
   }
 }

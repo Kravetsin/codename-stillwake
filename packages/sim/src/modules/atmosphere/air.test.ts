@@ -183,7 +183,7 @@ describe('air', () => {
     expect(status(w, room)).toBe('filling');
   });
 
-  it('leaks once a minute through each hull cell by its material, and a door by its own', () => {
+  it('leaks through each hull cell by its material and a door by its own, over a minute', () => {
     // The right wall's middle cell is a closed door, and the left wall is steel: of the twenty hull
     // cells, one leaks as a door, three as steel, the rest as scrap.
     const { w, room, tanks, fill } = setUp(`
@@ -202,40 +202,45 @@ describe('air', () => {
     fill(2);
     airUp(w, room);
     const before = oxygen(w, tanks[0] as number);
-    const nextLeak = AIR.leakEvery - (air(w).clock % AIR.leakEvery);
-    w.run(nextLeak - 1);
-    expect(oxygen(w, tanks[0] as number)).toBe(before);
-    w.run();
     const leak = (HULL - 4) * MATERIALS.scrap.leak + 3 * MATERIALS.steel.leak + AIR.doorLeak;
+    // Spread over the minute, paid by the tank: about half by half way, all of it by its end.
+    w.run(AIR.leakEvery / 2);
+    expect(before - oxygen(w, tanks[0] as number)).toBeGreaterThanOrEqual(Math.floor(leak / 2));
+    expect(before - oxygen(w, tanks[0] as number)).toBeLessThanOrEqual(Math.ceil(leak / 2));
+    w.run(AIR.leakEvery / 2);
     expect(oxygen(w, tanks[0] as number)).toBe(before - leak);
     expect(air(w).aired).toHaveLength(VOLUME);
   });
 
-  it('keeps its air when the tanks cannot pay its leak', () => {
+  it('leaks its own air, from the far edge, when no tank pays', () => {
     const { w, room, tanks, fill } = setUp(deep(40));
     fill(1);
     airUp(w, room, 2000);
-    dryOut(w, tanks[0] as number);
-    const held = [...air(w).aired];
-    w.run(AIR.leakEvery);
-    expect(air(w).aired).toEqual(held);
-    expect(status(w, room)).toBe('aired');
+    dryOut(w, tanks[0] as number, 40000);
+    const held = air(w).aired.length;
+    w.run(AIR.leakEvery / 20);
+    const left = air(w).aired.length;
+    expect(left).toBeLessThan(held);
+    expect(left).toBeGreaterThan(0);
+    // The far end of the room went first: what is left lies nearest the vent.
+    expect(air(w).aired).toContain(at(1, 1));
+    expect(air(w).aired).not.toContain(at(7, 40));
+    expect(status(w, room)).toBe('vacuum');
   });
 
   it('stalls when the network runs dry and goes on when a canister comes', () => {
-    // Bigger than a canister fills, with a minute's leak to pay on top.
+    // Bigger than a canister fills, with its leak to pay on top.
     const { w, room, tanks, fill } = setUp(deep(330));
     fill(1);
     dryOut(w, tanks[0] as number, 3000);
-    const held = air(w).aired.length;
-    expect(held).toBeLessThan(330 * 7);
+    expect(air(w).aired.length).toBeLessThan(330 * 7);
     expect(status(w, room)).toBe('vacuum');
     w.run(10 * AIR.ticksPerCell);
-    expect(air(w).aired).toHaveLength(held);
+    const left = air(w).aired.length;
     fill(1);
     expect(status(w, room)).toBe('filling');
     w.run(10 * AIR.ticksPerCell);
-    expect(air(w).aired.length).toBeGreaterThan(held);
+    expect(air(w).aired.length).toBeGreaterThan(left);
   });
 
   it('vents through a breach: the air goes over a few ticks and the vent drains its network', () => {
@@ -351,11 +356,11 @@ describe('air', () => {
       expect(airedIn(w, shut)).toEqual(inRight);
       // Its order starts at its middle, yet the air stays where it came in.
       expect(air(w).orders.get(shut)?.[0]).toBe(at15(11, 2));
-      w.run(AIR.leakEvery);
-      expect(airedIn(w, shut)).toEqual(inRight);
+      w.run(10);
+      expect(inRight).toEqual(expect.arrayContaining(airedIn(w, shut)));
     });
 
-    it('fills the rest of the joined room, and shut, each part keeps its air, vent or none', () => {
+    it('fills the rest of the joined room; shut, the part with no vent leaks its air away', () => {
       const { w, left, door, right } = twoRooms();
       w.do(grid, 'toggleDoor', { cell: door }).run();
       expect(status(w, left)).toBe('filling');
@@ -365,9 +370,10 @@ describe('air', () => {
       expect(airedIn(w, shut)).toHaveLength(w.query(rooms).room(shut)?.volume ?? -1);
       expect(status(w, shut)).toBe('aired');
       airUp(w, left);
-      // No tank pays the right room's leak, and its air stays: only breaths and breaches take it.
-      w.run(AIR.leakEvery);
-      expect(airedIn(w, shut)).toHaveLength(w.query(rooms).room(shut)?.volume ?? -1);
+      // No tank pays the right room's leak: it takes the room's own air, a cell at a time.
+      w.run(AIR.leakEvery / 4);
+      expect(airedIn(w, shut).length).toBeLessThan(w.query(rooms).room(shut)?.volume ?? -1);
+      expect(airedIn(w, shut).length).toBeGreaterThan(0);
     });
   });
 
@@ -472,7 +478,7 @@ describe('rooms air', () => {
       aired: VOLUME,
       leak,
       oxygen: held,
-      lasts: Math.floor(held / leak) * AIR.leakEvery,
+      lasts: Math.floor((held * AIR.leakEvery) / leak),
       problem: undefined,
     });
   });
