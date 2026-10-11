@@ -40,8 +40,8 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   const host = createHost(0);
   const clients = Array.from({ length: count }, () => {
     const [toClient, toHost] = loopback<ToClient, ToHost>();
-    host.connect(toClient);
-    return createClient(definition.create(seed, layout), toHost);
+    const id = host.connect(toClient);
+    return createClient(definition.create(seed, layout), toHost, id);
   });
   const fuzzable = definition.modules.filter((m) => m.fuzz);
   const rng = createRng(seed ^ 0x5eed);
@@ -67,7 +67,7 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
       const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
       const pick = (m.fuzz as Fuzz)(sender.sim.world.slices[m.id], rng);
       if (!pick) continue;
-      sender.send({ module: m.id, type: pick.type, payload: pick.payload });
+      sender.send({ module: m.id, type: pick.type, payload: pick.payload, from: 0 });
       commands += 1;
     }
     host.advance();

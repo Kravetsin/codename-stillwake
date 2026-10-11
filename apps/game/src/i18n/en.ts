@@ -30,6 +30,8 @@ export const EN: Readonly<Record<string, string>> = {
   'atmosphere.noTank': 'There is no tank here',
   'atmosphere.tankFull': 'The tank is full',
   'stock.creative': 'creative',
+  'crew.suit': 'suit',
+  'crew.passedOut': 'Passed out: no air',
 };
 
 /** The text for `key`, or the key itself while it has none. */

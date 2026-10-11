@@ -1,26 +1,13 @@
 import { MACHINES } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { defineModule } from '../../core/module';
 import { defineSim } from '../../core/sim';
+import { builder } from '../../testing/builder';
 import { scenario } from '../../testing/scenario';
-import type { GridModule, Layer, Placement } from '../grid';
+import type { Layer, Placement } from '../grid';
 import { grid, MODULES, stillwake as world } from '../index';
 import { building, type Plan } from './index';
 
-/** Builds straight into the grid, standing in for the work P1-27 adds: a pipe in a wall, say. */
-const builder = defineModule<[GridModule]>()({
-  id: 'builder',
-  dependsOn: ['grid'],
-  init: () => ({}),
-  commands: {
-    place: {
-      apply(ctx, p: { cell: number; placement: Placement }) {
-        ctx.deps.grid.op.place(p.cell, p.placement);
-      },
-    },
-  },
-});
 const withBuilder = defineSim([...MODULES, builder]);
 
 const wall: Placement = { layer: 'structure', kind: 'wall', material: 'steel' };

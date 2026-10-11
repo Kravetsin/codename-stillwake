@@ -13,11 +13,12 @@ export interface Scenario {
   readonly refusals: readonly string[];
   /** Every event so far, in order. */
   readonly events: readonly SimEvent[];
-  /** Queues a command for the next tick `run` plays. */
+  /** Queues a command for the next tick `run` plays, sent by peer `from`: 0 unless said. */
   do<M extends AnyModule, K extends keyof CommandsOf<M> & string>(
     module: M,
     type: K,
     payload: CommandsOf<M>[K],
+    from?: number,
   ): Scenario;
   /** Plays `ticks` ticks; queued commands apply on the first. */
   run(ticks?: number): Scenario;
@@ -40,8 +41,8 @@ export function scenario(definition: SimDefinition, map = '', seed = 1): Scenari
     layout,
     refusals,
     events,
-    do(module, type, payload) {
-      queued.push(command(module, type, payload));
+    do(module, type, payload, from = 0) {
+      queued.push(command(module, type, payload, from));
       return self;
     },
     run(ticks = 1) {

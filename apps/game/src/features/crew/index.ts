@@ -1,5 +1,5 @@
 import { HERO } from '@stillwake/content';
-import { cellsOf, grid } from '@stillwake/sim';
+import { crew, grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
 import { CELL } from '../../render/camera';
@@ -8,6 +8,8 @@ import type { Feature } from '../feature';
 import { aimAt, usesOf, type Aim } from './aim';
 import { heroAt, STEP_MS, stepHero, UNIT, type Hero } from './hero';
 import { createKeys } from './keys';
+import { reportOf } from './report';
+import { SuitGauge } from './SuitGauge';
 
 const BODY = 0xe8b04a;
 const VISOR = 0x2b3a4a;
@@ -43,6 +45,7 @@ function drawAim(g: Graphics, width: number, aim: Aim | undefined) {
  */
 export const crewFeature: Feature = {
   id: 'crew',
+  Panel: SuitGauge,
   layer() {
     const w = (HERO.width / UNIT) * CELL;
     const h = (HERO.height / UNIT) * CELL;
@@ -70,23 +73,32 @@ export const crewFeature: Feature = {
     const clock = createClock(STEP_MS);
     let hero: { previous: Hero; current: Hero } | undefined;
     let workedOnTick = -1;
+    let wasOut = false;
 
     return {
       view,
       update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
         const ship = sim.query(grid).layers();
-        if (!hero) {
-          const [spawn] = cellsOf(game.layout, 'S');
-          if (spawn === undefined)
-            throw new Error('The map has no S: nowhere for the hero to wake.');
+        const spawn = sim.query(crew).spawn();
+        const me = sim.query(crew).hero(game.client.id);
+        const out = (me?.out ?? 0) > 0;
+        // Waking from passing out, the sim has put the hero at the spawn: so does the client.
+        if (!hero || (wasOut && !out)) {
           const woke = heroAt(ship, spawn);
           hero = { previous: woke, current: woke };
         }
+        wasOut = out;
         for (let due = clock.advance(elapsedMs); due > 0; due--) {
-          hero = { previous: hero.current, current: stepHero(hero.current, keys.take(), ship) };
+          // Passed out, the hero takes no orders and only falls; keys pressed meanwhile are spent.
+          const taken = keys.take();
+          const input = out ? ({ x: 0, y: 0, jump: false } as const) : taken;
+          hero = { previous: hero.current, current: stepHero(hero.current, input, ship) };
         }
         const { previous, current } = hero;
+
+        const report = reportOf(sim, game.client.id, current);
+        if (report) game.client.send(report);
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
         const between = clock.progress();
@@ -106,7 +118,9 @@ export const crewFeature: Feature = {
         if (pointer) reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 26);
 
         // The press is taken every frame, so one made out of reach is spent rather than kept.
-        const e = { pressed: keys.takeUse(), held: keys.holdsUse() };
+        // Passed out, E does nothing: a press is spent, a hold works no plan.
+        const pressed = keys.takeUse();
+        const e = out ? { pressed: false, held: false } : { pressed, held: keys.holdsUse() };
         const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
         workedOnTick = uses.workedOnTick;
         for (const c of uses.commands) game.client.send(c);

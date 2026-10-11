@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AIR } from './air';
 import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
+import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
@@ -104,5 +105,15 @@ describe('air', () => {
       expect(value).toBeGreaterThan(0);
     }
     expect(AIR.canister).toBeLessThanOrEqual(AIR.tankCapacity);
+  });
+});
+
+describe('crew', () => {
+  it('breathes in whole units and ticks, with a suit that lasts some breaths', () => {
+    for (const value of Object.values(CREW)) {
+      expect(Number.isSafeInteger(value)).toBe(true);
+      expect(value).toBeGreaterThan(0);
+    }
+    expect(CREW.refill).toBeLessThan(CREW.suit);
   });
 });

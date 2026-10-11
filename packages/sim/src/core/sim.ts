@@ -4,6 +4,7 @@ import {
   type AnyModule,
   type CommandImpl,
   type CommandsOf,
+  type CommandCtx,
   type Ctx,
   type DeepReadonly,
   type Deps,
@@ -17,21 +18,27 @@ import { rngOver, seedRng, type RngState } from './rng';
 export const TICKS_PER_SECOND = 20;
 
 /** Bumped whenever saved data changes shape; a save of another format is refused. */
-export const SAVE_FORMAT = 3;
+export const SAVE_FORMAT = 4;
 
-/** A player's intent, as it travels from the client through the host to every peer. */
+/**
+ * A player's intent, as it travels from the client through the host to every peer. `from` is the
+ * peer that sent it, stamped by the host over whatever the client put there: a peer has one hero.
+ */
 export interface Command {
   readonly module: string;
   readonly type: string;
   readonly payload: unknown;
+  readonly from: number;
 }
 
+/** A command as `from` would send it; a client leaves it 0 and the host stamps the real one. */
 export function command<M extends AnyModule, K extends keyof CommandsOf<M> & string>(
   module: M,
   type: K,
   payload: CommandsOf<M>[K],
+  from = 0,
 ): Command {
-  return { module: module.id, type, payload };
+  return { module: module.id, type, payload, from };
 }
 
 export interface SimEvent {
@@ -281,7 +288,11 @@ function instantiate(ordered: readonly AnyModule[], world: WorldData): Sim {
           refused.push({ command: c, reason: refusal.reason });
           continue;
         }
-        impl.apply(ctxs.get(c.module) as Ctx<unknown, Deps, never>, payload);
+        // Its own context over the module's, so only `apply` sees who sent it.
+        const ctx = Object.assign(Object.create(ctxs.get(c.module) as object) as object, {
+          from: c.from,
+        });
+        impl.apply(ctx as CommandCtx<unknown, Deps, never>, payload);
       }
 
       for (const phase of PHASES) {

@@ -8,6 +8,6 @@ import type { ToClient, ToHost } from './protocol';
 export function localSession(sim: Sim): { host: Host; client: Client } {
   const host = createHost(sim.world.tick);
   const [toClient, toHost] = loopback<ToClient, ToHost>();
-  host.connect(toClient);
-  return { host, client: createClient(sim, toHost) };
+  const id = host.connect(toClient);
+  return { host, client: createClient(sim, toHost, id) };
 }

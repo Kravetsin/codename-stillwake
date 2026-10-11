@@ -9,8 +9,11 @@ import type { ToClient, ToHost } from './protocol';
 export interface Host {
   /** The next tick `advance` releases. */
   readonly tick: number;
-  /** Adds a peer, which receives every tick released from now on. */
-  connect(channel: Channel<ToHost, ToClient>): void;
+  /**
+   * Adds a peer, which receives every tick released from now on, and returns its id: every command
+   * it sends is stamped with it. Ids count up and are never handed out twice.
+   */
+  connect(channel: Channel<ToHost, ToClient>): number;
   /** Releases the next tick, carrying every command received since the last one. */
   advance(): void;
 }
@@ -20,6 +23,7 @@ export function createHost(firstTick: number): Host {
   let tick = firstTick;
   let pending: Command[] = [];
   const peers: Channel<ToHost, ToClient>[] = [];
+  let nextPeer = 0;
 
   return {
     get tick() {
@@ -27,10 +31,14 @@ export function createHost(firstTick: number): Host {
     },
 
     connect(channel) {
+      const id = nextPeer;
+      nextPeer += 1;
       peers.push(channel);
       channel.onMessage((message) => {
-        pending.push(message.command);
+        // A new object, so the sender is the host's word, whatever the client wrote.
+        pending.push({ ...message.command, from: id });
       });
+      return id;
     },
 
     advance() {

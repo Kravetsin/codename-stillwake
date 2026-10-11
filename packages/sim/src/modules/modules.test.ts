@@ -14,7 +14,9 @@ function randomCommands(sim: Sim, rng: Rng): Command[] {
   for (let n = fuzzable.length > 0 ? rng.below(4) : 0; n > 0; n--) {
     const m = fuzzable[rng.below(fuzzable.length)] as AnyModule;
     const pick = (m.fuzz as Fuzz)(sim.world.slices[m.id], rng);
-    if (pick) commands.push({ module: m.id, type: pick.type, payload: pick.payload });
+    // Senders with gaps, so what a module keeps per sender is made out of order too.
+    if (pick)
+      commands.push({ module: m.id, type: pick.type, payload: pick.payload, from: rng.below(5) });
   }
   return commands;
 }

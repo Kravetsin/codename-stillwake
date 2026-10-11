@@ -1,30 +1,12 @@
 import { AIR, MATERIALS } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { defineModule } from '../../core/module';
 import { defineSim } from '../../core/sim';
+import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
-import type { GridModule, Layer, Placement } from '../grid';
+import type { Placement } from '../grid';
 import { atmosphere, grid, MODULES, rooms, stock } from '../index';
 
-/** Builds straight into the grid, as finished work would: pipes under machines, a breach. */
-const builder = defineModule<[GridModule]>()({
-  id: 'builder',
-  dependsOn: ['grid'],
-  init: () => ({}),
-  commands: {
-    place: {
-      apply(ctx, p: { cell: number; placement: Placement }) {
-        ctx.deps.grid.op.place(p.cell, p.placement);
-      },
-    },
-    clear: {
-      apply(ctx, p: { cell: number; layer: Layer }) {
-        ctx.deps.grid.op.clear(p.cell, p.layer);
-      },
-    },
-  },
-});
 const world = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 const wall: Placement = { layer: 'structure', kind: 'wall', material: 'scrap' };

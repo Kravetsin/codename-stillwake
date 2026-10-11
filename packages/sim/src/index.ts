@@ -4,6 +4,7 @@ export {
   refuse,
   withFuzz,
   type AnyModule,
+  type CommandCtx,
   type CommandsOf,
   type Ctx,
   type DeepReadonly,

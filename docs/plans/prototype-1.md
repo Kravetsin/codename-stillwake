@@ -234,6 +234,12 @@ resolves the room from that cell every tick. In an aired room a hero breathes th
 refills the suit; anywhere else from the suit. An empty suit means passing out and respawning at the
 spawn point, which `crew` now reads from the map instead of the client.
 Done when: a hero can run out of air and the HUD shows it coming.
+Built with commands that say who sent them: the host stamps each with its peer's id, `apply` reads it
+as `ctx.from`, and a hero is named by its peer. `crew` keeps each hero's cell, suit and time passed
+out; every second a hero breathes through `atmosphere.breathe(cell, …)`, which also tops up the suit
+in an aired room, or from the suit elsewhere. Peer ids are saved but last a session: a hero belongs to
+whoever connects in that slot, until P1-41 brings lasting player ids. The HUD shows the suit with a
+trend arrow; why it falls is for the overlays and alerts (P1-36, P1-37).
 
 **P1-35 · `hazards`** · S · sim · after 33
 `MeteorHit(cell)` destroys a hull cell through `grid`'s operations: from the dev panel, and as a random

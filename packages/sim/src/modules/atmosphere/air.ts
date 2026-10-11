@@ -133,6 +133,24 @@ export function statusOf(air: Seen, world: World, room: number): RoomStatus {
   return found ? status(survey(air, world), found) : 'vacuum';
 }
 
+/**
+ * Draws up to `amount` for a hero at `cell`, if the cell is in an aired room, from the networks of
+ * the room's vents in vent id order; returns what it took. Nothing anywhere else.
+ */
+export function breathe(air: Air, world: World, cell: number, amount: number): number {
+  const id = world.rooms.roomOfCells()[cell] ?? -1;
+  const room = id >= 0 ? world.rooms.room(id) : undefined;
+  if (!room) return 0;
+  const s = survey(air, world);
+  if (status(s, room) !== 'aired') return 0;
+  let taken = 0;
+  for (const network of s.ventsIn.get(room.id) ?? []) {
+    taken += draw(s, network, amount - taken);
+  }
+  if (air.tanks.some((t) => t.oxygen === 0)) air.tanks = air.tanks.filter((t) => t.oxygen > 0);
+  return taken;
+}
+
 /** The oxygen a room loses through its hull every `AIR.leakEvery` ticks. */
 function leakOf(world: World, room: Room): number {
   let leak = 0;

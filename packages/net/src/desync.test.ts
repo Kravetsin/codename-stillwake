@@ -22,13 +22,14 @@ describe('desync fuzz: the game', () => {
     expect(run.ticks).toBe(600);
   });
 
-  it('keeps every client in sync while air fills, leaks and vents', () => {
-    // A room with a vent above a tank. The first client pipes them and loads the tank through the
-    // pipeline, then the fuzz plays on past two leak beats, breaching walls as it goes.
+  it('keeps every client in sync while air fills, leaks and vents, and heroes breathe it', () => {
+    // A room with a vent above a tank and the spawn beside them. The first client pipes them and
+    // loads the tank through the pipeline, then the fuzz plays on past two leak beats, breaching
+    // walls and moving heroes in and out as it goes.
     const room = parseLayout([
       '.............',
       '.###########.',
-      '.#V........#.',
+      '.#V..S.....#.',
       '.#TT.......#.',
       '.#TT.......#.',
       '.###########.',
@@ -40,6 +41,9 @@ describe('desync fuzz: the game', () => {
     let aired = 0;
     let peak = 0;
     let drawn = false;
+    let refilled = false;
+    let woke = false;
+    const suits = new Map<number, { suit: number; out: number }>();
     const run = fuzzDesync(stillwake, {
       seed: 11,
       layout: room,
@@ -63,11 +67,25 @@ describe('desync fuzz: the game', () => {
         const oxygen = first.sim.query(atmosphere).oxygenIn(tank);
         if (oxygen < peak) drawn = true;
         peak = Math.max(peak, oxygen);
+        const heroes = (
+          first.sim.world.slices.crew as {
+            heroes: { hero: number; suit: number; out: number }[];
+          }
+        ).heroes;
+        for (const h of heroes) {
+          const before = suits.get(h.hero);
+          if (before && before.out === 0 && h.out === 0 && h.suit > before.suit) refilled = true;
+          if (before && before.out > 0 && h.out === 0) woke = true;
+          suits.set(h.hero, { suit: h.suit, out: h.out });
+        }
       },
     });
     expect(run.desync).toBeUndefined();
     expect(aired).toBeGreaterThan(0);
     expect(drawn).toBe(true);
+    // Breathing ran both ways: a suit refilled from room air, and a hero passed out and woke.
+    expect(refilled).toBe(true);
+    expect(woke).toBe(true);
   });
 });
 

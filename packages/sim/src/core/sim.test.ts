@@ -80,9 +80,34 @@ describe('commands', () => {
 
   it('throws on a command no module knows, since peers share one build', () => {
     const sim = air.create(1, TWO_TANKS);
-    expect(() => sim.step([{ module: 'tanks', type: 'drain', payload: {} }])).toThrow(
+    expect(() => sim.step([{ module: 'tanks', type: 'drain', payload: {}, from: 0 }])).toThrow(
       "Unknown command 'tanks.drain'.",
     );
+  });
+});
+
+describe('who sent a command', () => {
+  const senders = defineModule()({
+    id: 'senders',
+    dependsOn: [],
+    init: () => ({ heard: [] as number[] }),
+    commands: {
+      say: {
+        apply(ctx) {
+          ctx.state.heard.push(ctx.from);
+        },
+      },
+    },
+  });
+
+  it('hands apply the peer that sent each command, 0 for one built without it', () => {
+    const sim = defineSim([senders]).create(1);
+    sim.step([
+      command(senders, 'say', {}, 2),
+      command(senders, 'say', {}),
+      command(senders, 'say', {}, 1),
+    ]);
+    expect(sim.world.slices.senders).toEqual({ heard: [2, 0, 1] });
   });
 });
 

@@ -41,6 +41,9 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
 
 - **Queries:** `oxygenIn(tankId)`; `canisterProblem(tankId)` — why `loadCanister` would be refused, for
   the client; `roomStatus(roomId)`; `airedAt(cell)`.
+- **Operations:** `breathe(cell, amount)` — takes up to `amount` for a hero at `cell` from the vents of
+  its room if the room is aired, and returns what it took; nothing anywhere else. Emptied tanks leave
+  the list at once.
 - **Commands:** `loadCanister { tank }`, refused with `atmosphere.noTank`, `atmosphere.tankFull` or
   `stock.notEnough`.
 
@@ -60,6 +63,5 @@ Oxygen: what the ship's tanks hold, and how it fills rooms, leaks out of them an
   `rooms`), so two modules built one cell apart do not leak through the walls they face.
 - `roomStatus` gathers the whole survey on each call: fine for one room, slow for every room each
   frame. The overlays (P1-36) add a query for all statuses at once.
-- `drawOxygen` stays internal until breathing (P1-34) gives it a caller outside this module.
 - Oxygen in a tank taken apart is lost, not refunded as canisters. A valve under a tank is not worked
   with E.

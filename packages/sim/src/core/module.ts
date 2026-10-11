@@ -104,13 +104,16 @@ export interface Ctx<S, D extends Deps, E> {
   emit<K extends keyof E & string>(type: K, payload: PayloadOf<E[K]>): void;
 }
 
+/** Context for a command's `apply`: `from` is the peer that sent it, which names its hero. */
+export type CommandCtx<S, D extends Deps, E> = Ctx<S, D, E> & { readonly from: number };
+
 export type QueryImpl<S, D extends Deps> = (ctx: ReadCtx<S, D>, ...args: never[]) => unknown;
 export type OperationImpl<S, D extends Deps, E> = (ctx: Ctx<S, D, E>, ...args: never[]) => unknown;
 
 export interface CommandImpl<S, D extends Deps, E> {
   /** Runs when the command applies, on its stamped tick; return a refusal to turn it down. */
   readonly validate?: (ctx: ReadCtx<S, D>, payload: never) => Refusal | undefined | void;
-  readonly apply: (ctx: Ctx<S, D, E>, payload: never) => void;
+  readonly apply: (ctx: CommandCtx<S, D, E>, payload: never) => void;
 }
 
 export interface SystemImpl<S, D extends Deps, E> {

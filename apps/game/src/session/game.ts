@@ -9,8 +9,6 @@ const DEV_SLOT = 'dev';
 export interface Game {
   readonly host: Host;
   readonly client: Client;
-  /** The map the game started from. The hero wakes at its S until `crew` (P1-34) owns spawning. */
-  readonly layout: Layout;
   /** How many game seconds pass per real second. Single-player only: a host's speed is everyone's. */
   speed: number;
   /** Fraction of the way to the next tick, for drawing between ticks. */
@@ -45,7 +43,6 @@ export function createGame(
     get client() {
       return session.client;
     },
-    layout,
     get speed() {
       return speed;
     },

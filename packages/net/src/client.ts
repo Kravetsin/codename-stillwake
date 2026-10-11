@@ -4,6 +4,8 @@ import type { TickMessage, ToClient, ToHost } from './protocol';
 
 /** A peer's view of the session: it sends commands and runs only the ticks the host released. */
 export interface Client {
+  /** This peer's id, which the host stamps on its commands: its hero's id in the sim. */
+  readonly id: number;
   readonly sim: Sim;
   /** Asks the host to apply a command; it takes effect on the tick the host puts it in. */
   send(command: Command): void;
@@ -11,13 +13,14 @@ export interface Client {
   update(): TickReport[];
 }
 
-export function createClient(sim: Sim, channel: Channel<ToClient, ToHost>): Client {
+export function createClient(sim: Sim, channel: Channel<ToClient, ToHost>, id: number): Client {
   const released: TickMessage[] = [];
   channel.onMessage((message) => {
     released.push(message);
   });
 
   return {
+    id,
     sim,
 
     send(command) {

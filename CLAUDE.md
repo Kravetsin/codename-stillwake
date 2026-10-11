@@ -86,9 +86,10 @@ export const rooms = withFuzz(roomsModule, fuzzRooms);   // fuzzRooms lives in f
   command returns a reason, an i18n key `<moduleId>.<why>`, and leaves state untouched. Validate game
   rules, not payload shapes: peers run one build and types guard the shape. Throwing is for broken
   invariants — our bugs.
-- A command does not yet say who sent it, and modules have no clock: `ctx` holds `state`, `rng`,
-  `deps` and `emit`. Both arrive with their first real caller (heroes, P1-34); until then a module
-  that needs time counts ticks in its own slice.
+- A command says who sent it: the host stamps each with its peer's id, and `apply` reads it as
+  `ctx.from` — a peer has one hero, so it names the hero. `command(module, type, payload, from = 0)`
+  and `scenario.do(…, from)` set it in tests. Modules have no clock: one that needs time counts ticks
+  in its own slice, as `atmosphere` and `crew` do.
 - Queries may hand out live state, typed read-only. A client that needs to notice a change compares the
   content or the world's tick, never the reference.
 - A module's `README.md` is the source of truth for what it owns, depends on and guarantees. Keep it

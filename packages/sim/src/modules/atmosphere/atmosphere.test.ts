@@ -1,29 +1,11 @@
 import { AIR } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
-import { defineModule } from '../../core/module';
-import { defineSim } from '../../core/sim';
+import { command, defineSim } from '../../core/sim';
+import { builder } from '../../testing/builder';
 import { scenario, type Scenario } from '../../testing/scenario';
-import type { GridModule, Layer, Placement } from '../grid';
+import type { Placement } from '../grid';
 import { atmosphere, grid, MODULES, rooms, stock, stillwake as world, wreck } from '../index';
 
-/** Builds straight into the grid, as finished work would: pipes under machines, say. */
-const builder = defineModule<[GridModule]>()({
-  id: 'builder',
-  dependsOn: ['grid'],
-  init: () => ({}),
-  commands: {
-    place: {
-      apply(ctx, p: { cell: number; placement: Placement }) {
-        ctx.deps.grid.op.place(p.cell, p.placement);
-      },
-    },
-    clear: {
-      apply(ctx, p: { cell: number; layer: Layer }) {
-        ctx.deps.grid.op.clear(p.cell, p.layer);
-      },
-    },
-  },
-});
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 
@@ -181,7 +163,7 @@ describe('air machines', () => {
       .machines()
       .find((m) => m.kind === 'tank');
     if (!tank) throw new Error('no tank');
-    sim.step([{ module: 'atmosphere', type: 'loadCanister', payload: { tank: tank.id } }]);
+    sim.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
     expect(sim.query(atmosphere).oxygenIn(tank.id)).toBe(AIR.canister);
     // Rooms A and B are sealed and empty; room C is open to space through its breach.
     expect(

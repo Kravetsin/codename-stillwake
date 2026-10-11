@@ -63,8 +63,8 @@ describe('several players', () => {
     const host = createHost(0);
     const clients = [0, 1, 2].map(() => {
       const [toClient, toHost] = loopback<ToClient, ToHost>();
-      host.connect(toClient);
-      return createClient(game.create(9), toHost);
+      const id = host.connect(toClient);
+      return createClient(game.create(9), toHost, id);
     });
     return { host, clients };
   }
@@ -86,6 +86,19 @@ describe('several players', () => {
     expect(new Set(clients.map((client) => client.sim.hash())).size).toBe(1);
   });
 
+  it('stamps each peer’s commands with its id, whatever the client wrote', () => {
+    const host = createHost(0);
+    const peers = [0, 1].map(() => loopback<ToClient, ToHost>());
+    const ids = peers.map(([toClient]) => host.connect(toClient));
+    expect(ids).toEqual([0, 1]);
+    const released: number[] = [];
+    peers[0]?.[1].onMessage((message) => released.push(...message.commands.map((c) => c.from)));
+    peers[1]?.[1].send({ kind: 'command', command: { ...write('x'), from: 7 } });
+    peers[0]?.[1].send({ kind: 'command', command: { ...write('y'), from: 7 } });
+    host.advance();
+    expect(released).toEqual([1, 0]);
+  });
+
   it('lets a peer that updates later catch up to the same world', () => {
     const { host, clients } = threePlayers();
     const [eager, , lazy] = clients as [(typeof clients)[0], unknown, (typeof clients)[0]];
@@ -100,7 +113,7 @@ describe('several players', () => {
 
   it('throws when a released tick does not follow the world’s tick', () => {
     const [toClient, toHost] = loopback<ToClient, ToHost>();
-    const client = createClient(game.create(1), toHost);
+    const client = createClient(game.create(1), toHost, 0);
     toClient.send({ kind: 'tick', tick: 5, commands: [] });
     expect(() => client.update()).toThrow('Expected tick 0, but the host released 5.');
   });

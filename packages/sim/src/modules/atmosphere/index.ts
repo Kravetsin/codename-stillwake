@@ -10,7 +10,7 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { StockModule } from '../stock';
-import { holds, oxygenIn, statusOf, stepAir, type Air } from './air';
+import { breathe, holds, oxygenIn, statusOf, stepAir, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 
 export type { RoomStatus } from './air';
@@ -63,6 +63,20 @@ const atmosphereModule = defineModule<Deps>()({
       ),
     /** Whether `cell` holds air. */
     airedAt: (ctx, cell: number) => holds(ctx.state.aired, cell),
+  },
+
+  operations: {
+    /**
+     * Takes up to `amount` of oxygen for a hero at `cell`, from the room's vents if the room is aired;
+     * returns what it took, nothing outside an aired room.
+     */
+    breathe: (ctx, cell: number, amount: number) =>
+      breathe(
+        ctx.state,
+        { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query, pipes: ctx.deps.pipes.query },
+        cell,
+        amount,
+      ),
   },
 
   commands: {
