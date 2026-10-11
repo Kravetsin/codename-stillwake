@@ -1,55 +1,51 @@
 import { CREW } from '@stillwake/content';
-import { crew } from '@stillwake/sim';
-import { useEffect, useRef, useState } from 'react';
-import { t } from '../../i18n/en';
+import { atmosphere, crew } from '@stillwake/sim';
+import { useEffect, useState } from 'react';
 import type { Game } from '../../session/game';
-import { LOW } from './alerts';
+import { suitDanger } from './danger';
 
 const REFRESH_MS = 250;
+const VIGNETTE =
+  'radial-gradient(ellipse at center, transparent 55%, rgba(220, 38, 38, 0.45) 100%)';
 
 function read(game: Game) {
   const { sim } = game.client;
   const hero = sim.query(crew).hero(game.client.id);
-  return { suit: hero?.suit ?? CREW.suit, out: (hero?.out ?? 0) > 0, tick: sim.world.tick };
+  const inRoomAir = hero !== undefined && sim.query(atmosphere).airedAt(hero.cell);
+  return { suit: hero?.suit ?? CREW.suit, danger: suitDanger(hero, inRoomAir) };
 }
 
 /**
- * The suit's oxygen, under the stock counters, with an arrow while it fills or empties: the warning
- * that the hero is breathing from the suit, read a few times a second.
+ * The suit without a word: a bar under the stock counters that turns red and blinks when the suit
+ * runs low out of room air, red at the screen's edges then, and the screen going dark on passing out.
  */
 export function SuitGauge({ game }: { readonly game: Game }) {
   const [reading, setReading] = useState(() => read(game));
-  // The suit last seen and the tick it last changed on: the arrow goes once a breath brings no change.
-  const last = useRef({ suit: reading.suit, tick: reading.tick });
-  const [trend, setTrend] = useState<'▲' | '▼' | ''>('');
   useEffect(() => {
-    const timer = setInterval(() => {
-      const next = read(game);
-      if (next.suit !== last.current.suit) {
-        setTrend(next.suit > last.current.suit ? '▲' : '▼');
-        last.current = { suit: next.suit, tick: next.tick };
-      } else if (next.tick - last.current.tick > CREW.breathEvery) {
-        setTrend('');
-      }
-      setReading(next);
-    }, REFRESH_MS);
+    const timer = setInterval(() => setReading(read(game)), REFRESH_MS);
     return () => clearInterval(timer);
   }, [game]);
 
-  const share = reading.suit / CREW.suit;
-  const colour = reading.out || share < LOW ? 'bg-red-500' : 'bg-sky-400';
+  const { suit, danger } = reading;
   return (
-    <div className="absolute left-3 top-14 w-56 rounded border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-slate-300">
-      <div className="mb-1 flex justify-between">
-        <span>{t('crew.suit')}</span>
-        <span className={share < LOW ? 'text-red-400' : 'text-white'}>
-          {trend} {reading.suit}/{CREW.suit}
-        </span>
+    <>
+      <div className="absolute left-3 top-14 flex w-56 items-center gap-2 rounded border border-slate-700 bg-slate-900/90 px-3 py-2 font-mono text-xs text-slate-400">
+        <span>O₂</span>
+        <div className="h-1.5 flex-1 rounded bg-slate-700">
+          <div
+            className={`h-1.5 rounded ${danger ? 'animate-pulse bg-red-500' : 'bg-sky-400'}`}
+            style={{ width: `${(suit / CREW.suit) * 100}%` }}
+          />
+        </div>
       </div>
-      <div className="h-1.5 rounded bg-slate-700">
-        <div className={`h-1.5 rounded ${colour}`} style={{ width: `${share * 100}%` }} />
-      </div>
-      {reading.out && <p className="mt-1 text-red-400">{t('crew.passedOut')}</p>}
-    </div>
+      <div
+        className="pointer-events-none fixed inset-0 transition-opacity duration-700"
+        style={{ background: VIGNETTE, opacity: danger === 'low' ? 1 : 0 }}
+      />
+      <div
+        className="pointer-events-none fixed inset-0 bg-black transition-opacity duration-1000"
+        style={{ opacity: danger === 'out' ? 0.85 : 0 }}
+      />
+    </>
   );
 }

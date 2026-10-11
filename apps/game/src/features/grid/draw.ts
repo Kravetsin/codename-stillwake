@@ -21,7 +21,8 @@ const LINE = 0x161d2a;
 const FLOOR = 0x9aa3b5;
 const LADDER = 0xb08d57;
 const DOOR = 0xc97a3a;
-const PIPE = 0x3fa7d6;
+/** Dull: the pipes feature lights the ones carrying oxygen over it. */
+const PIPE = 0x56606e;
 const VALVE_OPEN = 0x4caf6a;
 const VALVE_CLOSED = 0xd05050;
 

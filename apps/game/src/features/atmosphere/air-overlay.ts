@@ -48,7 +48,10 @@ export function airOverlay(): Layer {
             .roomsAir()
             .map((air) => [air.room, air]),
         );
-        drawTint(tint, sim.query(grid).size().width, sim.query(rooms).roomOfCells(), byRoom);
+        drawRooms(tint, sim.query(grid).size().width, sim.query(rooms).roomOfCells(), (room) => {
+          const air = byRoom.get(room);
+          return air && TINT[air.status];
+        });
       }
       const pointer = camera.pointer();
       const room = pointer && sim.query(rooms).roomAt(cellAt(sim.query(grid).size(), pointer));
@@ -66,12 +69,15 @@ function cellAt(size: { width: number; height: number }, p: { x: number; y: numb
   return x < 0 || y < 0 || x >= size.width || y >= size.height ? -1 : y * size.width + x;
 }
 
-/** Each room's cells in its status's colour, a rectangle per run of a room along a row. */
-function drawTint(
+/**
+ * Rooms' cells in the colour `colourOf` gives each room, none for a room it leaves out: a rectangle
+ * per run of a room along a row, one fill per colour.
+ */
+export function drawRooms(
   g: Graphics,
   width: number,
   roomOf: Readonly<Int32Array>,
-  byRoom: ReadonlyMap<number, RoomAir>,
+  colourOf: (room: number) => number | undefined,
 ): void {
   g.clear();
   const runs = new Map<number, [start: number, length: number][]>();
@@ -79,9 +85,8 @@ function drawTint(
     const room = roomOf[start] ?? -1;
     let end = start + 1;
     while (end < roomOf.length && end % width !== 0 && roomOf[end] === room) end++;
-    const air = room >= 0 ? byRoom.get(room) : undefined;
-    if (air) {
-      const colour = TINT[air.status];
+    const colour = room >= 0 ? colourOf(room) : undefined;
+    if (colour !== undefined) {
       const list = runs.get(colour) ?? [];
       list.push([start, end - start]);
       runs.set(colour, list);

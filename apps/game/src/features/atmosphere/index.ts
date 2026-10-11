@@ -1,73 +1,73 @@
 import { AIR, MACHINES } from '@stillwake/content';
-import { atmosphere, grid } from '@stillwake/sim';
-import { Container, Graphics, Text } from 'pixi.js';
+import { atmosphere, grid, rooms } from '@stillwake/sim';
+import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature } from '../feature';
-import { airOverlay } from './air-overlay';
-import { airAlerts } from './alerts';
+import { airOverlay, drawRooms } from './air-overlay';
+import { draining } from './draining';
 
 const TRACK = 0x16212d;
 const OXYGEN = 0x6fd3ff;
-const BAR = 4;
+const BAR = 6;
+const VENTING = 0xe03030;
+/** Rooms are surveyed at most this often: a big ship has hundreds of them. */
+const REFRESH_MS = 250;
+/** One pulse of a venting room, in milliseconds of real time. */
+const PULSE_MS = 900;
 
 /**
- * How full each tank is: a gauge up its right side and the amount in it, redrawn only when an amount
- * changes. Each tank keeps its text, so a change rewrites it rather than making a new one.
+ * The ship's air without a word: each tank's gauge up its right side, and every room losing oxygen
+ * into space pulsing red. Exact amounts are in the air overlay, on demand.
  */
 export const atmosphereFeature: Feature = {
   id: 'atmosphere',
   overlay: { name: 'overlay.air', key: 'KeyO', layer: airOverlay },
-  alerts: (game) => airAlerts(game.client.sim.query(atmosphere).roomsAir()),
   layer() {
-    const view = new Container();
+    const pulse = new Graphics();
     const gauges = new Graphics();
-    const amounts = new Container();
-    view.addChild(gauges, amounts);
-    const texts = new Map<number, Text>();
-    let lastTick = -1;
-    let shown = '';
+    const view = new Container();
+    view.addChild(pulse, gauges);
+    let since = Infinity;
+    let clock = 0;
+    let shownTanks = '';
+    let drawnAny = false;
     return {
       view,
-      update({ game }) {
+      update({ game, elapsedMs }) {
         const { sim } = game.client;
-        if (sim.world.tick === lastTick) return;
-        lastTick = sim.world.tick;
+        clock += elapsedMs;
+        pulse.alpha = 0.15 + 0.3 * (0.5 + 0.5 * Math.sin((clock / PULSE_MS) * 2 * Math.PI));
+        since += elapsedMs;
+        if (since < REFRESH_MS) return;
+        since = 0;
         const { width } = sim.query(grid).size();
+
+        const losing = draining(sim.query(atmosphere).roomsAir());
+        // Redrawn while any room drains, since a room keeps its id as its cells change; cleared once.
+        if (losing.size > 0 || drawnAny) {
+          drawnAny = losing.size > 0;
+          drawRooms(pulse, width, sim.query(rooms).roomOfCells(), (room) =>
+            losing.has(room) ? VENTING : undefined,
+          );
+        }
+
         const tanks = sim
           .query(grid)
           .machines()
           .filter((m) => m.kind === 'tank')
           .map((m) => ({ cell: m.cell, oxygen: sim.query(atmosphere).oxygenIn(m.id) }));
-        const key = tanks.map((t) => `${t.cell}:${t.oxygen}`).join(',');
-        if (key === shown) return;
-        shown = key;
-
+        const tanksKey = tanks.map((t) => `${t.cell}:${t.oxygen}`).join(',');
+        if (tanksKey === shownTanks) return;
+        shownTanks = tanksKey;
         gauges.clear();
         const { width: across, height: tall } = MACHINES.tank;
         const full = tall * CELL - 8;
-        const here = new Set<number>();
         for (const { cell, oxygen } of tanks) {
-          const left = (cell % width) * CELL;
-          const top = Math.floor(cell / width) * CELL;
-          const x = left + across * CELL - BAR - 4;
+          const x = (cell % width) * CELL + across * CELL - BAR - 4;
+          const top = Math.floor(cell / width) * CELL + 4;
           const level = Math.round((full * oxygen) / AIR.tankCapacity);
-          gauges.rect(x, top + 4, BAR, full).fill(TRACK);
-          if (level > 0) gauges.rect(x, top + 4 + full - level, BAR, level).fill(OXYGEN);
-
-          here.add(cell);
-          let text = texts.get(cell);
-          if (!text) {
-            text = new Text({ style: { fontFamily: 'monospace', fontSize: 7, fill: OXYGEN } });
-            text.position.set(left + 4, top + 13);
-            texts.set(cell, text);
-            amounts.addChild(text);
-          }
-          text.text = String(oxygen);
-        }
-        for (const [cell, text] of texts) {
-          if (here.has(cell)) continue;
-          text.destroy();
-          texts.delete(cell);
+          gauges.rect(x, top, BAR, full).fill(TRACK);
+          if (level > 0) gauges.rect(x, top + full - level, BAR, level).fill(OXYGEN);
         }
       },
     };

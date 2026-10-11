@@ -314,7 +314,8 @@ it lasts", and so are other rooms on a shared network.
 HUD: oxygen per network, suit oxygen, alerts built from module events ("Room venting", "Network
 empty") that clear once fixed.
 Done when: every danger from 33–35 raises an alert and clears it.
-Built from state, not events: a feature's `alerts(game)` says which dangers hold now, read twice a
+Replaced by P1-38's visual signs; what stays true: dangers are read from state, not events. Built
+from state: a feature's `alerts(game)` says which dangers hold now, read twice a
 second into an alert bar, so an alert clears once fixed and a load or late join shows the same, with
 no event plumbing. `atmosphere` raises rooms venting through a piped vent (a breach or a meteor),
 rooms whose pipes cannot pay the next leak, and vents on dry pipes; `crew` a low suit out of room
@@ -322,6 +323,16 @@ air, and passing out. A room open to space with no vent costs nothing and stays 
 panel shows the oxygen on each network in its overlay colour; the suit gauge was there already.
 Checked in the browser: a meteor raises venting, a wall over the hole clears it, the drained pipes
 then raise dry pipes until a canister goes in, and the suit alerts come and go with passing out.
+
+**P1-38 · Visual language over text** · S · client · after 37
+A playtest found the screen too wordy. What is always on screen speaks without words; text stays on
+demand, in the overlays and by the pointer.
+Done when: every danger from 33–35 shows on screen without a word, and goes once fixed.
+Built in place of 37's alert bar, the pipes panel, the suit's numbers and the tank's amount: a room
+losing oxygen into space pulses red; pipes are dull and the ones carrying oxygen lit; the suit is a
+bar that turns red and blinks when low out of room air, with red at the screen's edges, and the
+screen goes dark on passing out. `alerts` left the feature interface: each feature draws its own
+sign, so nothing read them. Air escaping through the hull waits for art.
 
 ## M3 — A second player
 

@@ -2,7 +2,6 @@ import { grid, stillwake, wreck } from '@stillwake/sim';
 import { Application, Container } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import { perfLayout } from './dev/perf-map';
-import { AlertBar } from './alerts/AlertBar';
 import { FEATURES } from './features';
 import type { Layer } from './features/feature';
 import { OverlayBar } from './overlays/OverlayBar';
@@ -90,7 +89,6 @@ export function App() {
       <div className="pointer-events-none absolute inset-0">
         {game && FEATURES.map((f) => (f.Panel ? <f.Panel key={f.id} game={game} /> : null))}
         {overlays && <OverlayBar overlays={overlays} list={OVERLAYS} />}
-        {game && <AlertBar features={FEATURES} game={game} />}
       </div>
     </div>
   );
