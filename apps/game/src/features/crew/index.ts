@@ -3,6 +3,7 @@ import { crew, grid, type Sim } from '@stillwake/sim';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
+import { predictedGrid } from '../../session/predicted';
 import { aimedPiece, buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
@@ -113,7 +114,9 @@ export const crewFeature: Feature = {
       view,
       update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
-        const ship = shipOf(sim);
+        // Doors as this peer shows them: its own toggles still in flight already open or shut.
+        const shown = predictedGrid(game.client);
+        const ship = shipOf(sim, shown.structure);
         const spawn = sim.query(crew).spawn();
         const me = sim.query(crew).hero(game.client.id);
         const out = (me?.out ?? 0) > 0;
@@ -170,7 +173,7 @@ export const crewFeature: Feature = {
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
         const aim = pointer && aimAt(sim, game.client.id, current, pointer);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
-        const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);
+        const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim, shown);
         drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);
         if (!samePrompt(prompt, shownPrompt.get())) shownPrompt.set(prompt);
         const piece =

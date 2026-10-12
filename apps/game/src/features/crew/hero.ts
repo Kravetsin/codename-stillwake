@@ -16,9 +16,12 @@ export interface Ship {
   readonly space: (cell: number) => boolean;
 }
 
-/** The ship as `sim` sees it now. */
-export function shipOf(sim: Sim): Ship {
-  const { width, height, structure } = sim.query(grid).layers();
+/** The ship as `sim` sees it now, its doors as `structure` shows them if given. */
+export function shipOf(
+  sim: Sim,
+  structure: readonly number[] = sim.query(grid).layers().structure,
+): Ship {
+  const { width, height } = sim.query(grid).size();
   const where = sim.query(rooms);
   return { width, height, structure, space: (cell) => where.roomAt(cell) === 'space' };
 }

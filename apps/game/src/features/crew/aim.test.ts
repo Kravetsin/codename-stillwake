@@ -16,6 +16,7 @@ import {
 } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
+import { predictedGrid } from '../../session/predicted';
 import { heroAt, shipOf, stepHero, UNIT, type Hero, type Input } from './hero';
 
 function worldFrom(map: string): Sim {
@@ -240,6 +241,21 @@ describe('the wreck, worked with E', () => {
     use(h, 42, 23);
     h = run(h, down, 300);
     expect(h.y).toBe(32 * UNIT);
+  });
+
+  it('lets the hero through a door its own toggle opened, before the host’s tick runs it', () => {
+    const { client } = localSession(stillwake.create(1, wreck));
+    const [spawn] = cellsOf(wreck, 'S');
+    if (spawn === undefined) throw new Error('the wreck has no S');
+    const ship = () => shipOf(client.sim, predictedGrid(client).structure);
+    let h = heroAt(ship(), spawn);
+    for (let i = 0; i < 120; i++) h = stepHero(h, left, ship());
+    const aim = aimAt(client.sim, 0, h, centre(39, 22));
+    if (aim?.press) client.send(aim.press.command);
+    // Sent, not released: the world still has the doorway shut.
+    expect(shipOf(client.sim).structure).not.toEqual(ship().structure);
+    for (let i = 0; i < 300; i++) h = stepHero(h, left, ship());
+    expect(h.x).toBe(31 * UNIT + HERO.width / 2);
   });
 });
 

@@ -205,6 +205,47 @@ describe('doors and valves', () => {
   });
 });
 
+describe('toggles a client has in flight', () => {
+  it('show the layers as their commands would leave them, skipping what they would refuse', () => {
+    const w = scenario(
+      world,
+      `#D#v
+#D#-`,
+    );
+    const toggles = [
+      { type: 'toggleDoor', cell: 5 },
+      { type: 'toggleValve', cell: 3 },
+      { type: 'toggleDoor', cell: 0 },
+      { type: 'toggleValve', cell: 7 },
+    ] as const;
+    const { structure, conduit } = w.query(grid).afterToggles(toggles);
+    for (const t of toggles) w.do(grid, t.type, { cell: t.cell });
+    w.run();
+    expect(w.refusals).toEqual(['grid.noDoor', 'grid.noValve']);
+    const layers = w.query(grid).layers();
+    expect(structure).toEqual(layers.structure);
+    expect(conduit).toEqual(layers.conduit);
+  });
+
+  it('fold in order, so each toggle sees the ones before it, and the world is left be', () => {
+    const w = scenario(
+      world,
+      `#d#
+#D#`,
+    );
+    const hash = w.sim.hash();
+    const live = w.query(grid).layers().structure;
+    const two = w.query(grid).afterToggles([
+      { type: 'toggleDoor', cell: 1 },
+      { type: 'toggleDoor', cell: 4 },
+    ]);
+    // A mixed doorway: the first closes it all, as its open cell, and the second opens it all.
+    expect([1, 4].map((c) => two.structure[c])).toEqual([live[1], live[1]]);
+    expect(w.sim.hash()).toBe(hash);
+    expect(w.query(grid).layers().structure).toBe(live);
+  });
+});
+
 describe('other modules change the grid through its operations', () => {
   const wall = (material: 'scrap' | 'steel' = 'steel'): Placement => ({
     layer: 'structure',

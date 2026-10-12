@@ -2,6 +2,7 @@ import { MACHINES } from '@stillwake/content';
 import { grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { CELL } from '../../render/camera';
+import { predictedGrid } from '../../session/predicted';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
 import { Batch, drawBack, drawConduit, drawStructure, type Cells } from './draw';
@@ -29,7 +30,7 @@ export const gridFeature: Feature = {
     let conduitChunks: Graphics[] = [];
     let seen: Seen | undefined;
     let size = { width: -1, height: -1 };
-    let lastTick = -1;
+    let lastKey = '';
     let machinesKey = '';
 
     const redrawChunk = (cells: Cells, index: number) => {
@@ -62,11 +63,12 @@ export const gridFeature: Feature = {
       view,
       update({ game }) {
         const { sim } = game.client;
-        // Cells change only on a tick, so a frame between ticks has nothing new to draw.
-        if (sim.world.tick === lastTick) return;
-        lastTick = sim.world.tick;
+        // Cells change only on a tick or with this peer's own toggles, shown before their tick runs.
+        const shown = predictedGrid(game.client);
+        if (shown.key === lastKey) return;
+        lastKey = shown.key;
         const q = sim.query(grid);
-        const cells = q.layers();
+        const cells = { ...q.layers(), structure: shown.structure, conduit: shown.conduit };
 
         if (cells.width !== size.width || cells.height !== size.height) {
           size = { width: cells.width, height: cells.height };

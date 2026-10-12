@@ -24,7 +24,9 @@ free back slot: it stands behind anything, and in space.
 
 - **Queries:** `size`, `layers` (raw codes, for drawing and for modules that scan every cell),
   `codes` (what those codes mean), `structureAt(cell)`, `conduitAt(cell)`, `machineAt(cell)`, `machines`,
-  `portsOf(machine)`, `footprint(kind, cell)`, `placementProblem(cell, placement)`.
+  `portsOf(machine)`, `footprint(kind, cell)`, `placementProblem(cell, placement)`,
+  `afterToggles(toggles)` (copies of the structure and conduit layers after door and valve toggles,
+  as their commands would apply them: what a client shows of its own before their tick runs).
 - **Operations:** `place(cell, placement)` — the caller checks `placementProblem` first, a problem here
   throws; `clear(cell, layer)` — for machines, removes the whole machine covering the cell. Both only
   in commands or construction: rooms and pipes read before derivation trust that nothing changes the

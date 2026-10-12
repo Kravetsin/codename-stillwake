@@ -35,8 +35,17 @@ const STRUCTURE_CODE = {
 const isDoor = (s: { readonly structure: readonly number[] }, cell: number) =>
   s.structure[cell] === STRUCTURE.doorClosed || s.structure[cell] === STRUCTURE.doorOpen;
 
+const isValve = (s: { readonly conduit: readonly number[] }, cell: number) =>
+  s.conduit[cell] === CONDUIT.valveOpen || s.conduit[cell] === CONDUIT.valveClosed;
+
+/** A door or valve toggle, as `afterToggles` takes the ones a client has in flight. */
+export interface Toggle {
+  readonly type: 'toggleDoor' | 'toggleValve';
+  readonly cell: number;
+}
+
 /** The door cells 4-connected to door `cell`, itself included: one doorway, opened as one. */
-function doorway(s: GridState, cell: number): number[] {
+function doorway(s: Pick<GridState, 'width' | 'structure'>, cell: number): number[] {
   const found = new Set([cell]);
   const todo = [cell];
   for (let at = todo.pop(); at !== undefined; at = todo.pop()) {
@@ -50,6 +59,16 @@ function doorway(s: GridState, cell: number): number[] {
     }
   }
   return [...found];
+}
+
+/** Opens a closed doorway at door `cell`, or closes an open one: as the clicked cell, every cell. */
+function toggleDoor(s: Pick<GridState, 'width' | 'structure'>, cell: number) {
+  const to = s.structure[cell] === STRUCTURE.doorOpen ? STRUCTURE.doorClosed : STRUCTURE.doorOpen;
+  for (const c of doorway(s, cell)) s.structure[c] = to;
+}
+
+function toggleValve(s: Pick<GridState, 'conduit'>, cell: number) {
+  s.conduit[cell] = s.conduit[cell] === CONDUIT.valveOpen ? CONDUIT.valveClosed : CONDUIT.valveOpen;
 }
 
 const gridModule = defineModule()({
@@ -79,6 +98,26 @@ const gridModule = defineModule()({
       conduit: ctx.state.conduit,
       back: ctx.state.back,
     }),
+    /**
+     * The structure and conduit layers as they would be after `toggles`, in order, each as its
+     * command would apply it and skipped where it would be refused: what a client shows of its own
+     * toggles before their tick runs (0013). Copies; the world is untouched.
+     */
+    afterToggles(ctx, toggles: readonly Toggle[]) {
+      const s = {
+        width: ctx.state.width,
+        structure: [...ctx.state.structure],
+        conduit: [...ctx.state.conduit],
+      };
+      for (const t of toggles) {
+        if (t.type === 'toggleDoor' && isDoor(s, t.cell)) toggleDoor(s, t.cell);
+        if (t.type === 'toggleValve' && isValve(s, t.cell)) toggleValve(s, t.cell);
+      }
+      return {
+        structure: s.structure,
+        conduit: s.conduit,
+      };
+    },
     /** The stored codes of each layer, for a module reading `layers()` without importing grid's code. */
     codes: () => ({ structure: STRUCTURE, conduit: CONDUIT, back: BACK }),
     structureAt(ctx, cell: number): StructureView {
@@ -192,21 +231,15 @@ const gridModule = defineModule()({
         if (!isDoor(ctx.state, p.cell)) return refuse('grid.noDoor');
       },
       apply(ctx, p: { cell: number }) {
-        const to =
-          ctx.state.structure[p.cell] === STRUCTURE.doorOpen
-            ? STRUCTURE.doorClosed
-            : STRUCTURE.doorOpen;
-        for (const cell of doorway(ctx.state, p.cell)) ctx.state.structure[cell] = to;
+        toggleDoor(ctx.state, p.cell);
       },
     },
     toggleValve: {
       validate(ctx, p: { cell: number }) {
-        const c = ctx.state.conduit[p.cell];
-        if (c !== CONDUIT.valveOpen && c !== CONDUIT.valveClosed) return refuse('grid.noValve');
+        if (!isValve(ctx.state, p.cell)) return refuse('grid.noValve');
       },
       apply(ctx, p: { cell: number }) {
-        ctx.state.conduit[p.cell] =
-          ctx.state.conduit[p.cell] === CONDUIT.valveOpen ? CONDUIT.valveClosed : CONDUIT.valveOpen;
+        toggleValve(ctx.state, p.cell);
       },
     },
   },
