@@ -26,13 +26,19 @@ export interface Target {
   readonly slot?: number;
 }
 
-/** A stack lying on the floor, or floating in space, for anyone to pick up. */
+/** A stack lying on the floor, flying where it was thrown, or floating in space, for anyone to pick up. */
 export interface FloorStack {
   readonly id: number;
   readonly item: Item;
   /** From 1 to the item's stack limit. */
   count: number;
+  /** The cell it is in, kept with its position. */
   cell: number;
+  /** Its bottom middle, and its speed, in thousandths of a cell and per tick. */
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
   /** The peer that dropped it, and on which of the module's ticks: its own may not take it back at once. */
   readonly by: number;
   readonly at: number;

@@ -48,7 +48,10 @@ export function fuzzItems(state: DeepReadonly<ItemsState>, rng: Rng, from: numbe
   if (roll === 0) {
     // Mostly within the wreck's grid; now and then off it.
     const cell = rng.below(10) === 0 ? -1 : rng.below(4600);
-    return { type: 'drop', payload: { src, count, cell } } as const;
+    return {
+      type: 'drop',
+      payload: { src, count, cell, facing: rng.below(2) === 0 ? -1 : 1 },
+    } as const;
   }
   if (roll === 1) {
     const ids = state.floor.map((s) => s.id);

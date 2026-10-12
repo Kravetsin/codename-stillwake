@@ -4,7 +4,7 @@ import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
-import { aimedPiece, buildMode, heroCell, openCrate } from '../../session/ui';
+import { aimedPiece, buildMode, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -14,6 +14,7 @@ import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes, type SentHero } from './remote';
 import { poseOf } from './pose';
 import { pickUpsOf } from './pickup';
+import { createPickUpPopups } from './pickup-popups';
 import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
 import { suitOf } from './suits';
@@ -102,7 +103,8 @@ export const crewFeature: Feature = {
     const sender = createHeroSender((hero) => sendTo?.sendHero(hero));
     const aimView = new Graphics();
     const view = new Container();
-    view.addChild(aimView, others, ownView);
+    const popups = createPickUpPopups();
+    view.addChild(aimView, others, ownView, popups.view);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -140,11 +142,18 @@ export const crewFeature: Feature = {
         const { previous } = hero;
         const current = { ...hero.current, look: out ? 0 : lookOf(hero.current, pointed) };
 
-        // Where a stack let go over the world falls from; and what the hero walks over, it picks up.
+        // Where a stack let go over the world is thrown from, and which way; and what the hero walks
+        // over, it picks up, saying so over its head at once.
         const cell = bodyCell(current, ship.width);
-        if (heroCell.get() !== cell) heroCell.set(cell);
+        const spot = heroSpot.get();
+        if (spot?.cell !== cell || spot.facing !== current.facing) {
+          heroSpot.set({ cell, facing: current.facing });
+        }
         if (!out) {
+          const q = sim.query(items);
           for (const id of pickUpsOf(sim, game.client.id, current, pickingUp(game.client))) {
+            const stack = q.floor().find((s) => s.id === id);
+            if (stack) popups.add(stack.item, q.pickUpAmount(game.client.id, id));
             game.client.send(command(items, 'pickUp', { id }));
           }
         }
@@ -181,6 +190,7 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
+        popups.update(elapsedMs, x, y);
         const aim = pointer && aimAt(sim, game.client.id, current, pointer, grabbing(game.client));
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim, shown);

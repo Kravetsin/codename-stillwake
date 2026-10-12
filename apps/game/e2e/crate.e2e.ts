@@ -92,6 +92,10 @@ test('drops a stack with Q, which the hero picks up again once it may', async ({
   await page.keyboard.press('KeyQ');
   // Gone from the hand at once; on the floor under the hero, its own for a moment.
   await expect(slot).not.toContainText(/\d/);
-  // Then the hero, standing on it, picks it up again.
+  // Thrown ahead of the hero, its own for a moment: walked over after that, it is picked up again.
+  await page.waitForTimeout(2500);
+  // The hero wakes facing left: the stack flew that way.
+  await page.keyboard.down('KeyA');
   await expect(slot).toContainText(String(STARTING_CRATE.steel), { timeout: 10_000 });
+  await page.keyboard.up('KeyA');
 });

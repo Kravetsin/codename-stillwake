@@ -10,6 +10,7 @@ import {
 import type { GridModule } from '../grid';
 import type { RoomsModule } from '../rooms';
 import { layDown, settle } from './floor';
+
 import { fuzzItems } from './fuzz';
 import {
   crateOf,
@@ -25,7 +26,7 @@ import {
   type MoveSides,
   type Slots,
 } from './stacks';
-import type { Cost, ItemsState, Place, Slot, Target } from './state';
+import type { Cost, FloorStack, ItemsState, Place, Slot, Target } from './state';
 
 export type { Cost, FloorStack, Item, ItemsState, Place, Slot, Stack, Target } from './state';
 
@@ -68,6 +69,8 @@ export interface Drop {
   readonly src: Place;
   readonly count: number;
   readonly cell: number;
+  /** The way the hero faces, which it is thrown: -1 left, 1 right. */
+  readonly facing: number;
 }
 
 /** The slots a drop takes from, or why it is refused before its stack is looked at. */
@@ -83,8 +86,17 @@ function pickUpProblem(state: DeepReadonly<ItemsState>, peer: number, id: number
   const stack = state.floor.find((s) => s.id === id);
   if (!stack) return 'items.gone';
   if (stack.by === peer && state.ticks - stack.at < FLOOR.ownPickupDelay) return 'items.tooSoon';
+  return pickUpAmount(state, peer, stack) === 0 ? 'items.full' : undefined;
+}
+
+/** How much of `stack` fits into peer `peer`'s inventory. */
+function pickUpAmount(
+  state: DeepReadonly<ItemsState>,
+  peer: number,
+  stack: DeepReadonly<FloorStack>,
+): number {
   const { left } = placedSome(inventoryOf(state, peer), { [stack.item]: stack.count });
-  return left[0]?.[1] === stack.count ? 'items.full' : undefined;
+  return stack.count - (left[0]?.[1] ?? 0);
 }
 
 /**
@@ -149,6 +161,11 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
     floor: (ctx) => ctx.state.floor,
     /** Why peer `peer`'s `pickUp` of stack `id` would be refused: what the client checks first. */
     pickUpProblem: (ctx, peer: number, id: number) => pickUpProblem(ctx.state, peer, id),
+    /** How much of stack `id` a `pickUp` by peer `peer` would take now; none for no such stack. */
+    pickUpAmount: (ctx, peer: number, id: number) => {
+      const stack = ctx.state.floor.find((s) => s.id === id);
+      return stack ? pickUpAmount(ctx.state, peer, stack) : 0;
+    },
     /**
      * `peer`'s inventory and the crates `moves` touch, as they would be after them, in order, each
      * as `move` would apply it and skipped where it would be refused: what a client shows of its own
@@ -205,14 +222,20 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
       if (isNothing(cost)) return;
       const { slots, left } = placedSome(inventoryOf(ctx.state, peer), cost);
       setInventory(ctx.state, peer, slots);
-      for (const [item, count] of left) layDown(ctx.state, item, count, cell, peer);
+      const { width } = ctx.deps.grid.query.size();
+      for (const [item, count] of left) {
+        layDown(ctx.state, { item, count, cell, vx: 0, width }, peer);
+      }
     },
   },
 
   commands: {
-    /** Drops up to `count` from a slot onto cell `cell`, the sender's, as its client reports it. */
+    /**
+     * Throws up to `count` from a slot from cell `cell`, the sender's as its client reports it, the
+     * way it faces.
+     */
     drop: {
-      validate(ctx, p: { src: Place; count: number; cell: number }) {
+      validate(ctx, p: { src: Place; count: number; cell: number; facing: number }) {
         const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
         const slots = dropSide(slotsOf, ctx.deps.grid.query, p.src);
         if (typeof slots === 'string') return refuse(slots);
@@ -223,11 +246,17 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
           return refuse('items.noCell');
         }
       },
-      apply(ctx, p: { src: Place; count: number; cell: number }) {
+      apply(ctx, p: { src: Place; count: number; cell: number; facing: number }) {
         const done = takenFrom(sideOf(ctx.state, ctx.from, p.src), p.src.slot, p.count);
         if ('refused' in done) throw new Error('items.drop: refused in apply');
         setSide(ctx.state, ctx.from, p.src, done.slots);
-        layDown(ctx.state, done.item, done.count, p.cell, ctx.from);
+        const vx = Math.sign(p.facing) * FLOOR.throwSpeed;
+        const { width } = ctx.deps.grid.query.size();
+        layDown(
+          ctx.state,
+          { item: done.item, count: done.count, cell: p.cell, vx, width },
+          ctx.from,
+        );
       },
     },
     /** Picks up as much of floor stack `id` as fits into the sender's inventory; the rest stays. */

@@ -39,6 +39,18 @@ export const FLOOR = {
    * back. Anyone else may at once.
    */
   ownPickupDelay: 40,
+  /** How fast a stack is thrown forward, and up, in thousandths of a cell a tick: about three cells. */
+  throwSpeed: 200,
+  throwLift: 150,
+  /** Inside the ship: what it gains falling each tick, its fastest fall, and what landing takes off. */
+  gravity: 30,
+  maxFall: 500,
+  friction: 40,
+  /**
+   * Out in space, where nothing falls or slows it, how fast it drifts back past the moving ship as
+   * debris does: past the grid's edge it is gone, thrown away.
+   */
+  spaceDrift: 30,
 } as const satisfies Readonly<Record<string, number>>;
 
 /** A crate, the machine that holds items in place. */

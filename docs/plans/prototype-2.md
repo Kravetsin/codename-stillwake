@@ -217,6 +217,10 @@ falls there instead of being refused.
   refused with `items.gone`, `items.full`, or `items.tooSoon` for its own drop within
   `FLOOR.ownPickupDelay` ticks. Operation `giveOrDrop(peer, cost, cell)`: what does not fit falls.
 - `debris.grab` is no longer refused for a full inventory: the salvage floats at the hero's cell.
+- Asked for after it was built: a stack is thrown a few cells the way the hero faces, falls, slides
+  to a stop, and in space flies on and drifts away past the grid's edge, gone: a way to throw things
+  away. A pick-up says over the hero's head what it took, "Scrap (12)"; a stack at rest bobs with a
+  pale rim, one in space turns. `SAVE_FORMAT` 16.
 - Client: stacks drawn on the floor by their icons; a stack let go over the world, or Q on the
   chosen hotbar slot, drops it at the hero's feet; the hero picks up what it walks over unless the
   sim would refuse it. Drops and pick-ups in flight show at once (0014).

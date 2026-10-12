@@ -21,10 +21,12 @@ export const aimedPiece = createStore<
 export const buildMode = createStore(false);
 
 /**
- * The cell of this player's hero, as `crew` last moved it: where `items` drops a stack let go over
- * the world. Nothing until the hero is placed.
+ * Where this player's hero is, its cell and the way it faces, as `crew` last moved it: where `items`
+ * throws a stack let go over the world from, and which way. Nothing until the hero is placed.
  */
-export const heroCell = createStore<number | undefined>(undefined);
+export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1 | 1 } | undefined>(
+  undefined,
+);
 
 /**
  * Words for what the pointer is on, shown beside it (`PointerTip`): `item` for a stack under it in

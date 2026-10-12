@@ -108,6 +108,15 @@ describe('the floor', () => {
     expect(Number.isSafeInteger(FLOOR.ownPickupDelay) && FLOOR.ownPickupDelay > 0).toBe(true);
     expect(FLOOR.ownPickupDelay).toBeLessThanOrEqual(10 * 20);
   });
+
+  it('throws in whole thousandths a tick, out past the drift, and slows what it throws', () => {
+    for (const value of Object.values(FLOOR))
+      expect(Number.isSafeInteger(value) && value > 0).toBe(true);
+    // Thrown out into space, a stack must leave the ship behind, not drift back onto it.
+    expect(FLOOR.throwSpeed).toBeGreaterThan(FLOOR.spaceDrift);
+    expect(FLOOR.friction).toBeLessThan(FLOOR.throwSpeed);
+    expect(FLOOR.gravity).toBeLessThan(FLOOR.maxFall);
+  });
 });
 
 describe('salvage', () => {

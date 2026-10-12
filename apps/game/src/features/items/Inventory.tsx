@@ -4,7 +4,7 @@ import { t } from '../../i18n/en';
 import { ICON_AUTHORS } from '../../render/item-icons';
 import { ItemIcon } from '../../render/ItemIcon';
 import type { Game } from '../../session/game';
-import { heroCell, openCrate, pointerTip } from '../../session/ui';
+import { heroSpot, openCrate, pointerTip } from '../../session/ui';
 import { clickOn, type Picked } from './click';
 import { ROW, wheelSlot } from './hotbar';
 
@@ -150,11 +150,12 @@ export function Inventory({ game }: { readonly game: Game }) {
     window.addEventListener('mouseup', drop);
     return () => window.removeEventListener('mouseup', drop);
   }, []);
-  // Dropped at the hero's feet: a stack let go over the world, or the chosen hotbar slot's on Q.
+  // Thrown from the hero the way it faces: a stack let go over the world, or the chosen hotbar
+  // slot's on Q.
   const dropFrom = (src: Place, count: number) => {
-    const cell = heroCell.get();
-    if (cell === undefined) return;
-    game.client.send(command(items, 'drop', { src, count, cell }));
+    const spot = heroSpot.get();
+    if (spot === undefined) return;
+    game.client.send(command(items, 'drop', { src, count, cell: spot.cell, facing: spot.facing }));
     setReading(read(game, crate));
   };
   const latest = useRef({ held, dropFrom, chosen, reading });
