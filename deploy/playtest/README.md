@@ -20,6 +20,10 @@ docker save stillwake-playtest:latest | ssh <server> docker load
 
 ## Run it
 
+- **Behind a Cloudflare Tunnel** (as on the toss-it.org VPS): add a public hostname to the tunnel,
+  `stillwake.toss-it.org` to `http://localhost:8080`; copy `compose.tunnel.yml` to the server, put
+  `PLAYTEST_PASSWORD=...` into an `.env` beside it, then `docker compose -f compose.tunnel.yml up -d`.
+  The tunnel gives the name and HTTPS, and passes the relay's WebSocket as it is.
 - **Behind Traefik** (the network `web`, a `letsencrypt` resolver): copy `compose.yml` to the server,
   put `DOMAIN=stillwake.example.com` and `PLAYTEST_PASSWORD=...` into an `.env` beside it, then
   `docker compose up -d`.

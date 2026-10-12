@@ -1,0 +1,12 @@
+# The playtest server on a VPS behind a Cloudflare Tunnel, as toss-it.org runs: the tunnel's public
+# hostname (stillwake.toss-it.org) points at http://localhost:8080. `docker compose -f
+# compose.tunnel.yml up -d` beside an `.env` holding PLAYTEST_PASSWORD.
+services:
+  stillwake:
+    image: stillwake-playtest:latest
+    container_name: stillwake
+    restart: unless-stopped
+    environment:
+      PLAYTEST_PASSWORD: ${PLAYTEST_PASSWORD:?a password keeps the playtest to friends}
+    ports:
+      - 127.0.0.1:8080:8080
