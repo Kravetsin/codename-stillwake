@@ -3,11 +3,14 @@ import { badNetworkFrom, overBadNetwork, type Timing } from './bad-network';
 import type { RelaySocket } from './relay-link';
 import { relayFor } from './relay-socket';
 
-/** Time that moves only when told, and a random draw the test sets. */
-function testTiming() {
+/**
+ * Time that moves only when told, and a random draw the test sets. Timers fire `early` ms before
+ * they are due, as a browser's may by its own clock.
+ */
+function testTiming(early = 0) {
   let now = 0;
   let timers: { at: number; then: () => void }[] = [];
-  const timing: Timing & { draw: number } = {
+  const timing: Timing & { draw: number; now: () => number } = {
     draw: 0,
     now: () => now,
     wait: (ms, then) => void timers.push({ at: now + ms, then }),
@@ -21,7 +24,7 @@ function testTiming() {
         const next = timers.filter((t) => t.at <= to).sort((a, b) => a.at - b.at)[0];
         if (!next) break;
         timers = timers.filter((t) => t !== next);
-        now = next.at;
+        now = next.at - early;
         next.then();
       }
       now = to;
@@ -70,6 +73,15 @@ describe('a bad network', () => {
     expect(f.sent).toEqual([]);
     pass(1000);
     expect(f.sent).toEqual([{ at: 130, event: 'a', data: 1 }]);
+  });
+
+  it('hands a lone message over when its timer fires, however early by the clock', () => {
+    const { timing, pass } = testTiming(0.5);
+    const f = fakeSocket();
+    const bad = overBadNetwork(f.socket, { lag: 100, jitter: 0 }, timing);
+    bad.send('alone', 1);
+    pass(1000);
+    expect(f.sent.map((s) => s.event)).toEqual(['alone']);
   });
 
   it('never hands a message over before the one sent ahead of it', () => {

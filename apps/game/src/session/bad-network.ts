@@ -8,13 +8,11 @@ export interface BadNetwork {
 
 /** What the delays run on: real time in the page, a test's own in tests. */
 export interface Timing {
-  readonly now: () => number;
   readonly wait: (ms: number, then: () => void) => void;
   readonly random: () => number;
 }
 
 const realTiming: Timing = {
-  now: () => performance.now(),
   wait: (ms, then) => void setTimeout(then, ms),
   random: () => Math.random(),
 };
@@ -32,16 +30,17 @@ export function badNetworkFrom(href: string): BadNetwork | undefined {
  * but never before the one that came ahead of it: one TCP stream, which keeps order whatever it costs.
  */
 function delayLine({ lag, jitter }: BadNetwork, timing: Timing) {
-  const due: { at: number; deliver: () => void }[] = [];
-  // Only from the head: one not due yet holds back every one behind it.
-  const flush = () => {
-    const now = timing.now();
-    while (due.length > 0 && (due[0] as { at: number }).at <= now) due.shift()?.deliver();
-  };
+  const line: { ready: boolean; deliver: () => void }[] = [];
   return (deliver: () => void) => {
-    const delay = lag + timing.random() * jitter;
-    due.push({ at: timing.now() + delay, deliver });
-    timing.wait(delay, flush);
+    const entry = { ready: false, deliver };
+    line.push(entry);
+    // Marked by its own timer, not judged by the clock: a browser's timer may fire a hair before
+    // `performance.now` says it is due, and a message judged early would wait for good.
+    timing.wait(lag + timing.random() * jitter, () => {
+      entry.ready = true;
+      // Only from the head: one not ready yet holds back every one behind it.
+      while (line[0]?.ready) line.shift()?.deliver();
+    });
   };
 }
 
