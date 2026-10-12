@@ -7,6 +7,8 @@ import { defineSim } from '../../core/sim';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import { grid, rooms } from '../index';
+import { placed, setCrate } from './stacks';
+import type { ItemsState } from './state';
 import {
   items,
   type Cost,
@@ -46,7 +48,7 @@ const trader = defineModule<[ItemsModule]>()({
 
 const world = defineSim([grid, rooms, items, trader]);
 const ALL: readonly Item[] = ['scrap', 'steel', 'canister'];
-const [SCRAP, STEEL] = [360, 60];
+const [SCRAP, STEEL, CANISTERS] = [360, 60, 3];
 
 const count = (w: Scenario, item: Item, peer = 0) =>
   w
@@ -68,8 +70,14 @@ const empty = (n: number): Slot[] => Array.from({ length: n }, () => null);
 /** A world with no map, peer 0 carrying scrap and steel. */
 const stocked = () => giveItems(scenario(world), 0, { scrap: SCRAP, steel: STEEL });
 
-/** Two crates, machines 1 and 2: the first holds the starting store, the second nothing. */
-const crates = () => scenario(world, parseLayout(['#KK.KK#'], [' s']));
+/** Two crates, machines 1 and 2: the first holds scrap, steel and canisters, the second nothing. */
+const crates = () => {
+  const w = scenario(world, parseLayout(['#KK.KK#']));
+  const slots = placed(empty(CRATE.slots), { scrap: SCRAP, steel: STEEL, canister: CANISTERS });
+  if (!slots) throw new Error('no room');
+  setCrate(w.sim.world.slices.items as ItemsState, 1, slots);
+  return w;
+};
 const move = (w: Scenario, src: Place, dst: Target, n: number, from = 0) =>
   w.do(items, 'move', { src, dst, count: n }, from).run();
 const crate = (w: Scenario, id: number) => w.query(items).crate(id);
@@ -238,7 +246,7 @@ describe('items', () => {
 
   describe('crates', () => {
     it('start with the store in a crate drawn over an s, and nothing in the rest', () => {
-      const w = crates();
+      const w = scenario(world, parseLayout(['#KK.KK#'], [' s']));
       expect(
         w
           .query(grid)
@@ -248,12 +256,8 @@ describe('items', () => {
         [1, 'crate'],
         [2, 'crate'],
       ]);
-      expect(crate(w, 1)).toEqual([
-        { item: 'scrap', count: STARTING_CRATE.scrap },
-        { item: 'steel', count: STARTING_CRATE.steel },
-        { item: 'canister', count: STARTING_CRATE.canister },
-        ...empty(CRATE.slots - 3),
-      ]);
+      const store = Object.entries(STARTING_CRATE).map(([item, count]) => ({ item, count }));
+      expect(crate(w, 1)).toEqual([...store, ...empty(CRATE.slots - store.length)]);
       expect(crate(w, 2)).toEqual(empty(CRATE.slots));
       expect(stored(w).crates).toEqual([1]);
       expect(() => world.create(1, parseLayout(['#KK.'], ['   s']))).toThrow(
@@ -302,7 +306,7 @@ describe('items', () => {
       move(w, { crate: 1, slot: 2 }, {}, 999, 1);
       expect(w.query(items).inventory(1)[0]).toEqual({
         item: 'canister',
-        count: STARTING_CRATE.canister,
+        count: CANISTERS,
       });
     });
 
@@ -313,7 +317,7 @@ describe('items', () => {
       expect(w.refusals).toEqual([]);
       expect(w.query(items).inventory(0)[8]).toEqual({ item: 'steel', count: 7 });
       expect(w.query(items).inventory(0)[0]).toBeNull();
-      expect(crate(w, 2)[0]).toEqual({ item: 'canister', count: STARTING_CRATE.canister });
+      expect(crate(w, 2)[0]).toEqual({ item: 'canister', count: CANISTERS });
       expect(stored(w).crates).toEqual([1, 2]);
     });
 
@@ -322,11 +326,7 @@ describe('items', () => {
       for (const slot of [0, 1, 2]) move(w, { crate: 1, slot }, {}, 999);
       expect(w.refusals).toEqual([]);
       expect(stored(w).crates).toEqual([]);
-      expect(totals(w)).toEqual([
-        STARTING_CRATE.scrap,
-        STARTING_CRATE.steel,
-        STARTING_CRATE.canister,
-      ]);
+      expect(totals(w)).toEqual([SCRAP, STEEL, CANISTERS]);
     });
 
     it('give the last stack to the first of two heroes taking it on one tick', () => {
@@ -335,10 +335,7 @@ describe('items', () => {
         .do(items, 'move', { src: { crate: 1, slot: 2 }, dst: {}, count: 999 }, 1)
         .run();
       expect(w.refusals).toEqual(['items.empty']);
-      expect([count(w, 'canister', 2), count(w, 'canister', 1)]).toEqual([
-        STARTING_CRATE.canister,
-        0,
-      ]);
+      expect([count(w, 'canister', 2), count(w, 'canister', 1)]).toEqual([CANISTERS, 0]);
     });
 
     it('refuse a move from nothing, onto no room, of no crate or of no slot', () => {

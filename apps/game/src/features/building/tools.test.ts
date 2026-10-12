@@ -21,6 +21,7 @@ describe('the toolbar', () => {
       'pipe',
       'valve',
       'tank',
+      'generator',
       'vent',
       'crate',
       'deconstruct',

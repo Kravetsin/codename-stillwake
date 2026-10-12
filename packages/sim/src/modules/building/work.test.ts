@@ -5,6 +5,7 @@ import {
   ITEMS,
   MACHINES,
   MATERIALS,
+  STARTING_CRATE,
 } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -266,7 +267,7 @@ describe('building by hand', () => {
     const CRATE_ROOM = parseLayout(['#KK.#'], [' s']);
     const crateTicks = apartTicks(MACHINES.crate.buildTicks);
     const empty = (w: Scenario) => {
-      for (const slot of [0, 1, 2]) {
+      for (const slot of Object.keys(STARTING_CRATE).keys()) {
         w.do(items, 'move', { src: { crate: 1, slot }, dst: {}, count: 999 }, 1);
       }
       return w.run();

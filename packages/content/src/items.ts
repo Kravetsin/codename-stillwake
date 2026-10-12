@@ -60,10 +60,10 @@ export const CRATE = {
 
 /**
  * What a crate drawn over an `s` on the map under the map holds when the game starts, in whole
- * units: the wreck's whole store. Enough for the first few rooms before salvage pays for more.
+ * units: the wreck's whole store. Enough to patch room B, pipe a vent into it and build one more
+ * generator; all else comes from salvage.
  */
 export const STARTING_CRATE = {
-  scrap: 360,
-  steel: 60,
-  canister: 3,
+  scrap: 30,
+  steel: 6,
 } as const satisfies Readonly<Partial<Record<ItemId, number>>>;

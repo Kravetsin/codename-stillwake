@@ -478,6 +478,7 @@ describe('rooms air', () => {
       aired: VOLUME,
       leak,
       oxygen: held,
+      made: 0,
       lasts: Math.floor((held * AIR.leakEvery) / leak),
       problem: undefined,
     });

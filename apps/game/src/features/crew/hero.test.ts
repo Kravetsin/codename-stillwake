@@ -471,21 +471,13 @@ describe('hero controller', () => {
     const [spawn] = cellsOf(wreck, 'S');
     if (spawn === undefined) throw new Error('the wreck has no S');
 
-    // From room B, where the hero wakes, through the doorway into room A.
-    let h = settle(opened, heroAt(opened, spawn), left);
+    // From room A, where the hero wakes, through the doorway across room B to its far wall.
+    const h = settle(opened, heroAt(opened, spawn), left);
     expect(h.x).toBe(31 * UNIT + HALF);
     expect(h.y).toBe(23 * UNIT);
 
-    // Back to the hatch, down the ladder to room C's floor, and up again.
-    h = until(opened, h, right, (x) => column(x) === 42);
-    h = settle(opened, stepHero(h, down, opened), down);
-    expect(h.y).toBe(32 * UNIT);
-    h = settle(opened, stepHero(h, up, opened), up);
-    expect(h.y).toBe(23 * UNIT);
-
-    // With the hatch closed, the hero stands on it.
-    const shut = until(ship, heroAt(ship, spawn), left, (x) => column(x) === 42);
-    expect(settle(ship, stepHero(shut, down, ship), down).y).toBe(23 * UNIT);
+    // With the doorway closed, the hero stops at it, past the generator.
+    expect(settle(ship, heroAt(ship, spawn), left).x).toBe(46 * UNIT + HALF);
   });
 
   describe('in space', () => {
@@ -515,7 +507,7 @@ describe('hero controller', () => {
       h = { ...h, x: width * UNIT - HALF, y: 23 * UNIT };
       h = stepHero(stepHero(h, up, opened), up, opened);
       expect(h.y).toBe(23 * UNIT - 2 * HERO.swim);
-      h = until(opened, h, left, (x) => column(x) === 58);
+      h = until(opened, h, left, (x) => column(x) === 56);
       h = settle(opened, h, still);
       expect(h.y).toBe(23 * UNIT);
       expect(h.vy).toBe(0);

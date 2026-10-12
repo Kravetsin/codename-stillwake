@@ -14,6 +14,7 @@ export const LEGEND = {
   v: 'valve, open',
   x: 'valve, closed',
   T: 'oxygen tank: draw its whole footprint',
+  G: 'oxygen generator: draw its whole footprint',
   V: 'vent',
   K: 'crate: draw its whole footprint',
   S: 'where the hero wakes',

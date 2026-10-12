@@ -6,17 +6,7 @@ import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import {
-  atmosphere,
-  building,
-  crew,
-  grid,
-  MODULES,
-  rooms,
-  items,
-  stillwake as world,
-  wreck,
-} from '../index';
+import { atmosphere, building, grid, MODULES, rooms, items, stillwake as world } from '../index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -249,26 +239,55 @@ describe('air machines', () => {
     expect(w.sim.world.slices.atmosphere).toMatchObject({ tanks: [] });
     expect(w.query(atmosphere).oxygenIn(tank)).toBe(0);
   });
+});
 
-  it('airs room B of the wreck from the start, from a tank piped to its vent', () => {
-    const sim = world.create(1, wreck);
-    const tank = sim
+describe('generators', () => {
+  /** ROOM with a generator in place of the tank: its port is its bottom-left cell too. */
+  const GENERATED = ROOM.replace(/TT/g, 'GG');
+  /** Ticks between two units a generator makes. */
+  const EVERY = AIR.leakEvery / AIR.generatorRate;
+  const store = (w: Scenario, id: number) => w.query(atmosphere).oxygenIn(id);
+  const generatorOf = (w: Scenario) =>
+    w
       .query(grid)
       .machines()
-      .find((m) => m.kind === 'tank');
-    if (!tank) throw new Error('no tank');
-    expect(sim.query(atmosphere).oxygenIn(tank.id)).toBe(AIR.canister);
-    const statuses = () =>
-      sim
-        .query(rooms)
-        .rooms()
-        .map((room) => sim.query(atmosphere).roomStatus(room.id));
-    // Room A holds the tank but no vent, the airlock neither; room C is open through its breach.
-    expect(statuses()).toEqual(['vacuum', 'filling', 'vacuum', 'venting']);
-    const b = sim.query(rooms).rooms()[1];
-    for (let i = 0; i < (b?.volume ?? 0) * AIR.ticksPerCell; i++) sim.step([]);
-    expect(statuses()).toEqual(['vacuum', 'aired', 'vacuum', 'venting']);
-    const spawn = sim.query(crew).spawn();
-    expect(sim.query(rooms).roomAt(spawn)).toBe(b?.id);
+      .find((m) => m.kind === 'generator')?.id ?? 0;
+  const surveyOf = (w: Scenario, room: number) =>
+    w
+      .query(atmosphere)
+      .roomsAir()
+      .find((r) => r.room === room);
+
+  it('makes oxygen into a store of its own, a unit every few ticks, up to the store', () => {
+    const { w } = setUp(GENERATED);
+    const id = generatorOf(w);
+    w.run(10 * EVERY);
+    expect(store(w, id)).toBe(10);
+    w.run(AIR.generatorStore * EVERY);
+    expect(store(w, id)).toBe(AIR.generatorStore);
+  });
+
+  it('fills the room its vent stands in, never dry while its store sits empty', () => {
+    const { w, room, pipeUp } = setUp(GENERATED);
+    pipeUp();
+    const statuses = new Set<string>();
+    for (let i = 0; i < 15 * EVERY; i++) {
+      w.run();
+      statuses.add(w.query(atmosphere).roomStatus(room));
+    }
+    expect([...statuses]).toEqual(['filling']);
+    // A cell a unit, less what the hull leaked meanwhile.
+    expect(w.query(atmosphere).airedCells().length).toBeGreaterThan(10);
+    expect(surveyOf(w, room)).toMatchObject({ made: AIR.generatorRate, problem: undefined });
+    for (let i = 0; i < 100 * EVERY && w.query(atmosphere).roomStatus(room) !== 'aired'; i++) {
+      w.run();
+    }
+    expect(surveyOf(w, room)).toMatchObject({ status: 'aired', lasts: undefined });
+  });
+
+  it('takes no canister: it is no tank', () => {
+    const { w } = setUp(GENERATED);
+    w.do(atmosphere, 'loadCanister', { tank: generatorOf(w) }).run();
+    expect(w.refusals).toEqual(['atmosphere.noTank']);
   });
 });

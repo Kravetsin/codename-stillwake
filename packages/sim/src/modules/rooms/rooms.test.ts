@@ -5,7 +5,7 @@ import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { BACK, building, grid, MODULES, rooms, stillwake as world, wreck } from '../index';
+import { BACK, building, grid, MODULES, rooms, stillwake as world } from '../index';
 
 /** Every room as [id, volume], and what each cell of the map is: a room's id, space or solid. */
 const summary = (w: Scenario) =>
@@ -255,13 +255,6 @@ describe('rooms', () => {
     const found = w.query(rooms).rooms();
     w.run(20).do(grid, 'toggleValve', { cell: 2 }).run();
     expect(w.query(rooms).rooms()).toBe(found);
-  });
-
-  it('finds four rooms on the wreck, the airlock among them, and room C open through its breach', () => {
-    const found = world.create(1, wreck).query(rooms).rooms();
-    const at = (x: number, y: number) => y * wreck.width + x;
-    expect(found.map((r) => r.id)).toEqual([at(31, 17), at(40, 17), at(57, 20), at(40, 24)]);
-    expect(found.map((r) => r.openings)).toEqual([[], [], [], [at(56, 28)]]);
   });
 
   it('opens a room behind wherever a cell of it has no back wall, and closes it once one is built', () => {

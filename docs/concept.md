@@ -14,7 +14,8 @@ A living document: what is decided about the game and what is still open. Techni
 ## Decided
 
 - **Start:** the hero is left alive in a wreck, a fragment of a ship, and has to make it livable to
-  survive.
+  survive: one small room a weak oxygen generator holds, a breached room beside it, and almost
+  nothing in store ([0016](decisions/0016-breathe-where-the-air-is.md)).
 - **Spacewalks:** on a tether from the hull at first; a jetpack later frees the hero from it.
 - **Dangers:** yes — the game can hurt you. Which ones is open.
 - **Time runs only while the game runs.** Nothing happens offline and there is no offline progress,
@@ -29,7 +30,7 @@ A living document: what is decided about the game and what is still open. Techni
   room is a space closed by walls and closed doors around it and back walls behind it, recomputed
   only when something is built, broken or a door moves; a cell holds air or not, and a room's air
   gathers around its vents and stays where it is ([0011](decisions/0011-air-lies-around-the-vents.md)).
-  A hero breathes room air in any room holding some, and the suit refills there; the tanks behind
+  A hero breathes room air standing where it is, and the suit refills there; the tanks behind
   the room's vents pay for each breath, and without them the breath takes a cell from the patch's
   far edge. A breach or a door left open to space makes a room vent: its air goes and its network
   drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty

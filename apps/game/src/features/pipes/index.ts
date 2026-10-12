@@ -26,17 +26,17 @@ function litPipes(): Layer {
       since = 0;
       const { sim } = game.client;
       const { width } = sim.query(grid).size();
-      const tanks = new Set(
+      const kinds = new Map(
         sim
           .query(grid)
           .machines()
-          .filter((m) => m.kind === 'tank')
-          .map((m) => m.id),
+          .map((m) => [m.id, m.kind]),
       );
-      const lit = litNetworks(
-        sim.query(pipes).networks(),
-        (m) => tanks.has(m),
-        (tank) => sim.query(atmosphere).oxygenIn(tank),
+      // A tank holding oxygen feeds its pipes; a generator always does, its store empty or not.
+      const lit = litNetworks(sim.query(pipes).networks(), (m) =>
+        kinds.get(m) === 'generator'
+          ? true
+          : kinds.get(m) === 'tank' && sim.query(atmosphere).oxygenIn(m) > 0,
       );
       const key = lit.map((n) => n.cells.join(',')).join('|');
       if (key === shown) return;

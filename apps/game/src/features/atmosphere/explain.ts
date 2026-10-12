@@ -10,14 +10,28 @@ export function span(ticks: number): string {
     : t('time.minutes', { n: Math.floor(seconds / 60) });
 }
 
+/** What `breathers` heroes breathe a minute, a breath a unit. */
+const breathing = (breathers: number) => (breathers * AIR.leakEvery) / CREW.breathEvery;
+
 /**
  * How long `units` of oxygen last a room leaking `leak` a minute with `breathers` heroes breathing in
  * it, a breath a unit; `∞` when nothing draws. A forecast for the player, not a rule: a suit's refill
  * and other rooms on the same pipes are left out.
  */
 function lasting(units: number, leak: number, breathers: number): string {
-  const perMinute = leak + (breathers * AIR.leakEvery) / CREW.breathEvery;
+  const perMinute = leak + breathing(breathers);
   return perMinute > 0 ? span(Math.floor((units * AIR.leakEvery) / perMinute)) : '∞';
+}
+
+/**
+ * Whether a room's generators keep up with its leak and its breathers, and by how much a minute; or,
+ * falling short, how long its air and their stores last the difference.
+ */
+function generated(air: RoomAir, breathers: number): string {
+  const spare = air.made - air.leak - breathing(breathers);
+  return spare >= 0
+    ? t('air.keepsUp', { n: Math.floor(spare) })
+    : t('air.fallsShort', { time: lasting(air.oxygen + air.aired, -spare, 0) });
 }
 
 /**
@@ -29,14 +43,19 @@ export function explain(air: RoomAir, volume: number, breathers = 0): string[] {
   const { oxygen, leak } = air;
   // With no supply, the room lives on its own air.
   const lasts =
-    oxygen > 0
-      ? t('air.lasts', { oxygen, time: lasting(oxygen, leak, breathers) })
-      : t('air.lastsNot', { time: lasting(air.aired, leak, breathers) });
+    air.made > 0
+      ? generated(air, breathers)
+      : oxygen > 0
+        ? t('air.lasts', { oxygen, time: lasting(oxygen, leak, breathers) })
+        : t('air.lastsNot', { time: lasting(air.aired, leak, breathers) });
   switch (air.status) {
     case 'aired':
       return [t('air.aired', { cells: volume }), lasts];
     case 'filling':
-      return [t('air.filling', { aired: air.aired, cells: volume }), t('air.pipes', { oxygen })];
+      return [
+        t('air.filling', { aired: air.aired, cells: volume }),
+        air.made > 0 ? lasts : t('air.pipes', { oxygen }),
+      ];
     case 'venting':
       // With no piped vent in it, nothing drains: there are no pipes to speak of.
       return [

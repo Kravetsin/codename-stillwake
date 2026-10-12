@@ -8,6 +8,7 @@ const room = (air: Partial<RoomAir>): RoomAir => ({
   aired: 0,
   leak: 0,
   oxygen: 0,
+  made: 0,
   lasts: undefined,
   problem: undefined,
   ...air,

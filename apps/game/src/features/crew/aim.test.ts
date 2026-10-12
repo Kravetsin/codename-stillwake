@@ -102,7 +102,7 @@ describe('aiming', () => {
   });
 
   it('puts a canister into a tank on a press, or carries why it cannot', () => {
-    const tanked = withStore(`
+    const tanked = worldFrom(`
       ########
       #TT....#
       #TT....#
@@ -110,17 +110,14 @@ describe('aiming', () => {
     `);
     const tank = tanked.query(grid).machineAt(at(1, 1));
     if (!tank) throw new Error('no tank');
-    const aim = aimAt(tanked, 0, heroOn(3, 2), centre(2, 2));
-    expect(aim?.press).toEqual({
+    // Carrying none, the hero is told why.
+    expect(aimAt(tanked, 0, heroOn(3, 2), centre(2, 2))?.press).toEqual({
       command: command(atmosphere, 'loadCanister', { tank: tank.id }),
-      problem: undefined,
+      problem: 'items.notEnough',
     });
-    for (let i = 0; i < STARTING_CRATE.canister; i++) {
-      tanked.step([command(atmosphere, 'loadCanister', { tank: tank.id })]);
-    }
-    expect(aimAt(tanked, 0, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('items.notEnough');
-    // The canisters were this hero's: another, carrying none, gets the same answer.
-    expect(aimAt(tanked, 1, heroOn(3, 2), centre(2, 2))?.press?.problem).toBe('items.notEnough');
+    // In creative mode a canister is free.
+    tanked.step([command(items, 'setCreative', { on: true })]);
+    expect(aimAt(tanked, 0, heroOn(3, 2), centre(2, 2))?.press?.problem).toBeUndefined();
   });
 
   it('reaches cells whose middle is at most the reach from the middle of the body', () => {
@@ -206,7 +203,6 @@ describe('the wreck, worked with E', () => {
   const still: Input = { x: 0, y: 0, jump: false };
   const left: Input = { ...still, x: -1 };
   const right: Input = { ...still, x: 1 };
-  const down: Input = { ...still, y: 1 };
 
   it('keeps the hero behind closed doors until they are toggled through the session', () => {
     const { host, client } = localSession(stillwake.create(1, wreck));
@@ -226,21 +222,19 @@ describe('the wreck, worked with E', () => {
     const [spawn] = cellsOf(wreck, 'S');
     if (spawn === undefined) throw new Error('the wreck has no S');
 
-    // Along room B, where the hero wakes: the closed doorway to room A stops the hero, until opened.
+    // Along room A, where the hero wakes: the closed doorway to room B stops the hero, until opened.
     let h = run(heroAt(ship(), spawn), left, 120);
-    expect(h.x).toBe(40 * UNIT + HERO.width / 2);
-    use(h, 39, 22);
+    expect(h.x).toBe(46 * UNIT + HERO.width / 2);
+    use(h, 45, 22);
     h = run(h, left, 300);
     expect(h.x).toBe(31 * UNIT + HERO.width / 2);
 
-    // Back over the hatch: closed, it holds the hero up; opened, the ladder leads down to room C.
-    for (let i = 0; i < 400 && Math.floor(h.x / UNIT) !== 42; i++) h = stepHero(h, right, ship());
-    expect(Math.floor(h.x / UNIT)).toBe(42);
-    h = run(h, down, 60);
-    expect(h.y).toBe(23 * UNIT);
-    use(h, 42, 23);
-    h = run(h, down, 300);
-    expect(h.y).toBe(32 * UNIT);
+    // Back the other way, the airlock's inner doorway stops the hero, until opened.
+    h = run(h, right, 400);
+    expect(h.x).toBe(54 * UNIT - HERO.width / 2);
+    use(h, 54, 22);
+    h = run(h, right, 60);
+    expect(h.x).toBe(57 * UNIT - HERO.width / 2);
   });
 
   it('lets the hero through a door its own toggle opened, before the host’s tick runs it', () => {
@@ -250,7 +244,7 @@ describe('the wreck, worked with E', () => {
     const ship = () => shipOf(client.sim, predictedGrid(client).structure);
     let h = heroAt(ship(), spawn);
     for (let i = 0; i < 120; i++) h = stepHero(h, left, ship());
-    const aim = aimAt(client.sim, 0, h, centre(39, 22));
+    const aim = aimAt(client.sim, 0, h, centre(45, 22));
     if (aim?.press) client.send(aim.press.command);
     // Sent, not released: the world still has the doorway shut.
     expect(shipOf(client.sim).structure).not.toEqual(ship().structure);

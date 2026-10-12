@@ -1,5 +1,5 @@
 import { HERO } from '@stillwake/content';
-import { command, crew, grid, parseLayout, stillwake, type Sim } from '@stillwake/sim';
+import { atmosphere, command, crew, grid, parseLayout, stillwake, type Sim } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { bodyCell, UNIT, type Hero } from './hero';
 import { reportOf } from './report';
@@ -37,6 +37,23 @@ describe('telling the sim where the hero is', () => {
     tell(s, heroIn(1, 4));
     expect(reportOf(s, 0, heroIn(3, 4))).toBeUndefined();
     expect(reportOf(s, 0, heroIn(6, 4))).toEqual(command(crew, 'enter', { cell: at(6, 3) }));
+  });
+
+  it('enters again on crossing the edge of the air inside one room', () => {
+    // A generator piped to a vent: the air spreads from the vent, nearest cells first.
+    const s = stillwake.create(
+      1,
+      parseLayout(
+        ['.........', '#########', '#V......#', '#GG.....#', '#GG.....#', '#########'],
+        ['', '', ' -', ' -', ' -'],
+      ),
+    );
+    const air = () => s.query(atmosphere);
+    for (let i = 0; i < 600 && !air().airedAt(at(5, 3)); i++) s.step([]);
+    expect(air().airedAt(at(7, 3))).toBe(false);
+    tell(s, heroIn(3, 4));
+    expect(reportOf(s, 0, heroIn(2, 4))).toBeUndefined();
+    expect(reportOf(s, 0, heroIn(7, 4))).toEqual(command(crew, 'enter', { cell: at(7, 3) }));
   });
 
   it('notices a crossing through a door that is then shut, though the rooms are renamed', () => {

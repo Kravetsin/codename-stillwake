@@ -1,7 +1,7 @@
 # crew
 
-Heroes inside the sim: where each one is, as its client says, and how it breathes — room air in a room
-holding any, the suit anywhere else, passing out when the suit runs dry.
+Heroes inside the sim: where each one is, as its client says, and how it breathes — room air in a cell
+holding it, the suit anywhere else, passing out when the suit runs dry.
 
 - **Depends on:** `atmosphere` (its `breathe` operation decides whether a cell's room has air and takes it).
 - **State:** `spawn` — the map's first `S`, or cell 0 on a map without one; `clock` — ticks run, for
@@ -12,14 +12,15 @@ holding any, the suit anywhere else, passing out when the suit runs dry.
 
 - A hero is named by the peer that plays it: the sender the host stamps on its commands (`ctx.from`).
 - `enter { cell }` puts the sender's hero at `cell`; the first one brings it in with a full suit. The
-  client sends it whenever the sim has no such hero or places it in another room than its body is in,
-  comparing the rooms of both cells every frame (a door renames rooms, so ids are never remembered);
+  client sends it whenever the sim has no such hero, places it in another room than its body is in,
+  or on the other side of the air's edge, comparing both cells every frame (a door renames rooms, so
+  ids are never remembered);
   the sim resolves the room from the cell at every breath. Later ones never refill the suit. Passed
   out, a hero's client sends no other command.
 - Every `CREW.breathEvery` ticks, in hero id order, each conscious hero draws through
   `atmosphere.breathe` one unit for the breath and up to `CREW.refill` more for what its suit lacks.
-  Anything taken pays the breath and the rest tops up the suit; nothing taken (a room with no air,
-  or none) takes the breath from the suit. Room air is taken as `atmosphere` says: paid by its
+  Anything taken pays the breath and the rest tops up the suit; nothing taken (a cell with no air)
+  takes the breath from the suit. Room air is taken as `atmosphere` says: paid by its
   tanks, or from the far edge of the room's air, so a room without supply runs out under its heroes.
 - **Suit colours** tell heroes apart: `CREW.colours` of them. A hero coming in wears the first colour
   no hero wears, or with all worn, the least worn (the first on a tie). `pickColour { colour }` puts

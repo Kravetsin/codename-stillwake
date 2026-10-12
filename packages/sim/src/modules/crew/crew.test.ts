@@ -91,7 +91,7 @@ describe('crew', () => {
     expect(hero(w)).toEqual({ hero: 0, cell: at(4, 1), suit: CREW.suit, out: 0, colour: 0 });
   });
 
-  it('breathes room air in a room holding any, refilling the suit, paid by the tank', () => {
+  it('breathes room air standing in it, refilling the suit, paid by the tank', () => {
     const { w, tank, room } = setUp(3);
     w.do(crew, 'enter', { cell: OUTSIDE }).run();
     breaths(w, 10);
@@ -112,7 +112,7 @@ describe('crew', () => {
     expect(hero(w)?.suit).toBe(CREW.suit);
   });
 
-  it('breathes the far edge of the air when no tank pays, wherever it stands', () => {
+  it('breathes the far edge of the air when no tank pays', () => {
     const { w, room } = setUp(1);
     airUp(w, room);
     // The vent's pipe cut: nothing pays, nothing fills.
@@ -126,19 +126,19 @@ describe('crew', () => {
     expect(aired(w)).toHaveLength(21 - 1 - leaked(LEAK, clock, airClock(w)));
   });
 
-  it('breathes while its room holds a cell of air, then from the suit', () => {
+  it('breathes room air only in a cell holding it: past the edge of the air, from the suit', () => {
     const { w, room } = setUp(1);
     airUp(w, room);
     w.do(builder, 'clear', { cell: at(1, 2), layer: 'conduit' }).run();
-    // At the far end, where the air goes first: still in a room holding air.
+    // At the far end, where the air goes first.
     w.do(crew, 'enter', { cell: at(7, 3) }).run();
-    for (let i = 0; i < 30 && aired(w).length > 0; i++) breaths(w, 1);
-    expect(aired(w)).toEqual([]);
-    // The last breath may have found the room just emptied by the leak.
-    expect(hero(w)?.suit).toBeGreaterThanOrEqual(CREW.suit - 1);
+    for (let i = 0; i < 30 && aired(w).includes(at(7, 3)); i++) breaths(w, 1);
+    expect(aired(w)).not.toContain(at(7, 3));
     const suit = hero(w)?.suit ?? 0;
     breaths(w, 2);
     expect(hero(w)?.suit).toBe(suit - 2);
+    // The room still holds air nearer the vent.
+    expect(aired(w).length).toBeGreaterThan(10);
   });
 
   it('falls back on the suit once the room starts venting', () => {

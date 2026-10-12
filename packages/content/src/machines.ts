@@ -16,6 +16,13 @@ export const MACHINES = {
     cost: { scrap: 4, steel: 4 },
     buildTicks: 160,
   },
+  generator: {
+    width: 2,
+    height: 2,
+    ports: [{ x: 0, y: 1 }],
+    cost: { scrap: 8, steel: 6 },
+    buildTicks: 200,
+  },
   vent: { width: 1, height: 1, ports: [{ x: 0, y: 0 }], cost: { scrap: 2 }, buildTicks: 60 },
   crate: { width: 2, height: 1, ports: [], cost: { scrap: 6 }, buildTicks: 40 },
 } as const satisfies Readonly<Record<string, MachineSpec>>;

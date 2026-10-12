@@ -1,11 +1,10 @@
 /**
- * The starting wreck: two decks of a broken-off ship section in open space. Room A holds a tank and
- * opens into room B, which holds a vent, through a doorway three cells tall; a hatch in B's floor
- * leads down a ladder to room C, whose right wall has a breach one cell tall. The hero wakes in room
- * B, which the tank airs from the start; an airlock off its right end, a closet between two closed
- * doorways, is the way outside. A crate beside the vent holds the starting store. Rows are read as
- * written and padded with space to the first, the widest: the space around the wreck, 192 × 96
- * cells, is room to build and to swim in, its edge too far for a tether to reach.
+ * The starting wreck: one deck of a broken-off ship section in open space. The hero wakes in room A,
+ * small, aired by a generator piped to its vent; a crate beside them holds the starting store. Behind
+ * a closed doorway on the left is room B, a hole one cell tall in its hull: open the door and A's air
+ * is gone. An airlock off A's right end, a closet between two closed doorways, is the way outside.
+ * Rows are read as written and padded with space to the first, the widest: the space around the
+ * wreck, 192 × 96 cells, is room to build and to swim in, its edge too far for a tether to reach.
  */
 export const WRECK: readonly string[] = [
   '                                                                                                                                                                                                ',
@@ -24,23 +23,23 @@ export const WRECK: readonly string[] = [
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
-  '                              ###########################                                       ',
-  '                              #........#................#                                       ',
-  '                              #........#................#                                       ',
-  '                              #........#................####                                    ',
-  '                              #........D................D..D                                    ',
-  '                              #TT......D................D..D                                    ',
-  '                              #TT......D.....S.V.KK.....D..D                                    ',
-  '                              ############D#################                                    ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............                                        ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............#                                       ',
-  '                                       #..H.............#                                       ',
-  '                                       ##################                                       ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                              #########################                                         ',
+  '                              #..............#........####                                      ',
+  '                              #..............D........D..D                                      ',
+  '                               ..............DGG......D..D                                      ',
+  '                              #..............DGGV.S.KKD..D                                      ',
+  '                              ############################                                      ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
+  '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
@@ -106,10 +105,7 @@ export const WRECK: readonly string[] = [
   '',
 ];
 
-/**
- * Under the wreck: a pipe from the tank's port to the vent, a canister's worth in the tank, and the
- * starting store in the crate.
- */
+/** Under the wreck: a pipe from the generator's port to the vent, and the starting store in the crate. */
 export const WRECK_UNDER: readonly string[] = [
   '',
   '',
@@ -132,6 +128,6 @@ export const WRECK_UNDER: readonly string[] = [
   '',
   '',
   '',
-  '                               o',
-  '                               -----------------  s',
+  '',
+  '                                              ---   s',
 ];

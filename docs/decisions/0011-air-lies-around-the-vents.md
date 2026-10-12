@@ -1,6 +1,6 @@
 # 0011 — Air lies around the vents, and a hero breathes it while the room holds any
 
-- Status: accepted
+- Status: accepted; its breathing rule superseded by [0016](0016-breathe-where-the-air-is.md)
 - Date: 2026-10-11
 
 ## Context

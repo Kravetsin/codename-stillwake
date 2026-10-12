@@ -22,9 +22,9 @@ Decisions: [0006](../decisions/0006-debris-in-the-simulation.md) (debris in the 
 - **Debris piece:** a thing drifting outside, in the `debris` slice. **Salvage item:** what a caught
   piece becomes in an inventory, one of the salvage kinds in `ITEMS`, taken apart into its yields.
 - **Place:** where a stack is, `{ crate?: id, slot }`; no crate means the sender's own inventory.
-- **The wreck's rooms:** A (the tank), B (the vent, where the hero wakes, aired from the start), C
-  (the breach), and the airlock off B's right end. "Two more rooms aired" means two besides B and
-  the airlock, A and C or new ones.
+- **The wreck's rooms** (since P2-07): A (the generator and its vent, where the hero wakes), B
+  beside it (the breach), and the airlock off A's right end. "Two more rooms aired" means two besides
+  A and the airlock, B or new ones.
 
 ## How to work through it
 
@@ -246,12 +246,17 @@ draws every tether as a line, hidden with its hero.
 Done when: controller tests: the anchor, the body's middle never past `HERO.tether` from it, sliding
 along the limit, the clearing; a second window draws the other player's tether.
 
-**P2-07 · Airlock and a scarce start** · S · content · after P2-01, P2-03
-The airlock P2-01 drew, proven; `STARTING_CRATE` cut so that two more rooms, back walls included,
-cannot be aired without salvage.
-Done when: scenarios on the wreck — outer doorway open, room B stays aired; outer closed and inner
-opened, the closet's six cells are aired within six ticks; both open, B vents — and a new player
-cycles the airlock without venting B.
+**P2-07 · A generator and a scarce start** · M · sim `atmosphere`, `crew`, content, client, ADR
+0016 · after P2-04f, replacing "airlock and a scarce start" after a talk on the start
+A hero breathes room air only in a cell holding it. A generator machine makes oxygen at a fixed rate
+into a small store of its own, among the tanks; its room reads as filling. The wreck is one deck:
+room A with the generator, vent, crate and spawn, an airlock off it, and room B behind a closed
+doorway with a breach; room C, the tank and the canisters go. `STARTING_CRATE` holds what patches
+B and builds one more generator; the rest of the store goes once salvage can be processed.
+Done when: scenarios on the wreck — A aired within 15 s; two heroes, one refilling, keep A whole;
+four outrun it; the door to B empties A within a few ticks; the airlock cycles without A losing a
+cell; walling the breach seals B — scenarios for the breathing rule and the generator, the client
+reporting a crossing of the air's edge, and the air overlay counting generators.
 
 **P2-08 · Playtest** · S · after P2-07
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.

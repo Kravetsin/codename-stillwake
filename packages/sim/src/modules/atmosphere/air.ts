@@ -8,7 +8,7 @@ import type { Orders } from './order';
 export type RoomStatus = 'vacuum' | 'filling' | 'aired' | 'venting';
 
 /**
- * The oxygen a tank holds, by machine id; the aired cells, sorted. A cell of air is a unit of
+ * The oxygen each tank or generator holds, by machine id; the aired cells, sorted. A cell of air is a unit of
  * oxygen. Air stays where it is: vents air the first empty cell of their room's order (`order.ts`),
  * and whatever takes air takes the last aired one.
  */
@@ -32,8 +32,10 @@ export interface World {
 interface Survey {
   /** The networks of the vents standing in each room, or in space, in vent id order. */
   readonly ventsIn: Map<number | 'space', number[]>;
-  /** The tanks on each network, in id order. */
+  /** The tanks and generators on each network, in id order: draws take from both alike. */
   readonly tanksOn: Map<number, number[]>;
+  /** How many generators stand on each network. */
+  readonly madeOn: Map<number, number>;
   /** How many cells of each room are aired, by room id: rooms are named by cells. */
   readonly airedIn: Int32Array;
   /** Per cell, whether it holds air: kept current as the rules below change it. */
@@ -45,15 +47,17 @@ interface Survey {
 function survey(air: Seen, world: World): Survey {
   const ventsIn = new Map<number | 'space', number[]>();
   const tanksOn = new Map<number, number[]>();
+  const madeOn = new Map<number, number>();
   for (const m of world.grid.machines()) {
-    if (m.kind !== 'vent' && m.kind !== 'tank') continue;
+    if (m.kind !== 'vent' && m.kind !== 'tank' && m.kind !== 'generator') continue;
     for (const port of world.grid.portsOf(m)) {
       const network = world.pipes.networkAt(port);
       if (network === undefined) continue;
-      if (m.kind === 'tank') {
+      if (m.kind !== 'vent') {
         const tanks = tanksOn.get(network);
         if (tanks) tanks.push(m.id);
         else tanksOn.set(network, [m.id]);
+        if (m.kind === 'generator') madeOn.set(network, (madeOn.get(network) ?? 0) + 1);
         continue;
       }
       const place = world.rooms.roomAt(m.cell);
@@ -72,7 +76,7 @@ function survey(air: Seen, world: World): Survey {
     if (room >= 0) airedIn[room] = (airedIn[room] ?? 0) + 1;
   }
   const held = new Map(air.tanks.map((t) => [t.tank, t as { tank: number; oxygen: number }]));
-  return { ventsIn, tanksOn, airedIn, airedAt, held };
+  return { ventsIn, tanksOn, madeOn, airedIn, airedAt, held };
 }
 
 export function oxygenIn(air: Seen, tank: number): number {
@@ -133,7 +137,8 @@ function status(s: Survey, room: Room): RoomStatus {
   if (room.openings.length > 0) return 'venting';
   if (s.airedIn[room.id] === room.volume) return 'aired';
   const vents = s.ventsIn.get(room.id) ?? [];
-  return vents.some((n) => oxygenOn(s, n) > 0) ? 'filling' : 'vacuum';
+  // A generator's store sits empty between the units it makes: its room is filling all the same.
+  return vents.some((n) => s.madeOn.has(n) || oxygenOn(s, n) > 0) ? 'filling' : 'vacuum';
 }
 
 /** What a room's state is, read from its cells and its vents' networks. */
@@ -181,9 +186,9 @@ function applyEdits(air: Air, edits: Edits): void {
 }
 
 /**
- * Takes up to `amount` of air for a hero in `cell`, if its room holds any: paid by the networks of
+ * Takes up to `amount` of air for a hero in `cell`, if that cell holds air: paid by the networks of
  * the room's vents in vent id order, as if they put back at once what is taken, and what they cannot
- * pay taken as cells from the far edge. Returns how much, none in a room with no air or elsewhere.
+ * pay taken as cells from the far edge. Returns how much, none in a cell without air.
  */
 export function breathe(
   air: Air,
@@ -195,7 +200,7 @@ export function breathe(
   const room = world.rooms.roomOfCells()[cell] ?? -1;
   if (room < 0) return 0;
   const s = survey(air, world);
-  if (!s.airedIn[room]) return 0;
+  if (!s.airedAt[cell]) return 0;
   const edits: Edits = { removed: new Set(), added: [] };
   const had = use(s, orders, room, amount, edits);
   applyEdits(air, edits);
@@ -232,9 +237,11 @@ export interface RoomAir {
   readonly leak: number;
   /** The oxygen on its vents' networks, each network counted once. */
   readonly oxygen: number;
+  /** What the generators on those networks make every `AIR.leakEvery` ticks, together. */
+  readonly made: number;
   /**
    * Ticks its networks last at what this room alone draws: refilling its leak if aired, its vents'
-   * drain if venting. None otherwise, or when nothing is drawn.
+   * drain if venting. None otherwise, when nothing is drawn, or when a generator feeds it.
    */
   readonly lasts: number | undefined;
   /** Why a room in vacuum gets no air, as an i18n key. */
@@ -251,15 +258,21 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
   return world.rooms.rooms().map((room) => {
     const networks = s.ventsIn.get(room.id) ?? [];
     const oxygen = [...new Set(networks)].reduce((sum, n) => sum + oxygenOn(s, n), 0);
+    const made = [...new Set(networks)].reduce(
+      (sum, n) => sum + (s.madeOn.get(n) ?? 0) * AIR.generatorRate,
+      0,
+    );
     const now = status(s, room);
     const leak = leakOf(world, room);
     // Venting, each vent drains its network, so a network under two vents drains twice.
     const lasts =
-      now === 'aired' && leak > 0
-        ? Math.floor((oxygen * AIR.leakEvery) / leak)
-        : now === 'venting' && networks.length > 0
-          ? Math.ceil(oxygen / (AIR.ventDrain * networks.length))
-          : undefined;
+      made > 0
+        ? undefined
+        : now === 'aired' && leak > 0
+          ? Math.floor((oxygen * AIR.leakEvery) / leak)
+          : now === 'venting' && networks.length > 0
+            ? Math.ceil(oxygen / (AIR.ventDrain * networks.length))
+            : undefined;
     const problem =
       now !== 'vacuum'
         ? undefined
@@ -274,6 +287,7 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
       aired: s.airedIn[room.id] ?? 0,
       leak,
       oxygen,
+      made,
       lasts,
       problem,
     };
@@ -300,14 +314,43 @@ function leakOf(world: World, room: Room): number {
   return leak;
 }
 
+/** A tick's share of `perMinute`, spread over each `AIR.leakEvery` ticks so a minute's total is exact. */
+function dueAt(perMinute: number, clock: number): number {
+  const beat = clock % AIR.leakEvery;
+  const dueBy = (ticks: number) => Math.floor((perMinute * ticks) / AIR.leakEvery);
+  return dueBy(beat + 1) - dueBy(beat);
+}
+
 /**
- * One tick of air, in this order: a room open to space loses `AIR.ventLoss` cells from the far edge,
+ * Each generator, in id order, makes this tick's share of `AIR.generatorRate` into its own store, up
+ * to `AIR.generatorStore`; what does not fit is lost. A store emptied leaves the list, as a tank's.
+ */
+function produce(air: Air, world: World, clock: number): void {
+  const made = dueAt(AIR.generatorRate, clock);
+  if (made === 0) return;
+  let added = false;
+  for (const m of world.grid.machines()) {
+    if (m.kind !== 'generator') continue;
+    const store = air.tanks.find((t) => t.tank === m.id);
+    if (store) store.oxygen = Math.min(AIR.generatorStore, store.oxygen + made);
+    else {
+      air.tanks.push({ tank: m.id, oxygen: Math.min(AIR.generatorStore, made) });
+      added = true;
+    }
+  }
+  if (added) air.tanks.sort((a, b) => a.tank - b.tank);
+}
+
+/**
+ * One tick of air, in this order: generators make their share, so it pays this tick's fill and
+ * breaths; a room open to space loses `AIR.ventLoss` cells from the far edge,
  * and every vent in it or in space drains its network; on a fill beat each filling room airs the
  * first empty cell of its order, paid from the first of its vents that can pay; then every other
  * room holding air uses its hull leak, spread over each \`AIR.leakEvery\` ticks: paid by its vents'
  * networks, and what they cannot pay taken from its air's far edge.
  */
 export function stepAir(air: Air, world: World, orders: Orders, clock: number): void {
+  produce(air, world, clock);
   const s = survey(air, world);
   const edits: Edits = { removed: new Set(), added: [] };
 
@@ -331,13 +374,9 @@ export function stepAir(air: Air, world: World, orders: Orders, clock: number): 
     }
   }
 
-  // Each tick's share of a minute's leak: what is due by its end, less what was by its start.
-  const beat = clock % AIR.leakEvery;
-  const dueBy = (leak: number, ticks: number) => Math.floor((leak * ticks) / AIR.leakEvery);
   for (const room of world.rooms.rooms()) {
     if (room.openings.length > 0 || !s.airedIn[room.id]) continue;
-    const leak = leakOf(world, room);
-    use(s, orders, room.id, dueBy(leak, beat + 1) - dueBy(leak, beat), edits);
+    use(s, orders, room.id, dueAt(leakOf(world, room), clock), edits);
   }
 
   applyEdits(air, edits);

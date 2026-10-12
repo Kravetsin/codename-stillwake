@@ -9,6 +9,7 @@ const room = (air: Partial<RoomAir>): RoomAir => ({
   aired: 0,
   leak: 0,
   oxygen: 0,
+  made: 0,
   lasts: undefined,
   problem: undefined,
   ...air,
@@ -40,6 +41,17 @@ describe('what the air overlay says', () => {
       'Some air · 30/48 cells',
       'No supply · lasts 30 s',
       'No vent here',
+    ]);
+  });
+
+  it('tells a room fed by a generator whether it keeps up, and how long the air lasts if not', () => {
+    const fed = room({ status: 'aired', aired: 32, leak: 48, oxygen: 40, made: 200 });
+    // 200 made, 48 leaked and 60 breathed a minute each: 32 to spare with two, 28 short with three.
+    expect(explain(fed, 32, 2)).toEqual(['Aired · 32 cells', 'Generator keeps up · +32/min']);
+    expect(explain(fed, 32, 3)[1]).toBe('Generator falls short · lasts 2 min');
+    expect(explain({ ...fed, status: 'filling', aired: 10 }, 32)).toEqual([
+      'Filling · 10/32 cells',
+      'Generator keeps up · +152/min',
     ]);
   });
 
