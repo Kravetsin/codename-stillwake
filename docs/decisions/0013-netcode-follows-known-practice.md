@@ -1,6 +1,6 @@
 # 0013 — Netcode follows known practice
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 
 ## Context

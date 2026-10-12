@@ -5,7 +5,7 @@ production. PC (Steam), online co-op for 4+ players in host-owned worlds. The ga
 `docs/concept.md`; why things are the way they are, in `docs/decisions/`.
 
 Work follows [`docs/plans/prototype-2.md`](docs/plans/prototype-2.md): the next task is the first
-open one there, after [`docs/plans/netcode.md`](docs/plans/netcode.md), which runs first. Prototype 1 ([`docs/plans/prototype-1.md`](docs/plans/prototype-1.md)) is built and its
+open one there. Prototype 1 ([`docs/plans/prototype-1.md`](docs/plans/prototype-1.md)) is built and its
 M0 laid the foundation described here; its plan goes once its playtest
 ([`docs/playtests/p1.md`](docs/playtests/p1.md)) is written up.
 
