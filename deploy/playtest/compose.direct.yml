@@ -1,0 +1,27 @@
+# The playtest server on a VPS reached directly, with Caddy for HTTPS: a tunnel or a proxied record
+# adds a hop to every message (0012). The domain's DNS record is an A record to the server, not
+# proxied; ports 80 and 443 are open. Beside it: an `.env` holding PLAYTEST_PASSWORD, and a
+# `caddy.env` holding DOMAIN. `docker compose -f compose.direct.yml up -d`.
+services:
+  stillwake:
+    image: stillwake-playtest:latest
+    container_name: stillwake
+    restart: unless-stopped
+    environment:
+      PLAYTEST_PASSWORD: ${PLAYTEST_PASSWORD:?a password keeps the playtest to friends}
+    ports:
+      - 127.0.0.1:8080:8080
+  caddy:
+    image: caddy:2.8.4
+    container_name: stillwake-caddy
+    restart: unless-stopped
+    # On the host's network, to reach the game on 127.0.0.1:8080 and take ports 80 and 443.
+    network_mode: host
+    env_file: caddy.env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  caddy-data:
+  caddy-config:

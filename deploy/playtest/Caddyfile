@@ -1,0 +1,4 @@
+# HTTPS for the playtest server, its certificate from Let's Encrypt; the relay's WebSocket passes as is.
+{$DOMAIN} {
+	reverse_proxy 127.0.0.1:8080
+}

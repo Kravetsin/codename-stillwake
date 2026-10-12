@@ -20,6 +20,12 @@ docker save stillwake-playtest:latest | ssh <server> docker load
 
 ## Run it
 
+- **Directly, with Caddy for HTTPS** (as on the toss-it.org VPS since the tunnel's hop proved slow:
+  a request took ~85 ms through it against ~20 ms direct, on every message of co-op): an A record
+  for the domain to the server, not proxied; ports 80 and 443 open; `compose.direct.yml` and the
+  `Caddyfile` copied to the server, an `.env` with `PLAYTEST_PASSWORD=...` and a `caddy.env` with
+  `DOMAIN=...` beside them, then `docker compose -f compose.direct.yml up -d`. Caddy gets the
+  certificate itself. The server's address is public then, which a tunnel would hide.
 - **Behind a Cloudflare Tunnel** (as on the toss-it.org VPS): add a public hostname to the tunnel,
   `stillwake.toss-it.org` to `http://localhost:8080`; copy `compose.tunnel.yml` to the server, put
   `PLAYTEST_PASSWORD=...` into an `.env` beside it, then `docker compose -f compose.tunnel.yml up -d`.
