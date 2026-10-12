@@ -1,9 +1,10 @@
 import { items, type Move, type Place, type Slot } from '@stillwake/sim';
 import { useEffect, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
-import { css, ITEM_LOOK } from '../../render/item-look';
+import { ICON_AUTHORS } from '../../render/item-icons';
+import { ItemIcon } from '../../render/ItemIcon';
 import type { Game } from '../../session/game';
-import { openCrate } from '../../session/ui';
+import { openCrate, pointerTip } from '../../session/ui';
 import { clickOn, type Picked } from './click';
 import { ROW, wheelSlot } from './hotbar';
 
@@ -27,22 +28,13 @@ function read(game: Game, crate: number | undefined) {
   };
 }
 
-function Icon({ slot }: { readonly slot: NonNullable<Slot> }) {
-  const icon = ITEM_LOOK[slot.item];
-  return (
-    <span
-      className={`absolute inset-2 ${icon.round ? 'rounded-full' : 'rounded-sm'}`}
-      style={{ background: css(icon.colour) }}
-    />
-  );
-}
-
 function SlotBox(props: {
   readonly slot: Slot;
   readonly id: string;
   readonly chosen?: boolean;
   readonly picked?: boolean;
   readonly onClick: (button: 'left' | 'right', shift: boolean) => void;
+  readonly onHover: (on: boolean) => void;
 }) {
   const { slot } = props;
   const press = (button: 'left' | 'right') => (e: MouseEvent) => {
@@ -53,12 +45,13 @@ function SlotBox(props: {
   return (
     <button
       data-slot={props.id}
-      title={slot ? t(`item.${slot.item}`) : undefined}
       className={`relative h-9 w-9 rounded border bg-slate-800/90 ${edge} ${props.picked ? 'opacity-40' : ''}`}
       onClick={press('left')}
       onContextMenu={press('right')}
+      onMouseEnter={() => props.onHover(true)}
+      onMouseLeave={() => props.onHover(false)}
     >
-      {slot && <Icon slot={slot} />}
+      {slot && <ItemIcon item={slot.item} />}
       {slot && slot.count > 1 && (
         <span className="absolute bottom-0 right-0.5 font-mono text-[10px] text-white drop-shadow">
           {slot.count}
@@ -78,6 +71,7 @@ export function Inventory({ game }: { readonly game: Game }) {
   const [chosen, setChosen] = useState(0);
   const [picked, setPicked] = useState<Picked>();
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState<Place>();
   const [reading, setReading] = useState(() => read(game, crate));
   const shown = open || crate !== undefined;
 
@@ -119,6 +113,17 @@ export function Inventory({ game }: { readonly game: Game }) {
     };
   }, [open]);
 
+  // The name of the stack under the pointer, beside it at once; none once its slot is not drawn.
+  const hoveredSlot =
+    hovered && (shown || (hovered.crate === undefined && hovered.slot < ROW))
+      ? slotAt(reading, hovered)
+      : null;
+  const hoveredName = hoveredSlot ? t(`item.${hoveredSlot.item}`) : undefined;
+  useEffect(() => {
+    pointerTip.set({ ...pointerTip.get(), item: hoveredName ? [hoveredName] : undefined });
+  }, [hoveredName]);
+  useEffect(() => () => pointerTip.set({ ...pointerTip.get(), item: undefined }), []);
+
   // A picked stack whose slot was emptied meanwhile, by another player at a crate, is dropped.
   const pickedSlot = picked && slotAt(reading, picked.place);
   const held = shown && pickedSlot ? picked : undefined;
@@ -146,6 +151,9 @@ export function Inventory({ game }: { readonly game: Game }) {
         held !== undefined && held.place.crate === place.crate && held.place.slot === place.slot
       }
       onClick={clickAt(place)}
+      onHover={(on) =>
+        setHovered((was) => (on ? place : was && samePlace(was, place) ? undefined : was))
+      }
     />
   );
   const grid = (places: readonly Place[]) => (
@@ -168,6 +176,9 @@ export function Inventory({ game }: { readonly game: Game }) {
             className="rounded border border-slate-700 bg-slate-900/90 p-1"
           >
             {grid(range(ROW, reading.inventory.length).map((slot) => ({ slot })))}
+            <p className="mt-1 text-[9px] text-slate-500">
+              {t('items.iconCredit', { authors: ICON_AUTHORS.join(', ') })}
+            </p>
           </div>
           {crate !== undefined && reading.crate && (
             <div
@@ -184,7 +195,7 @@ export function Inventory({ game }: { readonly game: Game }) {
           className="pointer-events-none fixed h-9 w-9"
           style={{ left: mouse.x + 6, top: mouse.y + 6 }}
         >
-          <Icon slot={pickedSlot} />
+          <ItemIcon item={pickedSlot.item} />
           {held.count > 1 && (
             <span className="absolute bottom-0 right-0.5 font-mono text-[10px] text-white drop-shadow">
               {held.count}
@@ -200,3 +211,5 @@ function slotAt(reading: ReturnType<typeof read>, place: Place): Slot {
   const slots = place.crate === undefined ? reading.inventory : reading.crate;
   return slots?.[place.slot] ?? null;
 }
+
+const samePlace = (a: Place, b: Place) => a.crate === b.crate && a.slot === b.slot;

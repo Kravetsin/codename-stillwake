@@ -1,7 +1,7 @@
 import { MACHINES } from '@stillwake/content';
 import { grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
-import { CELL } from '../../render/camera';
+import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import { predictedGrid } from '../../session/predicted';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
@@ -111,6 +111,8 @@ export const gridFeature: Feature = {
           const label = new Text({
             text: m.kind,
             style: { fontFamily: 'monospace', fontSize: 9, fill: 0xa8c4dc },
+            // Drawn into the world, which the camera scales up: sharp at the closest zoom.
+            resolution: WORLD_TEXT_RESOLUTION,
           });
           label.position.set(4, 3);
           // A one-cell machine is narrower than its name: the name shrinks to fit inside.

@@ -33,8 +33,8 @@ describe('english text', () => {
 
 describe('t', () => {
   it('fills each named value it is given, and leaves the rest as written', () => {
-    expect(t('air.filling', { aired: 3, cells: 96 })).toBe('Filling · 3 of 96 cells');
-    expect(t('air.filling', { aired: 3 })).toBe('Filling · 3 of {cells} cells');
+    expect(t('air.filling', { aired: 3, cells: 96 })).toBe('Filling · 3/96 cells');
+    expect(t('air.filling', { aired: 3 })).toBe('Filling · 3/{cells} cells');
     expect(t('no.such.key')).toBe('no.such.key');
   });
 });

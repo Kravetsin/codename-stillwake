@@ -19,3 +19,13 @@ export const aimedPiece = createStore<
  * the building layer, outlining nothing and offering no prompt.
  */
 export const buildMode = createStore(false);
+
+/**
+ * Words for what the pointer is on, shown beside it (`PointerTip`): `item` for a stack under it in
+ * the inventory, set by `items`; `world` for what an overlay says of the cell under it, set by that
+ * overlay while it is on.
+ */
+export const pointerTip = createStore<{
+  readonly item?: readonly string[];
+  readonly world?: readonly string[];
+}>({});

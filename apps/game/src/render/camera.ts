@@ -10,6 +10,10 @@ export const START_ZOOM = 2;
  * where debris comes from. One key press is one step.
  */
 export const ZOOM = { min: 1, max: 2.5, step: 0.25 } as const;
+
+/** Text drawn into the world renders this much finer than its size: sharp at the closest zoom, on a
+ * screen of twice the pixels. */
+export const WORLD_TEXT_RESOLUTION = Math.ceil(ZOOM.max * 2);
 /** How far `fit` may zoom out to frame the reference world in development. */
 const FIT_MIN = 0.1;
 // By the key's place, or by what it types, so a layout with the signs elsewhere zooms too.

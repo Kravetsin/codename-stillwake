@@ -1,7 +1,7 @@
 import { building, grid, type Plan, type QueryApi } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
-import { CELL } from '../../render/camera';
+import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
 import { nearGrid } from './near-grid';
@@ -36,6 +36,7 @@ export const buildingFeature: Feature = {
         fill: 0xffe4e4,
         stroke: { color: 0x0b0f17, width: 3 },
       },
+      resolution: WORLD_TEXT_RESOLUTION,
     });
     const view = new Container();
     view.addChild(near, plansView, ghost, reason);

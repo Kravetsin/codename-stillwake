@@ -21,13 +21,12 @@ function lasting(units: number, leak: number, breathers: number): string {
 }
 
 /**
- * What the air overlay says of a room of `volume` cells with `breathers` heroes awake in it: its
- * state, then why — what it leaks, what holds it up and for how long, or what it lacks. Only what
- * the sim reported, and a forecast from it.
+ * What the air overlay says of a room of `volume` cells with `breathers` heroes awake in it, in two
+ * short lines and a third only for what it lacks: its state, then what holds it up and how long, the
+ * hull's leak and the breathing counted in. Only what the sim reported, and a forecast from it.
  */
 export function explain(air: RoomAir, volume: number, breathers = 0): string[] {
   const { oxygen, leak } = air;
-  const leaks = t('air.leak', { leak, time: span(AIR.leakEvery) });
   // With no supply, the room lives on its own air.
   const lasts =
     oxygen > 0
@@ -35,9 +34,9 @@ export function explain(air: RoomAir, volume: number, breathers = 0): string[] {
       : t('air.lastsNot', { time: lasting(air.aired, leak, breathers) });
   switch (air.status) {
     case 'aired':
-      return [t('air.aired', { cells: volume }), leaks, lasts];
+      return [t('air.aired', { cells: volume }), lasts];
     case 'filling':
-      return [t('air.filling', { aired: air.aired, cells: volume }), t('air.holds', { oxygen })];
+      return [t('air.filling', { aired: air.aired, cells: volume }), t('air.pipes', { oxygen })];
     case 'venting':
       // With no piped vent in it, nothing drains: there are no pipes to speak of.
       return [
@@ -48,7 +47,6 @@ export function explain(air: RoomAir, volume: number, breathers = 0): string[] {
       return air.aired > 0
         ? [
             t('air.holding', { aired: air.aired, cells: volume }),
-            leaks,
             lasts,
             ...(air.problem ? [t(air.problem)] : []),
           ]

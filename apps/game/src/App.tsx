@@ -16,6 +16,8 @@ import { hostOnRelay, joinOnRelay, link } from './session/relay-link';
 import { relayFor } from './session/relay-socket';
 import { keepTime } from './session/time';
 import { startedAnew, takeResume, watchForUpdates } from './session/update';
+import { PointerTip } from './session/PointerTip';
+import { pointerTip } from './session/ui';
 import { VersionBar } from './session/VersionBar';
 
 /**
@@ -116,6 +118,10 @@ export function App() {
           layer.view.visible = switched.active() === id;
           if (layer.view.visible) layer.update(frame);
         }
+        // An overlay says what the pointer is on only while it is on; switched off, it says nothing.
+        if (switched.active() === undefined && pointerTip.get().world) {
+          pointerTip.set({ ...pointerTip.get(), world: undefined });
+        }
       });
       setGame(created);
       setOverlays(switched);
@@ -155,6 +161,7 @@ export function App() {
         {game && FEATURES.map((f) => (f.Panel ? <f.Panel key={f.id} game={game} /> : null))}
         {overlays && <OverlayBar overlays={overlays} list={OVERLAYS} />}
         {game && <VersionBar game={game} />}
+        <PointerTip />
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { atmosphere, crew, grid, rooms, type RoomAir } from '@stillwake/sim';
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
+import { pointerTip } from '../../session/ui';
 import type { Layer } from '../feature';
 import { explain } from './explain';
 
@@ -16,24 +17,14 @@ const REFRESH_MS = 250;
 /**
  * The ship's air, cell by cell, as a view of its own: each cell holding air coloured, each room cell
  * without it grey, a room open to space red; a filling room fills in before the eyes. Under the
- * pointer, what the sim says of that room's air: what it leaks, what holds it up and for how long,
- * or what it lacks.
+ * pointer, beside it (`pointerTip`), what the sim says of that room's air: what holds it up and for
+ * how long, or what it lacks.
  */
 export function airOverlay(): Layer {
   const tint = new Graphics();
   tint.alpha = 0.35;
-  const tip = new Text({
-    text: '',
-    style: {
-      fontFamily: 'monospace',
-      fontSize: 9,
-      fill: 0xf2f5fa,
-      stroke: { color: 0x0b0f17, width: 3 },
-      lineHeight: 11,
-    },
-  });
   const view = new Container();
-  view.addChild(tint, tip);
+  view.addChild(tint);
   let since = Infinity;
   let byRoom = new Map<number, RoomAir>();
 
@@ -72,8 +63,12 @@ export function airOverlay(): Layer {
               .query(crew)
               .heroes()
               .filter((h) => h.out === 0 && sim.query(rooms).roomAt(h.cell) === air.room).length;
-      tip.text = air && volume !== undefined ? explain(air, volume, breathers).join('\n') : '';
-      if (pointer) tip.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);
+      const lines = air && volume !== undefined ? explain(air, volume, breathers) : [];
+      // Told only when it changes: the tip is React's, and a word every frame would cost. Read back
+      // from the tip, which the overlay switched off and on again finds cleared.
+      if (lines.join('\n') !== (pointerTip.get().world ?? []).join('\n')) {
+        pointerTip.set({ ...pointerTip.get(), world: lines.length > 0 ? lines : undefined });
+      }
     },
   };
 }
