@@ -1,10 +1,15 @@
 import { command, crew } from '@stillwake/sim';
-import type { Channel, Host, ToClient, ToHost } from '@stillwake/net';
-import type { ViteHotContext } from 'vite/types/hot.d.ts';
-import { RELAY } from '../dev/relay';
+import { RELAY, type Channel, type Host, type ToClient, type ToHost } from '@stillwake/net';
 
-/** The dev server's socket, as Vite's `import.meta.hot` offers it to a page. */
-export type HotSocket = Pick<ViteHotContext, 'send' | 'on' | 'off'>;
+/**
+ * A socket to the relay: the dev server's, as Vite's `import.meta.hot` offers it to a page, or the
+ * playtest server's (`relaySocket`).
+ */
+export interface RelaySocket {
+  send(event: string, data?: unknown): void;
+  on(event: string, listener: (data: unknown) => void): void;
+  off(event: string, listener: (data: unknown) => void): void;
+}
 
 /** This tab's place in a relayed session, for the dev panel. */
 export type LinkStatus =
@@ -29,7 +34,7 @@ function createStatus() {
 }
 
 /** Listens on `socket` for each pair, and returns how to stop listening to all of them. */
-function listen(socket: HotSocket, listeners: Record<string, (data: never) => void>): () => void {
+function listen(socket: RelaySocket, listeners: Record<string, (data: never) => void>): () => void {
   // Each listener names its payload's shape; the socket hands payloads over untyped.
   const pairs = Object.entries(listeners) as [string, (data: unknown) => void][];
   for (const [event, listener] of pairs) socket.on(event, listener);
@@ -43,7 +48,7 @@ function listen(socket: HotSocket, listeners: Record<string, (data: never) => vo
  * over a channel through the relay. `host` is read on each join, since a load replaces it.
  */
 export function hostOnRelay(
-  socket: HotSocket,
+  socket: RelaySocket,
   host: () => Host | undefined,
   report: (status: LinkStatus) => void,
 ): () => void {
@@ -96,7 +101,7 @@ let joins = 0;
  * the relay says to this join is heard: an earlier join from this tab may still be answered.
  */
 export function joinOnRelay(
-  socket: HotSocket,
+  socket: RelaySocket,
   session: string,
   report: (status: LinkStatus) => void,
 ): {

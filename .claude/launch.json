@@ -25,6 +25,16 @@
         "--host"
       ],
       "port": 5173
+    },
+    {
+      "name": "playtest-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/relay/dist/main.js"],
+      "env": {
+        "PORT": "8090",
+        "GAME_DIR": "apps/game/dist"
+      },
+      "port": 8090
     }
   ]
 }

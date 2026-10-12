@@ -1,0 +1,22 @@
+# The playtest server on a VPS that already runs Traefik on the external network `web`, as
+# `docker compose up -d` beside this file. Set DOMAIN and PLAYTEST_PASSWORD in an `.env` next to it.
+# Behind nginx or Caddy instead: drop the labels and the network, publish 8080, see README.md.
+services:
+  stillwake:
+    image: stillwake-playtest:latest
+    restart: unless-stopped
+    environment:
+      PLAYTEST_PASSWORD: ${PLAYTEST_PASSWORD:?a password keeps the playtest to friends}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.stillwake.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.stillwake.entrypoints=websecure
+      - traefik.http.routers.stillwake.tls=true
+      - traefik.http.routers.stillwake.tls.certresolver=letsencrypt
+      - traefik.http.services.stillwake.loadbalancer.server.port=8080
+    networks:
+      - web
+
+networks:
+  web:
+    external: true

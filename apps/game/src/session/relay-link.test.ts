@@ -1,8 +1,8 @@
 import { joinHost, localSession } from '@stillwake/net';
 import { command, items, stillwake, wreck } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { createRelay, serve, type RelayClient } from '../dev/relay';
-import { hostOnRelay, joinOnRelay, type HotSocket, type LinkStatus } from './relay-link';
+import { createRelay, serve, type RelayClient } from '@stillwake/net';
+import { hostOnRelay, joinOnRelay, type RelaySocket, type LinkStatus } from './relay-link';
 
 /**
  * A dev server in one process: the relay served on an event bus, and tabs whose sockets reach it.
@@ -13,7 +13,7 @@ function devServer() {
   serve(createRelay(), (event, handler) => handlers.set(event, handler));
   return {
     /** A tab; `held`, what the server sends it waits for `flush`, as a slow socket would. */
-    tab(held = false): HotSocket & { close(): void; flush(): void } {
+    tab(held = false): RelaySocket & { close(): void; flush(): void } {
       const listeners = new Map<string, Set<(data: never) => void>>();
       const queue: (() => void)[] = [];
       const client: RelayClient = {

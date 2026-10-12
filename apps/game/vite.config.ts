@@ -3,7 +3,10 @@ import { createHash } from 'node:crypto';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin, type WebSocketClient } from 'vite';
-import { createRelay, serve } from './src/dev/relay';
+// The relay alone: the config loader runs packages as Node would, which cannot follow the main
+// entry's imports without extensions; the relay imports nothing.
+// eslint-disable-next-line no-restricted-imports
+import { createRelay, serve } from '@stillwake/net/relay';
 
 /** The dev relay on the dev server's WebSocket: `pnpm dev`, then `?host` in a tab, `?join=` in more. */
 function relay(): Plugin {
@@ -24,6 +27,8 @@ function relay(): Plugin {
  * it, and two different sets of edits on one commit are two builds.
  */
 function build(): string {
+  // An image built without the repo's history is told its commit instead.
+  if (process.env.STILLWAKE_BUILD) return process.env.STILLWAKE_BUILD;
   try {
     const git = (args: string) => execSync(`git ${args}`).toString();
     const commit = git('rev-parse --short HEAD').trim();

@@ -1,6 +1,7 @@
 /**
- * The development relay: passes messages between a hosting tab and the tabs that join it, over the
- * dev server's own WebSocket. It reads no message, only routes it. Release builds talk over Steam.
+ * The relay for playtests: passes messages between a hosting tab and the tabs that join it, over the
+ * dev server's own WebSocket in development or the playtest server's (`apps/relay`). It reads no
+ * message, only routes it. Release builds will talk over Steam.
  */
 
 /** A connected tab, as the dev server hands it to the relay. */

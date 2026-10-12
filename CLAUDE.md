@@ -51,6 +51,7 @@ point one way only; lint enforces it.
 | `net`            | transports, host and client: stamping and applying commands, snapshots, hash checks   |
 | `apps/game`      | Pixi rendering, React UI, input, the hero controller; runs in a browser in dev        |
 | `apps/desktop`   | the Electron shell: a window with the built game, saves as files; no game code        |
+| `apps/relay`     | the playtest server: the built game and the relay for co-op across networks (0012)    |
 | `tools/lint`     | our ESLint rule and the tests proving every guardrail fires                           |
 | `tools/scaffold` | `pnpm new:module`: writes a module, its tests and README, and registers it            |
 
