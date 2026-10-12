@@ -419,3 +419,38 @@ describe('items', () => {
     });
   });
 });
+
+describe('moves a client has in flight', () => {
+  it('show the slots as the moves would leave them, and leave the world be', () => {
+    const place: fc.Arbitrary<Place> = fc.oneof(
+      fc.record({ slot: fc.integer({ min: -1, max: 37 }) }),
+      fc.record({ crate: fc.integer({ min: 1, max: 3 }), slot: fc.integer({ min: -1, max: 28 }) }),
+    );
+    const target: fc.Arbitrary<Target> = fc.oneof(
+      place,
+      fc.constant({}),
+      fc.record({ crate: fc.integer({ min: 1, max: 3 }) }),
+    );
+    const step = fc.record({
+      src: place,
+      dst: target,
+      count: fc.oneof(fc.constant(999), fc.integer({ min: 0, max: 400 })),
+    });
+    fc.assert(
+      fc.property(fc.array(step, { maxLength: 30, size: 'max' }), (moves) => {
+        const w = giveItems(crates(), 1, { canister: 9, steel: 600 });
+        const hash = w.sim.hash();
+        const shown = w.query(items).afterMoves(1, moves);
+        expect(w.sim.hash()).toBe(hash);
+        const before = [1, 2, 3].map((id) => crate(w, id));
+        for (const m of moves) w.do(items, 'move', m, 1);
+        w.run();
+        expect(shown.inventory).toEqual(w.query(items).inventory(1));
+        [1, 2, 3].forEach((id, i) =>
+          expect(shown.crates.get(id) ?? before[i]).toEqual(crate(w, id)),
+        );
+      }),
+      { numRuns: 200 },
+    );
+  });
+});

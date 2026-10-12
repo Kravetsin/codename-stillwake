@@ -52,19 +52,28 @@ function sideOf(state: DeepReadonly<ItemsState>, peer: number, side: Target): Sl
   return side.crate === undefined ? inventoryOf(state, peer) : crateOf(state, side.crate);
 }
 
-/** Why `peer`'s move is refused before any stack is looked at, or its two sides. */
+/** A stack move, as `afterMoves` takes the ones a client has in flight. */
+export interface Move {
+  readonly src: Place;
+  readonly dst: Target;
+  readonly count: number;
+}
+
+/**
+ * Why a move is refused before any stack is looked at, or its two sides, each read by `slotsOf`:
+ * the world's for a command, a fold's own copies for `afterMoves`.
+ */
 function moveSides(
-  state: DeepReadonly<ItemsState>,
+  slotsOf: (side: Target) => Slots,
   grid: Grid,
-  peer: number,
   src: Place,
   dst: Target,
 ): MoveSides | { refused: string } {
   for (const side of [src, dst]) {
     if (side.crate !== undefined && !isCrate(grid, side.crate)) return { refused: 'items.noCrate' };
   }
-  const from = sideOf(state, peer, src);
-  const to = sideOf(state, peer, dst);
+  const from = slotsOf(src);
+  const to = slotsOf(dst);
   const inRange = (slot: number, slots: Slots) =>
     Number.isSafeInteger(slot) && slot >= 0 && slot < slots.length;
   if (!inRange(src.slot, from) || (dst.slot !== undefined && !inRange(dst.slot, to))) {
@@ -105,6 +114,28 @@ const itemsModule = defineModule<[GridModule]>()({
     /** `items.full` when `cost` does not fit into `peer`'s inventory, creative mode or not. */
     fullFor: (ctx, peer: number, cost: Cost) =>
       placed(inventoryOf(ctx.state, peer), cost) ? undefined : 'items.full',
+    /**
+     * `peer`'s inventory and the crates `moves` touch, as they would be after them, in order, each
+     * as `move` would apply it and skipped where it would be refused: what a client shows of its own
+     * moves before their tick runs (0013). Copies; the world is untouched.
+     */
+    afterMoves(ctx, peer: number, moves: readonly Move[]) {
+      const shown = new Map<number | undefined, Slots>();
+      const slotsOf = (side: Target) => shown.get(side.crate) ?? sideOf(ctx.state, peer, side);
+      for (const m of moves) {
+        const sides = moveSides(slotsOf, ctx.deps.grid.query, m.src, m.dst);
+        const done = 'refused' in sides ? sides : moved(sides, m.src, m.dst, m.count);
+        if ('refused' in done) continue;
+        shown.set(m.src.crate, done.from);
+        shown.set(m.dst.crate, done.to);
+      }
+      return {
+        inventory: shown.get(undefined) ?? inventoryOf(ctx.state, peer),
+        crates: new Map(
+          [...shown].flatMap(([id, slots]) => (id === undefined ? [] : [[id, slots]])),
+        ),
+      };
+    },
   },
 
   operations: {
@@ -141,13 +172,15 @@ const itemsModule = defineModule<[GridModule]>()({
      */
     move: {
       validate(ctx, p: { src: Place; dst: Target; count: number }) {
-        const sides = moveSides(ctx.state, ctx.deps.grid.query, ctx.from, p.src, p.dst);
+        const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
+        const sides = moveSides(slotsOf, ctx.deps.grid.query, p.src, p.dst);
         if ('refused' in sides) return refuse(sides.refused);
         const done = moved(sides, p.src, p.dst, p.count);
         if ('refused' in done) return refuse(done.refused);
       },
       apply(ctx, p: { src: Place; dst: Target; count: number }) {
-        const sides = moveSides(ctx.state, ctx.deps.grid.query, ctx.from, p.src, p.dst);
+        const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
+        const sides = moveSides(slotsOf, ctx.deps.grid.query, p.src, p.dst);
         const done = 'refused' in sides ? sides : moved(sides, p.src, p.dst, p.count);
         if ('refused' in done || 'refused' in sides)
           throw new Error('items.move: refused in apply');

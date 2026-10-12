@@ -37,7 +37,9 @@ machine id; and creative mode, the world setting in which nothing is ever taken
 - **Queries:** `inventory(peer)` and `crate(id)` — their slots, live and read-only; `creative()`;
   `shortOf(peer, cost)` — `items.notEnough` when the peer cannot pay `cost`, never in creative mode;
   `fullFor(peer, cost)` — `items.full` when `cost` does not fit, creative mode or not. A caller
-  refuses with these keys.
+  refuses with these keys. `afterMoves(peer, moves)` — copies of the peer's inventory and of the
+  crates the moves touch, as `move` would leave them, refused moves skipped: what a client shows of
+  its own moves before their tick runs.
 - **Operations:** `take(peer, cost)` — the caller checks `shortOf` first, and taking past what is there
   throws; it returns what it took, nothing in creative mode, so a caller refunds exactly that.
   `give(peer, cost)` — the caller checks `fullFor` first, and giving past the room throws.

@@ -1,4 +1,4 @@
-import { items, type Place, type Slot } from '@stillwake/sim';
+import { items, type Move, type Place, type Slot } from '@stillwake/sim';
 import { useEffect, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
 import { css, ITEM_LOOK } from '../../render/item-look';
@@ -9,12 +9,20 @@ import { ROW, wheelSlot } from './hotbar';
 
 const REFRESH_MS = 100;
 
+/**
+ * The slots as this peer shows them: the world with its own moves still in flight made, so a stack
+ * lands on the click rather than a round trip later, and the next click acts on what is seen (0013).
+ */
 function read(game: Game, crate: number | undefined) {
   const q = game.client.sim.query(items);
+  const moves = game.client.inFlight.flatMap((c) =>
+    c.module === items.id && c.type === 'move' ? [c.payload as Move] : [],
+  );
+  const shown = q.afterMoves(game.client.id, moves);
   const copy = (slots: readonly (Readonly<Slot> | null)[]) => slots.map((s) => s && { ...s });
   return {
-    inventory: copy(q.inventory(game.client.id)),
-    crate: crate === undefined ? undefined : copy(q.crate(crate)),
+    inventory: copy(shown.inventory),
+    crate: crate === undefined ? undefined : copy(shown.crates.get(crate) ?? q.crate(crate)),
     creative: q.creative(),
   };
 }
@@ -122,7 +130,11 @@ export function Inventory({ game }: { readonly game: Game }) {
     }
     const result = clickOn(held, { place, stack: slotAt(reading, place), button, shift, crate });
     setPicked(result.picked);
-    if (result.command) game.client.send(result.command);
+    if (!result.command) return;
+    game.client.send(result.command);
+    // Read again now, not on the next refresh: the move shows at once, and a quick next click acts
+    // on it.
+    setReading(read(game, crate));
   };
   const box = (place: Place) => (
     <SlotBox
