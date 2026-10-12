@@ -1,6 +1,7 @@
 # 0013 — Netcode follows known practice
 
-- Status: accepted
+- Status: accepted; its latency hiding omission is superseded by
+  [0014](0014-own-actions-show-at-once.md)
 - Date: 2026-10-12
 
 ## Context
@@ -58,7 +59,7 @@ Sources:
 - **Latency hiding** (Factorio's latency state): a peer's own command shows once it comes back from
   the host, one round trip and the playout depth later, 200–300 ms across the internet. Building
   tolerates that in a prototype; the hiding is a second, predicted world to keep right. Revisited when
-  a playtest names the delay.
+  a playtest names the delay. (One did: see 0014.)
 - **Rollback** (GGPO): it rewinds and replays the whole state, made for small worlds such as fighting
   games. Ours is a factory.
 - **An adaptive delay** (a jitter buffer sized from measured lateness): a fixed delay of three sends

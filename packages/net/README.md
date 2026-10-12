@@ -21,6 +21,10 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   `update(limit)` runs at most that many: a joined game plays them out at a steady pace, two in
   reserve, rather than as the relay delivers them in bursts
   ([0013](../../docs/decisions/0013-netcode-follows-known-practice.md), `apps/game/src/session`).
+- **Commands in flight:** `Client.inFlight` lists this peer's commands sent and not yet run. The
+  host passes a peer's commands on in order, so each of its own in a released tick is the oldest in
+  flight; one that is not throws. The game shows them at once on top of the world
+  ([0014](../../docs/decisions/0014-own-actions-show-at-once.md)).
 - **A `Channel`** delivers in order, and keeps what arrives before a receiver is set until one is.
 
 ## Joining mid-session
