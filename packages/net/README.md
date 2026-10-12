@@ -43,7 +43,8 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 - Heroes are client-authoritative and outside the simulation. A client sends `hero` with a state net
   never reads; the host passes it to every other peer stamped with the sender, and keeps nothing.
 - The game sends its hero every 50 ms while it changes and once a second regardless, and draws the
-  others 150 ms behind, between the two samples around that moment (`apps/game/src/features/crew`).
+  others 150 ms behind, between the two samples around that moment; past the newest one a hero walks
+  on for 100 ms, then stands (`apps/game/src/features/crew`).
 
 ## Hash checks
 

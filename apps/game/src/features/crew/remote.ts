@@ -1,4 +1,4 @@
-import { UNIT, type Hero } from './hero';
+import { STEP_MS, UNIT, type Hero } from './hero';
 
 /** A hero is sent this often while it moves: 20 times a second (0002). */
 export const SEND_MS = 50;
@@ -9,6 +9,12 @@ export const BEAT_MS = 1000;
  * of a relay across the internet.
  */
 export const BEHIND_MS = 150;
+/**
+ * How long a hero walks on along its last velocity once its samples run out, before it stands: a
+ * short gap in delivery stays unseen, a long one shows as a stop rather than a figure frozen
+ * mid-stride (0013).
+ */
+export const EXTRAPOLATE_MS = 100;
 /** A hero silent this long has gone, its peer with it: the host tells no one of a peer leaving. */
 export const GONE_MS = 3000;
 /** A turn of the head smaller than this, in radians, is not worth a send. */
@@ -103,7 +109,8 @@ export function createRemoteHeroes() {
 }
 
 function between(a: Sample, b: Sample | undefined, then: number): Hero {
-  if (!b || then <= a.at) return a.hero;
+  if (then <= a.at) return a.hero;
+  if (!b) return onwards(a, then - a.at);
   if (Math.abs(b.hero.x - a.hero.x) > SNAP || Math.abs(b.hero.y - a.hero.y) > SNAP) return a.hero;
   const t = (then - a.at) / (b.at - a.at);
   const look =
@@ -143,4 +150,11 @@ export function createHeroSender(send: (hero: SentHero) => void) {
       sinceSent = 0;
     },
   };
+}
+
+/** Where a hero `late` ms past its newest sample is: walking on for a while, then standing there. */
+function onwards({ hero }: Sample, late: number): Hero {
+  const steps = Math.min(late, EXTRAPOLATE_MS) / STEP_MS;
+  const moved = { ...hero, x: hero.x + hero.vx * steps, y: hero.y + hero.vy * steps };
+  return late > EXTRAPOLATE_MS ? { ...moved, vx: 0, vy: 0 } : moved;
 }

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { UNIT, type Hero } from './hero';
+import { STEP_MS, UNIT, type Hero } from './hero';
 import {
   BEAT_MS,
   BEHIND_MS,
   createHeroSender,
   createRemoteHeroes,
+  EXTRAPOLATE_MS,
   GONE_MS,
   SEND_MS,
   type SentHero,
@@ -97,6 +98,31 @@ describe("others' heroes", () => {
     expect(heroes.at(1100 + BEHIND_MS)[0]?.hero.x).toBe(60_000);
     heroes.add(2, { ...hero(60_050), at: 60_050 }, 1150);
     expect(heroes.at(1150 + BEHIND_MS)[0]?.hero.x).toBe(60_050);
+  });
+
+  it('walk on along their last velocity through a short gap in delivery', () => {
+    const heroes = createRemoteHeroes();
+    // Walking 6 a controller step, so 18 a send.
+    heroes.add(2, { ...hero(0), vx: 6 }, 1000);
+    heroes.add(2, { ...hero(18), vx: 6 }, 1050);
+    const late = EXTRAPOLATE_MS / 2;
+    const shown = heroes.at(1050 + BEHIND_MS + late)[0]?.hero;
+    expect(shown?.x).toBeCloseTo(18 + (6 * late) / STEP_MS);
+    expect(shown?.vx).toBe(6);
+  });
+
+  it('stand, drawn standing, once a gap outlasts the walk on, and set off again', () => {
+    const heroes = createRemoteHeroes();
+    heroes.add(2, { ...hero(0), vx: 6 }, 1000);
+    heroes.add(2, { ...hero(18), vx: 6 }, 1050);
+    const stood = (6 * EXTRAPOLATE_MS) / STEP_MS;
+    for (const late of [EXTRAPOLATE_MS + 1, 1000]) {
+      const shown = heroes.at(1050 + BEHIND_MS + late)[0]?.hero;
+      expect(shown?.x).toBeCloseTo(18 + stood);
+      expect([shown?.vx, shown?.vy]).toEqual([0, 0]);
+    }
+    heroes.add(2, { ...hero(500), vx: 6 }, 2100);
+    expect(heroes.at(2100 + BEHIND_MS)[0]?.hero.x).toBe(500);
   });
 
   it('forget samples once a later one is past, so the buffer stays short', () => {

@@ -68,8 +68,8 @@ eye shows debris drifting smoothly on the guest.
 - Tests inject the beat source: no test runner can hide a tab.
 
 Done when: unit tests of the hand-over and of stopping; a host tab hidden for ten minutes in Chrome
-and in Firefox, and the desktop shell minimised, release 12 000 ticks within 1% (the numbers in the
-PR); on the playtest server a friend plays on through it.
+and the desktop shell minimised (the game runs in nothing else) release 12 000 ticks within 1%
+(the numbers in the PR); on the playtest server a friend plays on through it.
 
 **N-04 · Others' heroes through a gap** · S · client `crew` · after N-01
 
