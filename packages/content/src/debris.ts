@@ -15,6 +15,11 @@ export const DEBRIS = {
   drift: { min: 30, max: 55 },
   margin: 12,
   lead: 64,
+  /**
+   * How far from the pointer, in thousandths of a cell, a piece is still aimed at: a piece drifting
+   * by is small and moving, and a pointer exactly on it is hard to keep.
+   */
+  aimRadius: 1500,
   kinds: [
     { item: 'scrapChunk', weight: 6 },
     { item: 'hullPlate', weight: 3 },
@@ -27,5 +32,6 @@ export const DEBRIS = {
   readonly drift: { readonly min: number; readonly max: number };
   readonly margin: number;
   readonly lead: number;
+  readonly aimRadius: number;
   readonly kinds: readonly { readonly item: ItemId; readonly weight: number }[];
 };

@@ -186,7 +186,12 @@ export const crewFeature: Feature = {
         // The press is taken every frame, so one made out of reach is spent rather than kept.
         // Passed out, E does nothing: a press is spent, a hold works no plan.
         const pressed = keys.takeUse();
-        const e = out ? { pressed: false, held: false } : { pressed, held: keys.holdsUse() };
+        // The left button grabs debris too: out in space, with WASD held and the mouse aiming, E is
+        // a stretch. With a build tool out it is the tool's.
+        const grab = keys.takeClick() && !buildMode.get() && aim?.piece !== undefined;
+        const e = out
+          ? { pressed: false, held: false }
+          : { pressed: pressed || grab, held: keys.holdsUse() };
         const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
         workedOnTick = uses.workedOnTick;
         for (const c of uses.commands) game.client.send(c);

@@ -324,6 +324,35 @@ describe('a piece of debris under the pointer', () => {
     const passed = aimAt(space, 0, heroOn(x - 2, y), centre(x, y), new Set([piece.id]));
     expect([passed?.piece, passed?.press]).toEqual([undefined, undefined]);
   });
+
+  it('is aimed at from beside it, within a radius of the pointer, not from farther', () => {
+    const space = stillwake.create(
+      1,
+      parseLayout(['#'.padEnd(12), ...Array<string>(7).fill(' '.repeat(12))]),
+    );
+    for (let i = 0; i < DEBRIS.every; i++) space.step([]);
+    const piece = space.query(debris).pieces()[0];
+    if (!piece) throw new Error('no piece');
+    const hero = heroOn(Math.floor(piece.x / UNIT) - 2, Math.floor(piece.y / UNIT));
+    // Off to its left, inside the grid: it came in from the right edge.
+    const off = (by: number) => ({ x: (piece.x - by) / UNIT, y: piece.y / UNIT });
+    expect(aimAt(space, 0, hero, off(DEBRIS.aimRadius - 100))?.piece).toBe(piece.id);
+    expect(aimAt(space, 0, hero, off(DEBRIS.aimRadius + 100))?.piece).toBeUndefined();
+  });
+
+  it('is not aimed at while the hero is aboard: it drifts past behind the hull', () => {
+    const world = stillwake.create(1, wreck);
+    for (let i = 0; i < 4 * DEBRIS.every && world.query(debris).pieces().length === 0; i++) {
+      world.step([]);
+    }
+    const piece = world.query(debris).pieces()[0];
+    if (!piece) throw new Error('no piece');
+    const [spawn] = cellsOf(wreck, 'S');
+    if (spawn === undefined) throw new Error('the wreck has no S');
+    const aboard = heroAt(shipOf(world), spawn);
+    const aim = aimAt(world, 0, aboard, { x: piece.x / UNIT, y: piece.y / UNIT });
+    expect(aim?.piece).toBeUndefined();
+  });
 });
 
 describe('what E sends', () => {

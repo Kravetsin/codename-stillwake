@@ -1,4 +1,4 @@
-import { HERO } from '@stillwake/content';
+import { DEBRIS, HERO } from '@stillwake/content';
 import {
   atmosphere,
   building,
@@ -6,11 +6,12 @@ import {
   debris,
   CONDUIT,
   grid,
+  rooms,
   STRUCTURE,
   type Command,
   type Sim,
 } from '@stillwake/sim';
-import { UNIT, type Hero } from './hero';
+import { bodyCell, UNIT, type Hero } from './hero';
 
 /** Something E does: the command it sends, and why the sim would refuse it, if it would. */
 export interface Use {
@@ -52,8 +53,9 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
  * block the mark beside it; when none can, the oldest, to show why. Then a crate, a tank, a door, a
- * valve: a valve under a machine or in a door's cell is not worked with E. Last, a piece of debris,
- * unless it is one in `passOver`: grabbed already, its grab still in flight.
+ * valve: a valve under a machine or in a door's cell is not worked with E. Last, the piece of debris
+ * nearest the pointer within `DEBRIS.aimRadius`, only while the hero is out in space, where it can
+ * catch one, and none in `passOver`: grabbed already, its grab still in flight.
  */
 export function aimAt(
   sim: Sim,
@@ -79,17 +81,41 @@ export function aimAt(
   if (machine?.kind === 'crate') return { cell, inReach, crate: machine.id };
   const press = pressOf(sim, peer, cell);
   if (press) return { cell, inReach, press };
-  const piece = sim.query(debris).pieceAt(cell);
-  if (!piece || passOver.has(piece.id)) return { cell, inReach };
+  const piece = pieceNear(sim, hero, point, passOver);
+  if (!piece) return { cell, inReach };
+  // Aimed at where the piece is, which may be a cell beside the pointer's.
+  const at = Math.floor(piece.y / UNIT) * cells.width + Math.floor(piece.x / UNIT);
   return {
-    cell,
-    inReach,
+    cell: at,
+    inReach: reaches(hero, at, cells.width),
     piece: piece.id,
     press: {
       command: command(debris, 'grab', { piece: piece.id }),
       problem: sim.query(debris).grabProblem(peer, piece.id),
     },
   };
+}
+
+/** The piece of debris nearest `point` within `DEBRIS.aimRadius`; none while the hero is aboard. */
+function pieceNear(
+  sim: Sim,
+  hero: Hero,
+  point: { x: number; y: number },
+  passOver: ReadonlySet<number>,
+) {
+  const { width } = sim.query(grid).size();
+  if (sim.query(rooms).roomAt(bodyCell(hero, width)) !== 'space') return undefined;
+  let nearest: { readonly id: number; readonly x: number; readonly y: number } | undefined;
+  let best = DEBRIS.aimRadius * DEBRIS.aimRadius;
+  for (const p of sim.query(debris).pieces()) {
+    if (passOver.has(p.id)) continue;
+    const dx = p.x - point.x * UNIT;
+    const dy = p.y - point.y * UNIT;
+    if (dx * dx + dy * dy > best) continue;
+    best = dx * dx + dy * dy;
+    nearest = p;
+  }
+  return nearest;
 }
 
 function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {

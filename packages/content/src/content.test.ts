@@ -122,7 +122,14 @@ describe('salvage', () => {
   });
 
   it('drifts past at whole rates under a cell a tick, as salvage items of positive weight', () => {
-    for (const value of [DEBRIS.every, DEBRIS.max, DEBRIS.drift.min, DEBRIS.margin, DEBRIS.lead]) {
+    for (const value of [
+      DEBRIS.every,
+      DEBRIS.max,
+      DEBRIS.drift.min,
+      DEBRIS.margin,
+      DEBRIS.lead,
+      DEBRIS.aimRadius,
+    ]) {
       expect(Number.isSafeInteger(value) && value > 0).toBe(true);
     }
     expect(Number.isSafeInteger(DEBRIS.jitter) && DEBRIS.jitter >= 0).toBe(true);

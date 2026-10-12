@@ -1,5 +1,5 @@
 import { items, type Move, type Place, type Slot } from '@stillwake/sim';
-import { useEffect, useState, useSyncExternalStore, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
 import { ICON_AUTHORS } from '../../render/item-icons';
 import { ItemIcon } from '../../render/ItemIcon';
@@ -34,6 +34,8 @@ function SlotBox(props: {
   readonly chosen?: boolean;
   readonly picked?: boolean;
   readonly onClick: (button: 'left' | 'right', shift: boolean) => void;
+  /** The left button let go over this slot, which ends a drag begun on another. */
+  readonly onRelease: () => void;
   readonly onHover: (on: boolean) => void;
 }) {
   const { slot } = props;
@@ -41,12 +43,20 @@ function SlotBox(props: {
     e.preventDefault();
     props.onClick(button, e.shiftKey);
   };
+  // The left button acts as it goes down, so a press can begin a drag; a click is a press let go.
+  const down = (e: MouseEvent) => {
+    if (e.button === 0) press('left')(e);
+  };
+  const up = (e: MouseEvent) => {
+    if (e.button === 0) props.onRelease();
+  };
   const edge = props.chosen ? 'border-amber-300' : 'border-slate-600';
   return (
     <button
       data-slot={props.id}
       className={`relative h-9 w-9 rounded border bg-slate-800/90 ${edge} ${props.picked ? 'opacity-40' : ''}`}
-      onClick={press('left')}
+      onMouseDown={down}
+      onMouseUp={up}
       onContextMenu={press('right')}
       onMouseEnter={() => props.onHover(true)}
       onMouseLeave={() => props.onHover(false)}
@@ -63,7 +73,8 @@ function SlotBox(props: {
 
 /**
  * The hotbar, always in the top-left corner; and with Tab, or E on a crate, the rest of the
- * inventory and the crate beside it. Stacks move by clicks (see `clickOn`); Tab or Esc closes both.
+ * inventory and the crate beside it. Stacks move by clicks (see `clickOn`), or dragged from one slot
+ * to another; Tab or Esc closes both.
  */
 export function Inventory({ game }: { readonly game: Game }) {
   const crate = useSyncExternalStore(openCrate.subscribe, openCrate.get);
@@ -128,7 +139,23 @@ export function Inventory({ game }: { readonly game: Game }) {
   const pickedSlot = picked && slotAt(reading, picked.place);
   const held = shown && pickedSlot ? picked : undefined;
 
+  // A stack picked up by a press, carried while the button is held: let go over another slot, it
+  // is put down there, as a second click would; let go where it was picked, it stays in hand.
+  const dragFrom = useRef<Place | undefined>(undefined);
+  useEffect(() => {
+    // After a slot's own release: let go anywhere else, the stack stays in hand.
+    const drop = () => (dragFrom.current = undefined);
+    window.addEventListener('mouseup', drop);
+    return () => window.removeEventListener('mouseup', drop);
+  }, []);
+  const releaseAt = (place: Place) => () => {
+    const from = dragFrom.current;
+    dragFrom.current = undefined;
+    if (from && held && !samePlace(from, place)) clickAt(place)('left', false);
+  };
+
   const clickAt = (place: Place) => (button: 'left' | 'right', shift: boolean) => {
+    if (button === 'left' && !shift) dragFrom.current = held ? undefined : place;
     if (!shown) {
       if (place.crate === undefined && place.slot < ROW) setChosen(place.slot);
       return;
@@ -151,6 +178,7 @@ export function Inventory({ game }: { readonly game: Game }) {
         held !== undefined && held.place.crate === place.crate && held.place.slot === place.slot
       }
       onClick={clickAt(place)}
+      onRelease={releaseAt(place)}
       onHover={(on) =>
         setHovered((was) => (on ? place : was && samePlace(was, place) ? undefined : was))
       }

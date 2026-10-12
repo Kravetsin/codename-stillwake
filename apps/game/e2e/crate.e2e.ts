@@ -31,3 +31,28 @@ test('takes a stack from the wreck crate into the hotbar', async ({ page }) => {
   await expect(page.locator('[data-slot="inv-0"]')).toContainText(String(STARTING_CRATE.scrap));
   await expect(scrap).not.toContainText(/\d/);
 });
+
+test('drags a stack from the wreck crate into the inventory', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => '__game' in window);
+  const view = page.viewportSize() ?? { width: 0, height: 0 };
+  const spawn = find('S');
+  const crate = find('K');
+  const scale = CELL * START_ZOOM;
+  const middle = { x: spawn.x + 0.5, y: spawn.y + 1 - HERO.height / 1000 / 2 };
+  await page.mouse.move(
+    view.width / 2 + (crate.x + 0.5 - middle.x) * scale,
+    view.height / 2 + (crate.y + 0.5 - middle.y) * scale,
+  );
+  await page.keyboard.press('KeyE');
+
+  const steel = page.locator('[data-slot="crate-1"]');
+  await expect(steel).toContainText(String(STARTING_CRATE.steel));
+  await steel.hover();
+  await page.mouse.down();
+  await page.locator('[data-slot="inv-2"]').hover();
+  await page.mouse.up();
+
+  await expect(page.locator('[data-slot="inv-2"]')).toContainText(String(STARTING_CRATE.steel));
+  await expect(steel).not.toContainText(/\d/);
+});

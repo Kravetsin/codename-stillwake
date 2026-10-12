@@ -9,11 +9,15 @@ const JUMP = 'Space';
 const USE = 'KeyE';
 const HANDLED = new Set([...LEFT, ...RIGHT, ...UP, ...DOWN, JUMP, USE]);
 
-/** The keyboard as the hero reads it, from `target`: the window, or a test's stand-in. */
+/**
+ * The keyboard as the hero reads it, from `target`: the window, or a test's stand-in; and the left
+ * button pressed on the world, which grabs debris as E does.
+ */
 export function createKeys(target: Window) {
   const held = new Set<string>();
   let jump = false;
   let use = false;
+  let click = false;
 
   const onDown = (e: KeyboardEvent) => {
     if (!HANDLED.has(e.code)) return;
@@ -22,6 +26,12 @@ export function createKeys(target: Window) {
     if (e.code === JUMP && !e.repeat) jump = true;
     if (e.code === USE && !e.repeat) use = true;
     held.add(e.code);
+  };
+  // On the world only: a press on a panel is the panel's.
+  const onPointer = (e: PointerEvent) => {
+    if (e.button === 0 && (e.target as { tagName?: string } | null)?.tagName === 'CANVAS') {
+      click = true;
+    }
   };
   const onUp = (e: KeyboardEvent) => {
     if (!HANDLED.has(e.code)) return;
@@ -33,6 +43,7 @@ export function createKeys(target: Window) {
     held.clear();
     jump = false;
     use = false;
+    click = false;
   };
   const axis = (minus: string[], plus: string[]) =>
     ((plus.some((k) => held.has(k)) ? 1 : 0) - (minus.some((k) => held.has(k)) ? 1 : 0)) as
@@ -41,6 +52,7 @@ export function createKeys(target: Window) {
   target.addEventListener('keydown', onDown);
   target.addEventListener('keyup', onUp);
   target.addEventListener('blur', onBlur);
+  target.addEventListener('pointerdown', onPointer);
 
   return {
     /** The input for the next controller step; a jump press counts for one step only. */
@@ -57,7 +69,14 @@ export function createKeys(target: Window) {
       use = false;
       return pressed;
     },
+    /** Whether the left button was pressed on the world since the last call. */
+    takeClick(): boolean {
+      const pressed = click;
+      click = false;
+      return pressed;
+    },
     destroy() {
+      target.removeEventListener('pointerdown', onPointer);
       target.removeEventListener('keydown', onDown);
       target.removeEventListener('keyup', onUp);
       target.removeEventListener('blur', onBlur);

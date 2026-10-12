@@ -7,10 +7,27 @@ function setup() {
   const keys = createKeys(target as unknown as Window);
   const send = (type: string, code: string, repeat = false) =>
     target.dispatchEvent(Object.assign(new Event(type), { code, repeat }));
-  return { keys, send };
+  return { keys, send, target };
 }
 
 describe('keys', () => {
+  it('count a left press on the world, not on a panel, once', () => {
+    const { keys, target } = setup();
+    const press = (on: EventTarget, button = 0) => {
+      const e = Object.assign(new Event('pointerdown'), { button });
+      Object.defineProperty(e, 'target', { value: on });
+      target.dispatchEvent(e);
+    };
+    press(Object.assign(new EventTarget(), { tagName: 'BUTTON' }));
+    expect(keys.takeClick()).toBe(false);
+    const canvas = Object.assign(new EventTarget(), { tagName: 'CANVAS' });
+    press(canvas, 2);
+    expect(keys.takeClick()).toBe(false);
+    press(canvas);
+    expect(keys.takeClick()).toBe(true);
+    expect(keys.takeClick()).toBe(false);
+  });
+
   it('turn held keys into directions, opposite keys cancelling out', () => {
     const { keys, send } = setup();
     send('keydown', 'KeyA');
