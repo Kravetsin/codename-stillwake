@@ -274,7 +274,10 @@ with a cable is not taken apart: `building.cabled`. The wreck's roof carries a p
 generator, its cables listed in content as cell pairs. Client: a Cable tool (press on a node, drag, let
 go on a node; the ghost sags and turns red with the refusal), nodes ringed by their network's state
 while it is out, cables drawn sagging inside the ship and straight with an end in space, hidden where
-they cross walls; Deconstruct clicked by a cable cuts it.
+they cross walls; Deconstruct clicked by a cable cuts it. Reworked after a look at it: out of a new
+power overlay (L) cables are thin lines behind walls and machines, as pipes now are out of the pipes
+overlay (P); in their overlay they come to the front, cables coloured by their network, nodes ringed;
+a Cable or pipe tool turns its overlay on, and only there does Deconstruct cut a cable.
 Done when: scenarios for lay, cut and every refusal; a panel inside a room makes nothing; 5 against 8
 gives 625‰ and the generator exactly 125 a minute; a cut cable starves the generator; `building.cabled`
 on the mark and the last tick; the wreck runs the generator full and airs A in 15 s; invariants for

@@ -1,4 +1,4 @@
-import { atmosphere, CONDUIT, grid, pipes } from '@stillwake/sim';
+import { atmosphere, CONDUIT, grid, pipes, power } from '@stillwake/sim';
 import { Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature, Layer } from '../feature';
@@ -7,62 +7,14 @@ import { colourOf, litNetworks } from './oxygen';
 const VALVE_OPEN = 0x4caf6a;
 const VALVE_CLOSED = 0xd05050;
 const REFRESH_MS = 250;
-/** The colour of a pipe with oxygen in it; the grid draws every pipe dull beneath. */
-const LIT = 0x3fa7d6;
+/** How a network without oxygen in it is drawn, against one with: faded. */
+const DRY_ALPHA = 0.4;
 
 /**
- * Pipes carrying oxygen, lit over the grid's dull ones: a run that stays dull holds none. Drawn as the
- * grid draws a pipe, reaching toward the neighbours of its own network.
- */
-function litPipes(): Layer {
-  const view = new Graphics();
-  let since = Infinity;
-  let shown = '';
-  return {
-    view,
-    update({ game, elapsedMs }) {
-      since += elapsedMs;
-      if (since < REFRESH_MS) return;
-      since = 0;
-      const { sim } = game.client;
-      const { width } = sim.query(grid).size();
-      const kinds = new Map(
-        sim
-          .query(grid)
-          .machines()
-          .map((m) => [m.id, m.kind]),
-      );
-      // A tank holding oxygen feeds its pipes; a generator always does, its store empty or not.
-      const lit = litNetworks(sim.query(pipes).networks(), (m) =>
-        kinds.get(m) === 'generator'
-          ? true
-          : kinds.get(m) === 'tank' && sim.query(atmosphere).oxygenIn(m) > 0,
-      );
-      const key = lit.map((n) => n.cells.join(',')).join('|');
-      if (key === shown) return;
-      shown = key;
-      view.clear();
-      for (const network of lit) {
-        const cells = new Set(network.cells);
-        for (const cell of network.cells) {
-          const cx = (cell % width) * CELL + CELL / 2;
-          const cy = Math.floor(cell / width) * CELL + CELL / 2;
-          view.rect(cx - 2, cy - 2, 4, 4);
-          const x = cell % width;
-          if (x < width - 1 && cells.has(cell + 1)) view.rect(cx, cy - 2, CELL / 2, 4);
-          if (x > 0 && cells.has(cell - 1)) view.rect(cx - CELL / 2, cy - 2, CELL / 2, 4);
-          if (cells.has(cell + width)) view.rect(cx - 2, cy, 4, CELL / 2);
-          if (cells.has(cell - width)) view.rect(cx - 2, cy - CELL / 2, 4, CELL / 2);
-        }
-      }
-      view.fill(LIT);
-    },
-  };
-}
-
-/**
- * Every pipe network in a colour of its own, so a player sees which tanks reach which vents, and each
- * valve ringed by its state: a closed one is where two networks meet without joining.
+ * Every pipe network brought in front of the ship, each in a colour of its own, so a player sees
+ * which tanks and generators reach which vents: full where oxygen is in it, faded where none is. Each
+ * valve ringed by its state: a closed one is where two networks meet without joining. Out of the
+ * overlay, the grid draws the pipes dull, behind walls and machines.
  */
 function pipesOverlay(): Layer {
   const view = new Graphics();
@@ -77,20 +29,39 @@ function pipesOverlay(): Layer {
       since = 0;
       shown = sim.world.tick;
       const cells = sim.query(grid).layers();
-      const at = (cell: number) => [
-        (cell % cells.width) * CELL,
-        Math.floor(cell / cells.width) * CELL,
-      ];
+      const { width } = cells;
+      const kinds = new Map(
+        sim
+          .query(grid)
+          .machines()
+          .map((m) => [m.id, m.kind]),
+      );
+      // A tank holding oxygen feeds its pipes; a powered generator does, its store empty or not.
+      const lit = new Set(
+        litNetworks(sim.query(pipes).networks(), (m) =>
+          kinds.get(m) === 'generator'
+            ? sim.query(power).satisfaction(m) > 0
+            : kinds.get(m) === 'tank' && sim.query(atmosphere).oxygenIn(m) > 0,
+        ),
+      );
       view.clear();
       sim
         .query(pipes)
         .networks()
         .forEach((network, i) => {
+          const own = new Set(network.cells);
+          // Drawn as a pipe is, reaching toward the neighbours of its own network.
           for (const cell of network.cells) {
-            const [x, y] = at(cell) as [number, number];
-            view.rect(x + 3, y + 3, CELL - 6, CELL - 6);
+            const cx = (cell % width) * CELL + CELL / 2;
+            const cy = Math.floor(cell / width) * CELL + CELL / 2;
+            view.rect(cx - 3, cy - 3, 6, 6);
+            const x = cell % width;
+            if (x < width - 1 && own.has(cell + 1)) view.rect(cx, cy - 3, CELL / 2, 6);
+            if (x > 0 && own.has(cell - 1)) view.rect(cx - CELL / 2, cy - 3, CELL / 2, 6);
+            if (own.has(cell + width)) view.rect(cx - 3, cy, 6, CELL / 2);
+            if (own.has(cell - width)) view.rect(cx - 3, cy - CELL / 2, 6, CELL / 2);
           }
-          view.fill(colourOf(i));
+          view.fill({ color: colourOf(i), alpha: lit.has(network) ? 1 : DRY_ALPHA });
         });
       for (const [state, colour] of [
         [CONDUIT.valveOpen, VALVE_OPEN],
@@ -98,7 +69,8 @@ function pipesOverlay(): Layer {
       ] as const) {
         cells.conduit.forEach((c, cell) => {
           if (c !== state) return;
-          const [x, y] = at(cell) as [number, number];
+          const x = (cell % width) * CELL;
+          const y = Math.floor(cell / width) * CELL;
           view.rect(x + 1, y + 1, CELL - 2, CELL - 2);
         });
         view.stroke({ width: 2, color: colour });
@@ -107,9 +79,8 @@ function pipesOverlay(): Layer {
   };
 }
 
-/** Which pipes carry oxygen, and an overlay of every network; the grid draws the pipes themselves. */
+/** An overlay of every pipe network and where oxygen is in it; the grid draws the pipes themselves. */
 export const pipesFeature: Feature = {
   id: 'pipes',
-  layer: litPipes,
   overlay: { name: 'overlay.pipes', key: 'KeyP', layer: pipesOverlay },
 };

@@ -15,6 +15,11 @@ export interface Frame {
 /** Something drawn into the world: created once, updated every frame, destroyed with the game. */
 export interface Layer {
   readonly view: Container;
+  /**
+   * Drawn behind the ship's structure, over its back walls: what runs behind walls and machines,
+   * such as pipes and cables. Updated with `view`.
+   */
+  readonly behind?: Container;
   update(frame: Frame): void;
   /** Releases what the layer holds outside its view, such as input listeners. */
   destroy?(): void;

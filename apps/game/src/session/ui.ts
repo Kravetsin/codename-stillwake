@@ -29,6 +29,12 @@ export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1
 );
 
 /**
+ * Which overlay is on, by its feature's id, or none: switched by its key (`overlays/switch`), and
+ * by `building` while a tool that needs one is out.
+ */
+export const overlayOn = createStore<string | undefined>(undefined);
+
+/**
  * Words for what the pointer is on, shown beside it (`PointerTip`): `item` for a stack under it in
  * the inventory, set by `items`; `world` for what an overlay says of the cell under it, set by that
  * overlay while it is on.

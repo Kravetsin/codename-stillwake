@@ -73,6 +73,8 @@ export const EN: Readonly<Record<string, string>> = {
 
   'overlay.air': 'air',
   'overlay.pipes': 'pipes',
+  'overlay.power': 'power',
+  'power.supply': 'Power: {supply} made / {demand} drawn',
   'air.aired': 'Aired · {cells} cells',
   'air.filling': 'Filling · {aired}/{cells} cells',
   'air.venting': 'Venting to space',

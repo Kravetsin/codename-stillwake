@@ -22,7 +22,10 @@ inside the ship, taut in zero gravity outside, not a second line of cells beside
 - **A cabled machine is not taken apart** (`building.cabled`): cut its cables first. Cables are laid
   and cut at once, paid and refunded like a build, not worked by hand: they have no cell to plan.
 - **Drawing:** inside the ship a cable hangs in a parabola, out in space (an end in space) it is
-  straight, and where it crosses a wall or a closed door it is hidden.
+  straight. Out of the power overlay (L) it is a thin line behind the ship's structure, seen only
+  against back walls; in it, cables come to the front, coloured by their network's state, every node
+  ringed. Pipes the same: behind the structure, dull, and in front in the pipes overlay (P). A tool
+  that lays cables or pipes turns its overlay on, and the one before comes back when it is put away.
 
 ## Rejected
 
@@ -40,6 +43,7 @@ inside the ship, taut in zero gravity outside, not a second line of cells beside
 
 - The wreck starts with a panel on its roof cabled to the generator, which runs in full: 5 against 4.
   Every user added to that network slows the generator, the start's first pressure.
-- A cable is hit-tested by its drawn shape: Deconstruct clicked near one cuts it before whatever
-  stands behind it.
+- A cable is hit-tested by its drawn shape: with the power overlay on, Deconstruct clicked near one
+  cuts it before whatever stands behind it; out of it, cables are out of reach, so taking a wall or
+  back wall apart never cuts one by accident.
 - Networks are found from scratch every tick; tens of cables keep that cheap.

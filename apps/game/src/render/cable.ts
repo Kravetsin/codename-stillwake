@@ -85,13 +85,3 @@ export function shapeOf(q: Queries, a: number, b: number): Point[] {
   const toB = middleOf(q.grid, b);
   return cablePoints(endOf(q.grid, a, toB), endOf(q.grid, b, toA), hangsAt(q, a) && hangsAt(q, b));
 }
-
-/** Whether the cell under `p` hides a cable: a wall or a closed door, drawn over it. */
-export function hidden(q: QueryApi<typeof grid>, p: Point): boolean {
-  const { width, height } = q.size();
-  const x = Math.floor(p.x);
-  const y = Math.floor(p.y);
-  if (x < 0 || y < 0 || x >= width || y >= height) return false;
-  const s = q.structureAt(y * width + x);
-  return s.kind === 'wall' || (s.kind === 'door' && !s.open);
-}

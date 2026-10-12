@@ -17,7 +17,7 @@ import { relayFor } from './session/relay-socket';
 import { keepTime } from './session/time';
 import { startedAnew, takeResume, watchForUpdates } from './session/update';
 import { PointerTip } from './session/PointerTip';
-import { pointerTip } from './session/ui';
+import { overlayOn, pointerTip } from './session/ui';
 import { VersionBar } from './session/VersionBar';
 
 /**
@@ -69,6 +69,7 @@ export function App() {
     const switched = createOverlaySwitch(
       Object.fromEntries(OVERLAYS.map((o) => [o.id, o.key])),
       window,
+      overlayOn,
     );
     // `?perf` swaps the wreck for the reference world the budgets in CLAUDE.md are measured on.
     const perf = new URLSearchParams(location.search).has('perf');
@@ -100,7 +101,16 @@ export function App() {
       else world.scale.set(START_ZOOM);
 
       layers = FEATURES.flatMap((f) => (f.layer ? [f.layer()] : []));
-      for (const layer of layers) world.addChild(layer.view);
+      // What runs behind the ship's structure, of every layer, stacked where the first of them
+      // stands: over the stars and debris, under the walls and machines.
+      const behind = new Container();
+      for (const layer of layers) {
+        if (layer.behind) {
+          if (!behind.parent) world.addChild(behind);
+          behind.addChild(layer.behind);
+        }
+        world.addChild(layer.view);
+      }
       // Over everything, and updated only while on: an overlay may read the whole ship.
       overlayLayers = OVERLAYS.map((o) => ({ id: o.id, layer: o.layer() }));
       for (const { layer } of overlayLayers) world.addChild(layer.view);

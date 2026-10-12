@@ -12,18 +12,21 @@ const MACHINE_EDGE = 0x5f86a8;
 const PORT = 0xd8e6f2;
 
 /**
- * The ship drawn as flat graybox blocks, machines between structure and conduits so pipes show where
- * they join them; redraws only chunks whose cells changed.
+ * The ship drawn as flat graybox blocks: back walls and the pipes in front of them behind everything,
+ * then structure, then machines, whose port rings show where pipes join them; redraws only chunks
+ * whose cells changed.
  */
 export const gridFeature: Feature = {
   id: 'grid',
   layer() {
     const view = new Container();
+    const behind = new Container();
     const backLayer = new Container();
     const chunkLayer = new Container();
     const machineLayer = new Container();
     const conduitLayer = new Container();
-    view.addChild(backLayer, chunkLayer, machineLayer, conduitLayer);
+    behind.addChild(backLayer, conduitLayer);
+    view.addChild(chunkLayer, machineLayer);
 
     let backChunks: Graphics[] = [];
     let chunks: Graphics[] = [];
@@ -61,6 +64,7 @@ export const gridFeature: Feature = {
 
     return {
       view,
+      behind,
       update({ game }) {
         const { sim } = game.client;
         // Cells change only on a tick or with this peer's own toggles, shown before their tick runs.

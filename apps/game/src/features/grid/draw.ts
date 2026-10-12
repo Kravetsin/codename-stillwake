@@ -101,7 +101,7 @@ export function drawStructure(batch: Batch, cells: Cells, cell: number): void {
   }
 }
 
-/** Adds one cell's conduit to `batch`: drawn over machines, so a pipe shows where it joins one. */
+/** Adds one cell's conduit to `batch`: behind walls and machines, a port ring over its end. */
 export function drawConduit(batch: Batch, cells: Cells, cell: number): void {
   const col = cell % cells.width;
   const row = Math.floor(cell / cells.width);

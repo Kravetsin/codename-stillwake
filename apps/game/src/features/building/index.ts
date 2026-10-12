@@ -1,4 +1,3 @@
-import { MACHINES, type MachineSpec } from '@stillwake/content';
 import { building, command, grid, power, rooms, type Plan, type QueryApi } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
@@ -12,6 +11,7 @@ import {
   type Point,
 } from '../../render/cable';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
+import { overlayOn } from '../../session/ui';
 import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
 import { nearGrid } from './near-grid';
@@ -25,11 +25,6 @@ const REFUSED = 0xe05555;
 const BAR = 0xf2f5fa;
 const BAR_BACK = 0x0b0f17;
 const GRID_LINE = 0x9fb4c8;
-/** Node rings by their network's state: fed in full, short, dark, or on no network at all. */
-const FED = 0x7fe08a;
-const SHORT = 0xf0b44c;
-const DARK = 0xe05555;
-const LOOSE = 0x9aa3ad;
 /** How near a Deconstruct click must be to a cable, in cells, to cut it. */
 const CUT_REACH = 0.35;
 
@@ -55,18 +50,8 @@ export const buildingFeature: Feature = {
       },
       resolution: WORLD_TEXT_RESOLUTION,
     });
-    const info = new Text({
-      text: '',
-      style: {
-        fontFamily: 'monospace',
-        fontSize: 10,
-        fill: 0xf2f5fa,
-        stroke: { color: 0x0b0f17, width: 3 },
-      },
-      resolution: WORLD_TEXT_RESOLUTION,
-    });
     const view = new Container();
-    view.addChild(near, plansView, ghost, reason, info);
+    view.addChild(near, plansView, ghost, reason);
 
     let drawn = '';
     let pressed: Spot | undefined;
@@ -125,10 +110,13 @@ export const buildingFeature: Feature = {
             continue;
           }
           const next = onButton(pressed, button, size);
-          // A click, not a drag, by a cable cuts it, before whatever stands behind it.
+          // With the cables in sight, a click, not a drag, by one cuts it before what is behind.
           const clicked =
             next.line && next.line[0].x === next.line[1].x && next.line[0].y === next.line[1].y;
-          const cut = tool.kind === 'deconstruct' && clicked ? cableNear(button.at) : undefined;
+          const cut =
+            tool.kind === 'deconstruct' && clicked && overlayOn.get() === 'power'
+              ? cableNear(button.at)
+              : undefined;
           pressed = next.pressed;
           if (cut) {
             game.client.send(command(power, 'cut', { a: cut.a, b: cut.b }));
@@ -145,18 +133,11 @@ export const buildingFeature: Feature = {
         ghost.clear();
         near.clear();
         reason.text = '';
-        info.text = '';
         const pointer = camera.pointer();
         if (tool?.kind === 'cable') {
-          drawNodes(ghost, q.grid, wires);
-          if (!pointer) return;
+          // The power overlay, on with the tool, rings the nodes and says how each network stands.
+          if (!pointer || cableFrom === undefined) return;
           const over = onGrid(size, pointer) ? wires.nodeAt(cellAt(pointer)) : undefined;
-          const network = over === undefined ? undefined : wires.networkOf(over);
-          if (network && cableFrom === undefined) {
-            info.text = `${network.supply} / ${network.demand}`;
-            info.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);
-          }
-          if (cableFrom === undefined) return;
           // The ghost reaches for the node under the pointer, or hangs from the pointer itself.
           const toward = over === undefined ? pointer : middleOf(q.grid, over);
           const end =
@@ -177,7 +158,7 @@ export const buildingFeature: Feature = {
           }
           return;
         }
-        if (tool?.kind === 'deconstruct' && pointer) {
+        if (tool?.kind === 'deconstruct' && pointer && overlayOn.get() === 'power') {
           const cable = cableNear(pointer);
           if (cable) {
             drawLine(ghost, shapeOf(shape, cable.a, cable.b), REFUSED);
@@ -228,31 +209,6 @@ function drawLine(g: Graphics, points: readonly Point[], colour: number) {
     i === 0 ? g.moveTo(p.x * CELL, p.y * CELL) : g.lineTo(p.x * CELL, p.y * CELL),
   );
   g.stroke({ width: 3, color: colour, alpha: 0.8, cap: 'round', join: 'round' });
-}
-
-/**
- * Every node a cable may run from, ringed by how its network stands: anchors and machines on a
- * network by its satisfaction, machines making or drawing power on none in grey.
- */
-function drawNodes(g: Graphics, q: QueryApi<typeof grid>, wires: QueryApi<typeof power>) {
-  const ring = (node: number, colour: number) => {
-    const m = middleOf(q, node);
-    g.circle(m.x * CELL, m.y * CELL, CELL * 0.3).stroke({ width: 2, color: colour });
-  };
-  const cabled = new Set<number>();
-  for (const n of wires.networks()) {
-    const colour = n.satisfaction >= 1000 ? FED : n.satisfaction > 0 ? SHORT : DARK;
-    for (const node of n.nodes) {
-      cabled.add(node);
-      ring(node, colour);
-    }
-  }
-  for (const m of q.machines()) {
-    const spec: MachineSpec = MACHINES[m.kind];
-    if ((spec.makes !== undefined || spec.draws !== undefined) && !cabled.has(m.cell)) {
-      ring(m.cell, LOOSE);
-    }
-  }
 }
 
 /** The rectangle around `cells`, in pixels of the world. */
