@@ -16,8 +16,9 @@ export const FEATURES: readonly Feature[] = [
   gridFeature,
   atmosphereFeature,
   pipesFeature,
+  // Stacks lying on the floor, under the heroes walking over them.
+  itemsFeature,
   crewFeature,
   buildingFeature,
-  itemsFeature,
   devPanel,
 ];

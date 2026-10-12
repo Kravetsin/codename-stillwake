@@ -7,6 +7,8 @@ import type { ItemsState, Place, Slot, Target } from './state';
  * Mostly moves, from the sender's own inventory or a crate holding something, so most are taken;
  * now and then from an empty slot, a slot out of range, a crate that is not there, or onto a full
  * or other stack, so every refusal is drawn too. Creative mode switches now and then, mostly off.
+ * Now and then a drop onto a cell, off the grid too, or a pick-up of a stack on the floor or of one
+ * long gone.
  */
 export function fuzzItems(state: DeepReadonly<ItemsState>, rng: Rng, from: number) {
   if (rng.below(10) === 0) {
@@ -42,5 +44,17 @@ export function fuzzItems(state: DeepReadonly<ItemsState>, rng: Rng, from: numbe
       : { ...to, slot: rng.below((to.crate === undefined ? INVENTORY.slots : CRATE.slots) + 1) };
   // Whole stacks, halves and single items, and now and then none.
   const count = [999, 1, 3, rng.below(40), 0][rng.below(5)] ?? 1;
+  const roll = rng.below(8);
+  if (roll === 0) {
+    // Mostly within the wreck's grid; now and then off it.
+    const cell = rng.below(10) === 0 ? -1 : rng.below(4600);
+    return { type: 'drop', payload: { src, count, cell } } as const;
+  }
+  if (roll === 1) {
+    const ids = state.floor.map((s) => s.id);
+    const id =
+      ids.length > 0 && rng.below(4) !== 0 ? (ids[rng.below(ids.length)] ?? 0) : rng.below(50);
+    return { type: 'pickUp', payload: { id } } as const;
+  }
   return { type: 'move', payload: { src, dst, count } } as const;
 }

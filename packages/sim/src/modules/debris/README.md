@@ -25,7 +25,8 @@ The pieces of debris drifting past the ship, and catching them
 - Pieces pass through the hull and each other: nothing collides.
 - `grab { piece }` puts the piece into the sender's inventory as one of its salvage item. Refused
   with `debris.gone` (no such piece out), `debris.notOutside` (the sender's hero, at the cell its
-  client last reported, or the piece's middle is not in space) or `items.full`.
+  client last reported, or the piece's middle is not in space). A full inventory is no reason: what
+  does not fit floats at the hero's cell, on the floor of space (`items.giveOrDrop`).
 
 ## API
 

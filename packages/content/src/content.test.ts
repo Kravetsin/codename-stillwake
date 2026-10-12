@@ -6,7 +6,15 @@ import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
 import { DEBRIS } from './debris';
-import { CRATE, INVENTORY, ITEMS, STARTING_CRATE, type ItemId, type ItemSpec } from './items';
+import {
+  CRATE,
+  FLOOR,
+  INVENTORY,
+  ITEMS,
+  STARTING_CRATE,
+  type ItemId,
+  type ItemSpec,
+} from './items';
 import { WRECK } from './wreck';
 
 describe('materials', () => {
@@ -92,6 +100,13 @@ describe('items', () => {
       expect({ [item]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({ [item]: true });
     }
     expect(slotsFor(STARTING_CRATE)).toBeLessThanOrEqual(CRATE.slots);
+  });
+});
+
+describe('the floor', () => {
+  it('keeps a dropper from its own stack for a whole number of ticks, but not long', () => {
+    expect(Number.isSafeInteger(FLOOR.ownPickupDelay) && FLOOR.ownPickupDelay > 0).toBe(true);
+    expect(FLOOR.ownPickupDelay).toBeLessThanOrEqual(10 * 20);
   });
 });
 

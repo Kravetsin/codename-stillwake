@@ -70,3 +70,28 @@ test('drags a stack from the wreck crate into the inventory', async ({ page }) =
   await expect(page.locator('[data-slot="inv-5"]')).toContainText(String(STARTING_CRATE.steel));
   await expect(page.locator('[data-slot="inv-2"]')).not.toContainText(/\d/);
 });
+
+test('drops a stack with Q, which the hero picks up again once it may', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => '__game' in window);
+  const view = page.viewportSize() ?? { width: 0, height: 0 };
+  const spawn = find('S');
+  const crate = find('K');
+  const scale = CELL * START_ZOOM;
+  const middle = { x: spawn.x + 0.5, y: spawn.y + 1 - HERO.height / 1000 / 2 };
+  await page.mouse.move(
+    view.width / 2 + (crate.x + 0.5 - middle.x) * scale,
+    view.height / 2 + (crate.y + 0.5 - middle.y) * scale,
+  );
+  await page.keyboard.press('KeyE');
+  await drag(page, 'crate-1', 'inv-0');
+  const slot = page.locator('[data-slot="inv-0"]');
+  await expect(slot).toContainText(String(STARTING_CRATE.steel));
+
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyQ');
+  // Gone from the hand at once; on the floor under the hero, its own for a moment.
+  await expect(slot).not.toContainText(/\d/);
+  // Then the hero, standing on it, picks it up again.
+  await expect(slot).toContainText(String(STARTING_CRATE.steel), { timeout: 10_000 });
+});

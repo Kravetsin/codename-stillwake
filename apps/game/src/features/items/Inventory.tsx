@@ -1,10 +1,10 @@
-import { items, type Move, type Place, type Slot } from '@stillwake/sim';
+import { command, items, type Drop, type Move, type Place, type Slot } from '@stillwake/sim';
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
 import { ICON_AUTHORS } from '../../render/item-icons';
 import { ItemIcon } from '../../render/ItemIcon';
 import type { Game } from '../../session/game';
-import { openCrate, pointerTip } from '../../session/ui';
+import { heroCell, openCrate, pointerTip } from '../../session/ui';
 import { clickOn, type Picked } from './click';
 import { ROW, wheelSlot } from './hotbar';
 
@@ -17,7 +17,9 @@ const REFRESH_MS = 100;
 function read(game: Game, crate: number | undefined) {
   const q = game.client.sim.query(items);
   const moves = game.client.inFlight.flatMap((c) =>
-    c.module === items.id && c.type === 'move' ? [c.payload as Move] : [],
+    c.module === items.id && (c.type === 'move' || c.type === 'drop')
+      ? [c.payload as Move | Drop]
+      : [],
   );
   const shown = q.afterMoves(game.client.id, moves);
   const copy = (slots: readonly (Readonly<Slot> | null)[]) => slots.map((s) => s && { ...s });
@@ -148,6 +150,36 @@ export function Inventory({ game }: { readonly game: Game }) {
     window.addEventListener('mouseup', drop);
     return () => window.removeEventListener('mouseup', drop);
   }, []);
+  // Dropped at the hero's feet: a stack let go over the world, or the chosen hotbar slot's on Q.
+  const dropFrom = (src: Place, count: number) => {
+    const cell = heroCell.get();
+    if (cell === undefined) return;
+    game.client.send(command(items, 'drop', { src, count, cell }));
+    setReading(read(game, crate));
+  };
+  const latest = useRef({ held, dropFrom, chosen, reading });
+  latest.current = { held, dropFrom, chosen, reading };
+  useEffect(() => {
+    const onUp = (e: MouseEvent | globalThis.MouseEvent) => {
+      const { held: inHand, dropFrom: drop } = latest.current;
+      if (!inHand || (e.target as { tagName?: string } | null)?.tagName !== 'CANVAS') return;
+      drop(inHand.place, inHand.count);
+      setPicked(undefined);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyQ' || e.repeat) return;
+      const { chosen: slot, reading: now, dropFrom: drop } = latest.current;
+      const stack = now.inventory[slot];
+      if (stack) drop({ slot }, stack.count);
+    };
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
   const releaseAt = (place: Place) => () => {
     const from = dragFrom.current;
     dragFrom.current = undefined;

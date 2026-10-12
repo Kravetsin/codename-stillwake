@@ -201,6 +201,29 @@ after P2-04d
   invariant: the orders kept room by room are those found afresh; `SAVE_FORMAT` bumped; a door toggled on the reference world stays near
   what it cost before.
 
+**P2-04f · Items on the floor** · M · sim `items`, `debris`, content, client · after P2-04e,
+asked for after a co-op playtest
+A stack can lie on the floor, for another player to pick up, and what does not fit in an inventory
+falls there instead of being refused.
+
+- `items` keeps `floor` stacks, each an id, an item, a count, a cell, and who dropped it on which
+  of its own ticks. Each tick a stack falls a cell while the cell below is open (empty, an open door,
+  a ladder), never in space, where nothing falls; one inside something built since (a wall, a floor,
+  a closed door, a machine) rises a cell. A stack that settles onto one of the same item merges into
+  it up to the stack limit.
+- `drop { src, count, cell }`: up to `count` from a slot onto cell `cell`, the sender's, as the
+  client reports it; refused with `items.noCrate`, `items.noSlot`, `items.empty` or
+  `items.noCell`. `pickUp { id }`: as much as fits into the sender's inventory, the rest left;
+  refused with `items.gone`, `items.full`, or `items.tooSoon` for its own drop within
+  `FLOOR.ownPickupDelay` ticks. Operation `giveOrDrop(peer, cost, cell)`: what does not fit falls.
+- `debris.grab` is no longer refused for a full inventory: the salvage floats at the hero's cell.
+- Client: stacks drawn on the floor by their icons; a stack let go over the world, or Q on the
+  chosen hotbar slot, drops it at the hero's feet; the hero picks up what it walks over unless the
+  sim would refuse it. Drops and pick-ups in flight show at once (0014).
+  Done when: scenarios for falling, rising, merging, every refusal and the overflow; an invariant that
+  no item is made or lost by moves, drops and pick-ups; fuzz draws both commands; `SAVE_FORMAT`
+  bumped; a smoke test drops a stack and picks it up.
+
 **P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
 inventory, sent each tick the left button is held with that slot selected. Progress per hero (slot,

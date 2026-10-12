@@ -32,6 +32,15 @@ export const INVENTORY = {
   slots: 36,
 } as const satisfies Readonly<Record<string, number>>;
 
+/** Stacks on the floor. */
+export const FLOOR = {
+  /**
+   * Ticks before a peer may pick up a stack it dropped itself: walking on, it would take it straight
+   * back. Anyone else may at once.
+   */
+  ownPickupDelay: 40,
+} as const satisfies Readonly<Record<string, number>>;
+
 /** A crate, the machine that holds items in place. */
 export const CRATE = {
   slots: 27,

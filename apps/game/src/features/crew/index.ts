@@ -1,10 +1,10 @@
 import { HERO } from '@stillwake/content';
-import { crew, grid, type Sim } from '@stillwake/sim';
+import { command, crew, grid, items, type Sim } from '@stillwake/sim';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
-import { grabbing, predictedGrid } from '../../session/predicted';
-import { aimedPiece, buildMode, openCrate } from '../../session/ui';
+import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
+import { aimedPiece, buildMode, heroCell, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -13,6 +13,7 @@ import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes, type SentHero } from './remote';
 import { poseOf } from './pose';
+import { pickUpsOf } from './pickup';
 import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
 import { suitOf } from './suits';
@@ -138,6 +139,15 @@ export const crewFeature: Feature = {
         }
         const { previous } = hero;
         const current = { ...hero.current, look: out ? 0 : lookOf(hero.current, pointed) };
+
+        // Where a stack let go over the world falls from; and what the hero walks over, it picks up.
+        const cell = bodyCell(current, ship.width);
+        if (heroCell.get() !== cell) heroCell.set(cell);
+        if (!out) {
+          for (const id of pickUpsOf(sim, game.client.id, current, pickingUp(game.client))) {
+            game.client.send(command(items, 'pickUp', { id }));
+          }
+        }
 
         const report = reportOf(sim, game.client.id, current);
         if (report) game.client.send(report);

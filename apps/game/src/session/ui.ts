@@ -21,6 +21,12 @@ export const aimedPiece = createStore<
 export const buildMode = createStore(false);
 
 /**
+ * The cell of this player's hero, as `crew` last moved it: where `items` drops a stack let go over
+ * the world. Nothing until the hero is placed.
+ */
+export const heroCell = createStore<number | undefined>(undefined);
+
+/**
  * Words for what the pointer is on, shown beside it (`PointerTip`): `item` for a stack under it in
  * the inventory, set by `items`; `world` for what an overlay says of the cell under it, set by that
  * overlay while it is on.

@@ -1,5 +1,5 @@
 import type { Client } from '@stillwake/net';
-import { debris, grid, type Command, type Sim, type Toggle } from '@stillwake/sim';
+import { debris, grid, items, type Command, type Sim, type Toggle } from '@stillwake/sim';
 
 /**
  * The grid's doors and valves as this peer shows them: the world with its own toggles still in
@@ -38,6 +38,15 @@ export function grabbing(client: Client): ReadonlySet<number> {
   return new Set(
     client.inFlight.flatMap((c) =>
       c.module === debris.id && c.type === 'grab' ? [(c.payload as { piece: number }).piece] : [],
+    ),
+  );
+}
+
+/** The stacks on the floor this peer has a pick-up in flight for: gone from its view at once. */
+export function pickingUp(client: Client): ReadonlySet<number> {
+  return new Set(
+    client.inFlight.flatMap((c) =>
+      c.module === items.id && c.type === 'pickUp' ? [(c.payload as { id: number }).id] : [],
     ),
   );
 }

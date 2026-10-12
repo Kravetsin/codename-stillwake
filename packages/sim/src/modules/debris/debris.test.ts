@@ -218,7 +218,7 @@ describe('debris', () => {
     expect(pieces(w).map((p) => p.id)).toContain(id);
   });
 
-  it('refuses a piece with no room for it', () => {
+  it('takes a piece with no room for it, which floats where the hero is', () => {
     const w = spawned();
     const piece = pieces(w)[0];
     if (!piece) throw new Error('no piece');
@@ -226,8 +226,12 @@ describe('debris', () => {
     w.do(crew, 'enter', { cell: at(12, 1) })
       .do(debris, 'grab', { piece: piece.id })
       .run();
-    expect(w.refusals).toEqual(['items.full']);
-    expect(pieces(w)).toHaveLength(1);
+    expect(w.refusals).toEqual([]);
+    expect(pieces(w)).toHaveLength(0);
+    // In space nothing falls: it stays in the hero's cell for anyone to pick up.
+    expect(w.query(items).floor()).toEqual([
+      expect.objectContaining({ item: piece.item, count: 1, cell: at(12, 1), by: 0 }),
+    ]);
   });
 
   it('finds the cell under a piece, and the piece in a cell', () => {

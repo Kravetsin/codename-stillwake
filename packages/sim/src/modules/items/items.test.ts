@@ -6,7 +6,7 @@ import { defineModule, refuse } from '../../core/module';
 import { defineSim } from '../../core/sim';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { grid } from '../index';
+import { grid, rooms } from '../index';
 import {
   items,
   type Cost,
@@ -44,7 +44,7 @@ const trader = defineModule<[ItemsModule]>()({
   },
 });
 
-const world = defineSim([grid, items, trader]);
+const world = defineSim([grid, rooms, items, trader]);
 const ALL: readonly Item[] = ['scrap', 'steel', 'canister'];
 const [SCRAP, STEEL] = [360, 60];
 

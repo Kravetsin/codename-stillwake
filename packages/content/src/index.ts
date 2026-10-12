@@ -8,6 +8,7 @@ export { DEFAULT_HULL, MATERIALS, type Material, type MaterialId } from './mater
 export { DEBRIS } from './debris';
 export {
   CRATE,
+  FLOOR,
   INVENTORY,
   ITEMS,
   STARTING_CRATE,

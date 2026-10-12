@@ -87,6 +87,39 @@ export function placed(slots: Slots, cost: Cost): Slot[] | undefined {
 }
 
 /**
+ * `slots` with as much of `cost` added as fits, as `placed` adds it, and what did not fit: what
+ * falls to the floor when an inventory is full.
+ */
+export function placedSome(slots: Slots, cost: Cost): { slots: Slot[]; left: [Item, number][] } {
+  const out = copy(slots);
+  const left: [Item, number][] = [];
+  for (const [item, amount] of entries(cost)) {
+    const over = fill(out, item, amount);
+    if (over > 0) left.push([item, over]);
+  }
+  return { slots: out, left };
+}
+
+/**
+ * `slots` with up to `count` taken from slot `slot`, and what was taken; or why not: nothing
+ * there, or a count below 1. The slot is checked to be in range by the caller.
+ */
+export function takenFrom(
+  slots: Slots,
+  slot: number,
+  count: number,
+): { slots: Slot[]; item: Item; count: number } | { refused: string } {
+  if (!Number.isSafeInteger(count)) throw new Error(`items: ${count} is not a whole count`);
+  const out = copy(slots);
+  const s = out[slot];
+  if (!s || count < 1) return { refused: 'items.empty' };
+  const n = Math.min(count, s.count);
+  s.count -= n;
+  if (s.count === 0) out[slot] = null;
+  return { slots: out, item: s.item, count: n };
+}
+
+/**
  * `slots` with `cost` taken out, or nothing when they hold too little. Taken from the last slots
  * first, so the first row, the hotbar, is the last to empty.
  */

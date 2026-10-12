@@ -74,8 +74,8 @@ function kindOf(rng: Rng): ItemId {
 }
 
 /**
- * Why peer `peer` cannot grab piece `id`: it is gone; the hero or the piece is not in space; or the
- * hero has no room for it.
+ * Why peer `peer` cannot grab piece `id`: it is gone, or the hero or the piece is not in space. A
+ * full inventory is no reason: what does not fit floats where the hero is.
  */
 function grabProblem(
   pieces: readonly Readonly<Piece>[],
@@ -94,7 +94,7 @@ function grabProblem(
   const { width } = deps.grid.size();
   const outside = (cell: number) => deps.rooms.roomAt(cell) === 'space';
   if (!hero || !outside(hero.cell) || !outside(cellOf(piece, width))) return 'debris.notOutside';
-  return deps.items.fullFor(peer, { [piece.item]: 1 });
+  return undefined;
 }
 
 const debrisModule = defineModule<Deps>()({
@@ -146,7 +146,9 @@ const debrisModule = defineModule<Deps>()({
         const at = ctx.state.pieces.findIndex((each) => each.id === p.piece);
         const [piece] = ctx.state.pieces.splice(at, 1);
         if (!piece) throw new Error('debris.grab: applied to a piece that is gone');
-        ctx.deps.items.op.give(ctx.from, { [piece.item]: 1 });
+        const hero = ctx.deps.crew.query.hero(ctx.from);
+        if (!hero) throw new Error('debris.grab: applied with no hero');
+        ctx.deps.items.op.giveOrDrop(ctx.from, { [piece.item]: 1 }, hero.cell);
       },
     },
   },

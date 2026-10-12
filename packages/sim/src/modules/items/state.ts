@@ -26,6 +26,18 @@ export interface Target {
   readonly slot?: number;
 }
 
+/** A stack lying on the floor, or floating in space, for anyone to pick up. */
+export interface FloorStack {
+  readonly id: number;
+  readonly item: Item;
+  /** From 1 to the item's stack limit. */
+  count: number;
+  cell: number;
+  /** The peer that dropped it, and on which of the module's ticks: its own may not take it back at once. */
+  readonly by: number;
+  readonly at: number;
+}
+
 export interface ItemsState {
   /** The inventories changed at least once, by peer id, in id order; one never changed is empty. */
   inventories: { peer: number; slots: Slot[] }[];
@@ -33,4 +45,9 @@ export interface ItemsState {
   crates: { crate: number; slots: Slot[] }[];
   /** Creative mode: nothing is ever taken. A world setting, saved with the world. */
   creative: boolean;
+  /** Stacks on the floor, in id order. */
+  floor: FloorStack[];
+  nextFloorId: number;
+  /** Ticks since the world began, counted here: the module's own clock. */
+  ticks: number;
 }
