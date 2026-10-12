@@ -10,7 +10,7 @@ import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { createFigure, lookOf, type Figure } from './figure';
 import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship } from './hero';
 import { createKeys } from './keys';
-import { createHeroSender, createRemoteHeroes } from './remote';
+import { createHeroSender, createRemoteHeroes, type SentHero } from './remote';
 import { poseOf } from './pose';
 import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
@@ -40,11 +40,6 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   const h = (Math.max(...ys) + 1) * CELL - y;
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
-
-/** Others' heroes ease toward their samples over about this long. */
-const EASE_MS = 60;
-/** Farther than this from where it was drawn, in thousandths of a cell, a hero jumps: a respawn. */
-const JUMP = 3 * UNIT;
 
 /** A hero's figure and the suit colour it was drawn in. */
 interface Worn {
@@ -99,7 +94,6 @@ export const crewFeature: Feature = {
     const others = new Container();
     let own: Worn | undefined;
     const shownOthers = new Map<number, Worn>();
-    const smoothed = new Map<number, { x: number; y: number }>();
     const remote = createRemoteHeroes();
     let clockMs = 0;
     let sendTo: { sendHero(state: unknown): void } | undefined;
@@ -112,6 +106,7 @@ export const crewFeature: Feature = {
     const clock = createClock(STEP_MS);
     let hero: { previous: Hero; current: Hero } | undefined;
     let workedOnTick = -1;
+    let steps = 0;
     let wasOut = false;
 
     return {
@@ -136,6 +131,7 @@ export const crewFeature: Feature = {
           const taken = keys.take();
           const input = out ? ({ x: 0, y: 0, jump: false } as const) : { ...taken, face };
           hero = { previous: hero.current, current: stepHero(hero.current, input, ship) };
+          steps += 1;
         }
         const { previous } = hero;
         const current = { ...hero.current, look: out ? 0 : lookOf(hero.current, pointed) };
@@ -146,20 +142,11 @@ export const crewFeature: Feature = {
         // Others' heroes in, this one out: through the host, never through the simulation.
         clockMs += elapsedMs;
         sendTo = game.client;
-        sender.step(elapsedMs, current);
+        // Stamped with its step's time, so others place it by when it was there, not when it came.
+        sender.step(elapsedMs, current, steps * STEP_MS);
         for (const { from, state } of game.client.takeHeroes())
-          remote.add(from, state as Hero, clockMs);
-        const heard = remote.at(clockMs).map(({ id, hero: other }) => {
-          // Eased toward where the samples put it, so a late or early one nudges, not jerks.
-          const was = smoothed.get(id);
-          const far = !was || Math.abs(was.x - other.x) > JUMP || Math.abs(was.y - other.y) > JUMP;
-          const ease = Math.min(1, elapsedMs / EASE_MS);
-          const at = far
-            ? { x: other.x, y: other.y }
-            : { x: was.x + (other.x - was.x) * ease, y: was.y + (other.y - was.y) * ease };
-          smoothed.set(id, at);
-          return { id, hero: { ...other, ...at } };
-        });
+          remote.add(from, state as SentHero, clockMs);
+        const heard = remote.at(clockMs);
         for (const [id, shown] of shownOthers) {
           shown.figure.view.visible = heard.some((h) => h.id === id);
         }

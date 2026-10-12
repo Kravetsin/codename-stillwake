@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalJson, hashText, plainCopy } from './canonical';
+import { canonicalJson, hashState, hashText, plainCopy } from './canonical';
 
 /** Writing past the end, as `levels[i] = x` with a too-large `i` does, leaves holes. */
 function holed(): number[] {
@@ -56,5 +56,39 @@ describe('hashText', () => {
     expect(hashText('stillwake')).toBe(hashText('stillwake'));
     expect(hashText('stillwake')).not.toBe(hashText('stillwakf'));
     expect(hashText('')).toMatch(/^[0-9a-f]{14}$/);
+  });
+});
+
+describe('hashState', () => {
+  it('agrees for the same data, whatever order its keys were written in', () => {
+    expect(hashState({ b: 1, a: [true, null, 'x'] })).toBe(
+      hashState({ a: [true, null, 'x'], b: 1 }),
+    );
+  });
+
+  it('tells apart what canonicalJson tells apart', () => {
+    const states = [
+      { a: 1 },
+      { a: 2 },
+      { a: '1' },
+      { a: [1] },
+      { a: [1, 2] },
+      { a: [[1], 2] },
+      { a: [1, [2]] },
+      { b: 1 },
+      { a: { b: 1 } },
+      { a: true },
+      { a: null },
+      { a: -1 },
+      { a: 0.5 },
+      { a: 1_099_511_627_776 },
+      { a: 'ab', b: 'c' },
+      { a: 'a', b: 'bc' },
+    ];
+    expect(new Set(states.map(hashState)).size).toBe(states.length);
+  });
+
+  it('refuses what is not plain data', () => {
+    expect(() => hashState({ f: () => 1 })).toThrow('function is not plain data');
   });
 });

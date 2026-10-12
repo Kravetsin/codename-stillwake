@@ -68,3 +68,59 @@ export function hashText(text: string): string {
   const low = (h1 >>> 0).toString(16).padStart(8, '0');
   return high + low;
 }
+
+/**
+ * The same hash over plain data, walked rather than written out: what `hashText(canonicalJson(...))`
+ * tells apart this tells apart, without building a string the size of the save. Every peer walks
+ * the world the same way: object keys sorted, numbers by their IEEE bits, each part tagged with its
+ * kind and length. Checks nothing: a save, which writes the same data, does.
+ */
+export function hashState(value: unknown): string {
+  const words = new Float64Array(1);
+  const halves = new Uint32Array(words.buffer);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  const mix = (c: number) => {
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  };
+  const walk = (v: unknown): void => {
+    if (v === null) return mix(1);
+    switch (typeof v) {
+      case 'boolean':
+        return mix(v ? 2 : 3);
+      case 'number':
+        words[0] = v;
+        mix(4);
+        mix(halves[0] as number);
+        return mix(halves[1] as number);
+      case 'string':
+        mix(5);
+        mix(v.length);
+        for (let i = 0; i < v.length; i++) mix(v.charCodeAt(i));
+        return;
+      case 'object': {
+        if (Array.isArray(v)) {
+          mix(6);
+          mix(v.length);
+          for (const item of v) walk(item);
+          return;
+        }
+        const keys = Object.keys(v).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+        mix(7);
+        mix(keys.length);
+        for (const key of keys) {
+          walk(key);
+          walk((v as Record<string, unknown>)[key]);
+        }
+        return;
+      }
+      default:
+        throw new TypeError(`${typeof v} is not plain data`);
+    }
+  };
+  walk(value);
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 & 0x1fffff).toString(16).padStart(6, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+}

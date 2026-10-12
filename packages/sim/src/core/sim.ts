@@ -1,4 +1,4 @@
-import { canonicalJson, hashText, plainCopy } from './canonical';
+import { canonicalJson, hashState, plainCopy } from './canonical';
 import {
   PHASES,
   type AnyModule,
@@ -319,7 +319,7 @@ function instantiate(ordered: readonly AnyModule[], world: WorldData): Sim {
     },
 
     hash() {
-      return hashText(canonicalJson(savedForm(ordered, world)));
+      return hashState(savedForm(ordered, world));
     },
 
     save() {

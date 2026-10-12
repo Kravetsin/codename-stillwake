@@ -28,6 +28,8 @@ export interface Client {
   takeHeroes(): { readonly from: number; readonly state: unknown }[];
   /** How this peer's world had drifted, for each resync since the last call. */
   takeDesyncs(): DesyncReport[];
+  /** The hash this peer last told the host, for showing: hashing the world again costs a frame. */
+  readonly lastHash: string | undefined;
 }
 
 /**
@@ -43,6 +45,7 @@ export function createClient(
   let sim = start;
   const released: (TickMessage | ResyncMessage)[] = [];
   let heroes: { from: number; state: unknown }[] = [];
+  let lastHash: string | undefined;
   let desyncs: DesyncReport[] = [];
   channel.onMessage((message) => {
     // A peer that holds its world is connected, never welcomed: a welcome here is our bug.
@@ -85,6 +88,10 @@ export function createClient(
       return taken;
     },
 
+    get lastHash() {
+      return lastHash;
+    },
+
     update() {
       const reports: TickReport[] = [];
       // Sent once the loop is done: the host may check a hash at once and save the host player's
@@ -103,7 +110,10 @@ export function createClient(
         }
         reports.push(sim.step(message.commands));
         const tick = sim.world.tick;
-        if (tick % HASH_EVERY === 0) hashes.push({ tick, hash: sim.hash() });
+        if (tick % HASH_EVERY === 0) {
+          lastHash = sim.hash();
+          hashes.push({ tick, hash: lastHash });
+        }
       }
       for (const { tick, hash } of hashes) channel.send({ kind: 'hash', tick, hash });
       return reports;

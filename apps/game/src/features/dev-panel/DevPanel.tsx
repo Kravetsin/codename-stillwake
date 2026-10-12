@@ -4,8 +4,6 @@ import type { Game } from '../../session/game';
 import { link, type LinkStatus } from '../../session/relay-link';
 
 const REFRESH_MS = 250;
-/** Hashing a big world costs milliseconds, so the readout hashes once a second, not every refresh. */
-const HASH_EVERY = 4;
 /** A whole grid is megabytes of JSON; the viewer shows the start of it. */
 const MAX_JSON = 20_000;
 
@@ -20,17 +18,13 @@ interface Reading {
   slices: [string, string | undefined][];
 }
 
-function read(
-  game: Game,
-  previous: Reading | undefined,
-  refresh: number,
-  open: ReadonlySet<string>,
-): Reading {
+/** What the panel shows; the hash is the one the client last sent, never hashed again here. */
+function read(game: Game, open: ReadonlySet<string>): Reading {
   const { sim } = game.client;
   return {
     fps: game.fps,
     tick: sim.world.tick,
-    hash: previous && refresh % HASH_EVERY !== 0 ? previous.hash : sim.hash(),
+    hash: game.client.lastHash ?? '…',
     creative: sim.query(items).creative(),
     link: link.get(),
     desyncs: game.desyncs,
@@ -87,18 +81,13 @@ function plain(v: unknown): unknown {
 export function DevPanel({ game }: { readonly game: Game }) {
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const [reading, setReading] = useState<Reading>(() => read(game, undefined, 0, expanded));
+  const [reading, setReading] = useState<Reading>(() => read(game, expanded));
   const [status, setStatus] = useState('');
   const [speed, setSpeed] = useState(game.speed);
 
   useEffect(() => {
     if (!open) return;
-    let refresh = 0;
-    // Counted outside the updater: StrictMode runs updaters twice, which would skip every hash.
-    const update = () => {
-      const count = refresh++;
-      setReading((previous) => read(game, previous, count, expanded));
-    };
+    const update = () => setReading(read(game, expanded));
     update();
     const timer = setInterval(update, REFRESH_MS);
     return () => clearInterval(timer);
