@@ -14,8 +14,9 @@ interface Reading {
   creative: boolean;
   link: LinkStatus;
   desyncs: number;
-  /** Released ticks waiting to run: a joined peer's reserve. */
+  /** Released ticks waiting to run, and how long a joined peer holds them, in ms. */
   queued: number;
+  reserve: number | undefined;
   /** This peer's commands from sent to run, in ms: the last and the median of late. */
   roundTrip: { last: number | undefined; median: number | undefined };
   /** Every module id, with its JSON only for the modules whose entry is open. */
@@ -33,6 +34,7 @@ function read(game: Game, open: ReadonlySet<string>): Reading {
     link: link.get(),
     desyncs: game.desyncs,
     queued: game.client.queued,
+    reserve: game.reserve,
     roundTrip: game.roundTrip,
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
@@ -52,14 +54,19 @@ function hullWall(sim: Sim): number | undefined {
 }
 
 /** Where this tab stands on the dev relay, in a line. */
-function describeLink(status: LinkStatus, queued: number): string | undefined {
+function describeLink(
+  status: LinkStatus,
+  queued: number,
+  reserve: number | undefined,
+): string | undefined {
   if (status.role === 'alone') return undefined;
   if (status.role === 'host') {
     return status.session === undefined
       ? 'hosting…'
       : `hosting ?join=${status.session} · peers ${status.peers}`;
   }
-  return `joined ${status.session} · ${status.state} · queued ${queued}`;
+  const held = reserve === undefined ? '' : ` · reserve ${Math.round(reserve)} ms`;
+  return `joined ${status.session} · ${status.state} · queued ${queued}${held}`;
 }
 
 /** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */
@@ -141,11 +148,11 @@ export function DevPanel({ game }: { readonly game: Game }) {
             </dd>
           </>
         )}
-        {describeLink(reading.link, reading.queued) && (
+        {describeLink(reading.link, reading.queued, reading.reserve) && (
           <>
             <dt>net</dt>
             <dd>
-              {describeLink(reading.link, reading.queued)}
+              {describeLink(reading.link, reading.queued, reading.reserve)}
               {reading.desyncs > 0 && ` · resynced ${reading.desyncs}×`}
             </dd>
           </>

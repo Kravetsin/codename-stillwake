@@ -36,6 +36,8 @@ export interface Game {
   readonly desyncs: number;
   /** How long this peer's commands take from sent to run, for the dev panel. */
   readonly roundTrip: RoundTrip;
+  /** How long a joined peer holds released ticks before it runs them, in ms; none on a host. */
+  readonly reserve: number | undefined;
   /** Advances time by `elapsedMs`, releases the ticks due if this machine hosts, and runs them. */
   frame(elapsedMs: number): readonly TickReport[];
   /** Counts a frame drawn `intervalMs` after the last, for `fps`. */
@@ -63,6 +65,8 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
   // The game's own clock, in ms, for timing commands: the time every frame and beat moved on.
   let now = 0;
   const roundTrip = createRoundTrip();
+  // The newest tick a joined peer has seen arrive.
+  let heard = -1;
 
   return {
     get host() {
@@ -78,7 +82,7 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
       speed = value;
     },
     get progress() {
-      return clock.progress();
+      return session.host ? clock.progress() : playout.progress(session.client.sim.world.tick, now);
     },
     get fps() {
       return fps;
@@ -88,6 +92,9 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     },
     get roundTrip() {
       return roundTrip.read();
+    },
+    get reserve() {
+      return session.host ? undefined : playout.reserve;
     },
 
     drawn(intervalMs) {
@@ -103,10 +110,15 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
         for (let n = clock.advance(elapsedMs * speed); n > 0; n--) session.host.advance();
         reports = session.client.update();
       } else {
-        // A joined session plays its host's ticks out at a steady pace, never as they arrive (0013);
-        // while it holds, so does the time drawn between ticks.
-        const rate = playout.rate(session.client.queued);
-        reports = session.client.update(rate === 0 ? 0 : clock.advance(elapsedMs * rate));
+        // A joined session runs its host's ticks at a steady pace, never as they arrive (0013).
+        const { client } = session;
+        const tick = client.sim.world.tick;
+        const newest = tick + client.queued - 1;
+        // A resync may set the world back: what was heard after it is heard again.
+        if (newest < heard) heard = newest;
+        for (let t = Math.max(heard + 1, tick); t <= newest; t++) playout.arrived(t, now);
+        heard = newest;
+        reports = client.update(playout.due(tick, client.queued, now));
       }
       roundTrip.ran(session.client.inFlight.length, now);
       // A determinism bug: the host has already mended the world, so the report is all that is left.

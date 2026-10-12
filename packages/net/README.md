@@ -18,8 +18,8 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   are checked against.
 - **A client** runs only the ticks the host released, in order; a gap is a bug and throws. It sends
   commands; it never changes its world any other way. `queued` counts the ticks waiting, and
-  `update(limit)` runs at most that many: a joined game plays them out at a steady pace, two in
-  reserve, rather than as the relay delivers them in bursts
+  `update(limit)` runs at most that many: a joined game plays them out at a steady pace, after a
+  reserve sized to the link, rather than as the relay delivers them in bursts
   ([0013](../../docs/decisions/0013-netcode-follows-known-practice.md), `apps/game/src/session`).
 - **Commands in flight:** `Client.inFlight` lists this peer's commands sent and not yet run. The
   host passes a peer's commands on in order, so each of its own in a released tick is the oldest in

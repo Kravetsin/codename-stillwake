@@ -1,7 +1,8 @@
 # 0013 — Netcode follows known practice
 
 - Status: accepted; its latency hiding omission is superseded by
-  [0014](0014-own-actions-show-at-once.md)
+  [0014](0014-own-actions-show-at-once.md), its fixed playout reserve by
+  [0015](0015-ticks-play-out-after-a-measured-reserve.md)
 - Date: 2026-10-12
 
 ## Context
@@ -62,7 +63,7 @@ Sources:
   a playtest names the delay. (One did: see 0014.)
 - **Rollback** (GGPO): it rewinds and replays the whole state, made for small worlds such as fighting
   games. Ours is a factory.
-- **An adaptive delay** (a jitter buffer sized from measured lateness): a fixed delay of three sends
+- **An adaptive delay** (a jitter buffer sized from measured lateness; for ticks, see 0015): a fixed delay of three sends
   covers the jitter seen so far, and a stall longer than any sane delay shows either way. Revisited
   if the simulator or a playtest shows a fixed delay too short on some links and too long on others.
 - **Hermite interpolation** (Fiedler): it pays off for bodies tumbling at 10 Hz. Heroes are sampled
