@@ -14,6 +14,8 @@ const EDGE = 0.45;
 const SETTLE_MS = 30;
 /** Slower for the head, so it follows the pointer rather than snapping to it. */
 const HEAD_SETTLE_MS = 90;
+/** A turn to face the other way: the figure narrows and widens again, rather than flipping. */
+const TURN_MS = 60;
 
 const W = (HERO.width / UNIT) * CELL;
 const H = (HERO.height / UNIT) * CELL;
@@ -104,6 +106,7 @@ export function createFigure(colour: number) {
   let wasPose: Pose | undefined;
   let timeMs = 0;
   let head = 0;
+  let face: number | undefined;
 
   return {
     view,
@@ -143,7 +146,8 @@ export function createFigure(colour: number) {
       const s = Math.abs(Math.sin(shown.tilt));
       body.position.y = shown.lying ? -(H / 2) * c - BACK * s : -H / 2 - shown.lift;
       view.position.set((hero.x / UNIT) * CELL, (hero.y / UNIT) * CELL);
-      view.scale.x = hero.facing;
+      face = settle(face ?? hero.facing, hero.facing, elapsedMs, TURN_MS);
+      view.scale.x = face;
     },
   };
 }

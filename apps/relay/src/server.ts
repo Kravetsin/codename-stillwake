@@ -81,8 +81,9 @@ export function createPlaytestServer({ gameDir, password }: Options): Server {
       .then((found) => (found.isFile() ? readFile(file) : Promise.reject(new Error('not a file'))))
       .then(
         (body) => {
-          // Built assets carry a hash in their names; the page that names them must be fresh.
-          const fresh = file.endsWith('index.html');
+          // Built assets carry a hash in their names; the page that names them, and the file that
+          // says which build is out, must be fresh.
+          const fresh = file.endsWith('index.html') || file.endsWith('version.json');
           response.writeHead(200, {
             'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream',
             'Cache-Control': fresh ? 'no-cache' : 'public, max-age=31536000, immutable',
@@ -96,7 +97,11 @@ export function createPlaytestServer({ gameDir, password }: Options): Server {
   const sockets = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
     const path = new URL(request.url ?? '/', 'http://x').pathname;
-    if (!path.endsWith(RELAY_PATH) || !allowed(request, password)) return void socket.destroy();
+    if (!path.endsWith(RELAY_PATH)) return void socket.destroy();
+    if (!allowed(request, password)) {
+      socket.end(['HTTP/1.1 401 Unauthorized', 'Connection: close', '', ''].join('\r\n'));
+      return;
+    }
     sockets.handleUpgrade(request, socket, head, (ws) => sockets.emit('connection', ws));
   });
   sockets.on('connection', (ws: WebSocket) => {

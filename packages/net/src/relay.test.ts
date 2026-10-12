@@ -67,3 +67,30 @@ describe('the dev relay', () => {
     relay.leave(late);
   });
 });
+
+describe('session names', () => {
+  it('names a session as its host asks, so a link to it outlasts a restart', () => {
+    const relay = createRelay();
+    const host = tab();
+    relay.host(host, 'ihor');
+    expect(host.got).toEqual([[RELAY.hosted, { session: 'ihor' }]]);
+    const a = tab();
+    relay.join(a, 'ihor', 1);
+    expect(a.got[0]).toEqual([RELAY.connected, { session: 'ihor', token: 1, peer: 1 }]);
+  });
+
+  it('numbers a session whose name is taken or not plain, never a number a name holds', () => {
+    const relay = createRelay();
+    const [first, second, third, fourth] = [tab(), tab(), tab(), tab()];
+    relay.host(first, '1');
+    relay.host(second, '1');
+    relay.host(third, 'Bad Name!');
+    relay.host(fourth);
+    expect([first, second, third, fourth].map((t) => t.got[0]?.[1])).toEqual([
+      { session: '1' },
+      { session: '2' },
+      { session: '3' },
+      { session: '4' },
+    ]);
+  });
+});

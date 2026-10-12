@@ -41,6 +41,11 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
 
+/** Others' heroes ease toward their samples over about this long. */
+const EASE_MS = 60;
+/** Farther than this from where it was drawn, in thousandths of a cell, a hero jumps: a respawn. */
+const JUMP = 3 * UNIT;
+
 /** A hero's figure and the suit colour it was drawn in. */
 interface Worn {
   readonly figure: Figure;
@@ -94,6 +99,7 @@ export const crewFeature: Feature = {
     const others = new Container();
     let own: Worn | undefined;
     const shownOthers = new Map<number, Worn>();
+    const smoothed = new Map<number, { x: number; y: number }>();
     const remote = createRemoteHeroes();
     let clockMs = 0;
     let sendTo: { sendHero(state: unknown): void } | undefined;
@@ -143,7 +149,17 @@ export const crewFeature: Feature = {
         sender.step(elapsedMs, current);
         for (const { from, state } of game.client.takeHeroes())
           remote.add(from, state as Hero, clockMs);
-        const heard = remote.at(clockMs);
+        const heard = remote.at(clockMs).map(({ id, hero: other }) => {
+          // Eased toward where the samples put it, so a late or early one nudges, not jerks.
+          const was = smoothed.get(id);
+          const far = !was || Math.abs(was.x - other.x) > JUMP || Math.abs(was.y - other.y) > JUMP;
+          const ease = Math.min(1, elapsedMs / EASE_MS);
+          const at = far
+            ? { x: other.x, y: other.y }
+            : { x: was.x + (other.x - was.x) * ease, y: was.y + (other.y - was.y) * ease };
+          smoothed.set(id, at);
+          return { id, hero: { ...other, ...at } };
+        });
         for (const [id, shown] of shownOthers) {
           shown.figure.view.visible = heard.some((h) => h.id === id);
         }

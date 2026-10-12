@@ -4,8 +4,11 @@ import { UNIT, type Hero } from './hero';
 export const SEND_MS = 50;
 /** And this often standing still, so a peer that joins late sees it. */
 export const BEAT_MS = 1000;
-/** Others' heroes are drawn this far behind their newest news: two sends of slack for jitter. */
-export const BEHIND_MS = 100;
+/**
+ * Others' heroes are drawn this far behind their newest news: three sends of slack, for the jitter
+ * of a relay across the internet.
+ */
+export const BEHIND_MS = 150;
 /** A hero silent this long has gone, its peer with it: the host tells no one of a peer leaving. */
 export const GONE_MS = 3000;
 /** A turn of the head smaller than this, in radians, is not worth a send. */
@@ -82,7 +85,10 @@ export function createHeroSender(send: (hero: Hero) => void) {
       if (sinceSent < SEND_MS) return;
       const moved =
         !sent ||
-        (['x', 'y', 'facing', 'climbing'] as const).some((k) => sent?.[k] !== hero[k]) ||
+        // Speed too: a hero that stops is sent standing, not left mid-stride until the beat.
+        (['x', 'y', 'vx', 'vy', 'facing', 'climbing'] as const).some(
+          (k) => sent?.[k] !== hero[k],
+        ) ||
         Math.abs((sent.look ?? 0) - (hero.look ?? 0)) > LOOK_STEP;
       if (!moved && sinceSent < BEAT_MS) return;
       send(hero);

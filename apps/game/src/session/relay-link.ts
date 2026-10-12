@@ -44,13 +44,15 @@ function listen(socket: RelaySocket, listeners: Record<string, (data: never) => 
 }
 
 /**
- * Opens a session on the relay and connects every tab that joins it to this tab's host, as a peer
- * over a channel through the relay. `host` is read on each join, since a load replaces it.
+ * Opens a session on the relay, named `name` if given and free, and connects every tab that joins it
+ * to this tab's host, as a peer over a channel through the relay. `host` is read on each join, since
+ * a load replaces it.
  */
 export function hostOnRelay(
   socket: RelaySocket,
   host: () => Host | undefined,
   report: (status: LinkStatus) => void,
+  name?: string,
 ): () => void {
   const receivers = new Map<number, (message: ToHost) => void>();
   // The host's id for each relay peer, given when it was admitted.
@@ -84,7 +86,7 @@ export function hostOnRelay(
       show();
     },
   });
-  socket.send(RELAY.host);
+  socket.send(RELAY.host, name === undefined ? undefined : { name });
   return () => {
     stop();
     socket.send(RELAY.leave);

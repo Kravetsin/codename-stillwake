@@ -75,6 +75,9 @@ export const EN: Readonly<Record<string, string>> = {
   'atmosphere.dry': 'Its pipes hold no oxygen: load a canister into a tank on them',
   'time.seconds': '{n} s',
   'time.minutes': '{n} min',
+  'update.out': 'A new version is out',
+  'update.reload': 'Reload',
+  'update.anew': 'The world was saved by an older version and starts anew',
 };
 
 /** The text for `key`, or the key itself while it has none, with each `{name}` in it filled. */

@@ -40,11 +40,33 @@ function build(): string {
   }
 }
 
+const BUILD = build();
+/** The day the build was made, for the corner of the screen and screenshots of it. */
+const BUILT = new Date().toISOString().slice(0, 10);
+
+/**
+ * `version.json` beside the built page: a page that finds there a build other than its own knows a
+ * newer one is out, and offers to reload.
+ */
+function version(): Plugin {
+  return {
+    name: 'stillwake-version',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ build: BUILD, built: BUILT }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), relay()],
+  plugins: [react(), tailwindcss(), relay(), version()],
   // Relative paths, so the built game opens from disk in the desktop shell.
   base: './',
-  define: { __BUILD__: JSON.stringify(build()) },
+  define: { __BUILD__: JSON.stringify(BUILD), __BUILT__: JSON.stringify(BUILT) },
   // The game ships inside Electron and loads from disk, so one large bundle (mostly Pixi) costs
   // nothing worth splitting for.
   build: { chunkSizeWarningLimit: 2000 },

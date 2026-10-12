@@ -83,6 +83,15 @@ describe('sending the hero', () => {
     expect(sent.length).toBeLessThanOrEqual(1000 / SEND_MS + 1);
   });
 
+  it('sends a hero that stops where it is, so it is not left mid-stride', () => {
+    const sent: Hero[] = [];
+    const sender = createHeroSender((h) => sent.push(h));
+    sender.step(SEND_MS, { ...hero(5), vx: 240 });
+    // The step it stops in leaves it where it was: only its speed says so.
+    sender.step(SEND_MS, { ...hero(5), vx: 0 });
+    expect(sent.map((h) => h.vx)).toEqual([240, 0]);
+  });
+
   it('sends a hero standing still when its head turns', () => {
     const sent: Hero[] = [];
     const sender = createHeroSender((h) => sent.push(h));

@@ -15,6 +15,7 @@ function game(): string {
   const dir = join(outside, 'game');
   mkdirSync(dir);
   writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Stillwake</title>');
+  writeFileSync(join(dir, 'version.json'), '{"build":"abc1234"}');
   mkdirSync(join(dir, 'assets'));
   writeFileSync(join(dir, 'assets', 'index-abc.js'), 'console.log(1)');
   return dir;
@@ -70,6 +71,10 @@ describe('the playtest server', () => {
     const asset = await fetch(`http://${at}/assets/index-abc.js`);
     expect(asset.headers.get('content-type')).toContain('text/javascript');
     expect(asset.headers.get('cache-control')).toContain('immutable');
+    // Which build is out is asked again and again: never kept.
+    expect((await fetch(`http://${at}/version.json`)).headers.get('cache-control')).toBe(
+      'no-cache',
+    );
   });
 
   it('serves nothing outside the game: no missing file, no climbing out', async () => {
@@ -97,7 +102,7 @@ describe('the playtest server', () => {
     expect(refused.headers.get('www-authenticate')).toContain('Basic');
     expect((await fetch(`http://${at}/`, { headers: basic('wrong') })).status).toBe(401);
     expect((await fetch(`http://${at}/`, { headers: basic('hatch') })).status).toBe(200);
-    await expect(page(at)).rejects.toThrow();
+    await expect(page(at)).rejects.toThrow('401');
     await expect(page(at, basic('hatch'))).resolves.toBeDefined();
   });
 

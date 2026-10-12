@@ -26,6 +26,9 @@ export const RELAY = {
   fromHost: 'stillwake:from-host',
 } as const;
 
+/** What a session may be named by its host: short, plain, safe in a link. */
+const NAME = /^[a-z0-9-]{1,24}$/;
+
 interface Session {
   readonly host: RelayClient;
   readonly peers: Map<number, RelayClient>;
@@ -48,8 +51,14 @@ export function createRelay() {
   };
 
   return {
-    host(client: RelayClient) {
-      const id = String(nextSession++);
+    /**
+     * Opens a session hosted by `client`, named `wanted` if that is a free name of letters, digits
+     * and dashes, so links to it outlast a restart of the relay; else numbered.
+     */
+    host(client: RelayClient, wanted?: string) {
+      const named = wanted !== undefined && NAME.test(wanted) && !sessions.has(wanted);
+      while (!named && sessions.has(String(nextSession))) nextSession++;
+      const id = named ? wanted : String(nextSession++);
       sessions.set(id, { host: client, peers: new Map(), nextPeer: 1 });
       client.send(RELAY.hosted, { session: id });
     },
@@ -104,7 +113,7 @@ export function serve(
   relay: Relay,
   on: (event: string, handler: (data: never, client: RelayClient) => void) => void,
 ): void {
-  on(RELAY.host, (_: unknown, client) => relay.host(client));
+  on(RELAY.host, (data: { name?: string } | undefined, client) => relay.host(client, data?.name));
   on(RELAY.join, (data: { session: string; token: number }, client) =>
     relay.join(client, data.session, data.token),
   );

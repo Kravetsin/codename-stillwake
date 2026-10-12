@@ -14,6 +14,8 @@ import { BUILD } from './session/build';
 import { createGame, ownSession, type Game, type Session } from './session/game';
 import { hostOnRelay, joinOnRelay, link } from './session/relay-link';
 import { relayFor } from './session/relay-socket';
+import { startedAnew, takeResume, watchForUpdates } from './session/update';
+import { VersionBar } from './session/VersionBar';
 
 /**
  * The session this tab plays in. `?join=<id>` joins one on the relay — the dev server's, or the
@@ -57,6 +59,7 @@ export function App() {
     let disposed = false;
     let destroyCamera = () => {};
     let unlink = () => {};
+    let unwatch = () => {};
     let layers: Layer[] = [];
     let overlayLayers: { id: string; layer: Layer }[] = [];
     const switched = createOverlaySwitch(
@@ -110,17 +113,27 @@ export function App() {
       setGame(created);
       setOverlays(switched);
 
-      // `?host` opens a world of this tab's own to tabs joining over the relay.
-      const relay = new URLSearchParams(location.search).has('host')
-        ? relayFor(location, import.meta.hot)
-        : undefined;
-      if (relay && created.host) unlink = hostOnRelay(relay, () => created.host, link.set);
+      // A page from the playtest server watches it for a newer build; the dev server reloads itself.
+      if (!import.meta.env.DEV && /^https?:$/.test(location.protocol)) {
+        unwatch = watchForUpdates(BUILD);
+      }
+      // Reloaded into a new build: the world this page held comes back, if its save still loads.
+      if (takeResume() && created.host) created.load().catch(() => startedAnew.set(true));
+
+      // `?host` opens a world of this tab's own to tabs joining over the relay; `?host=<name>`
+      // names its session, so links to it outlast a restart of the server.
+      const hosting = new URLSearchParams(location.search).get('host');
+      const relay = hosting === null ? undefined : relayFor(location, import.meta.hot);
+      if (relay && created.host) {
+        unlink = hostOnRelay(relay, () => created.host, link.set, hosting || undefined);
+      }
     });
 
     return () => {
       disposed = true;
       destroyCamera();
       unlink();
+      unwatch();
       switched.destroy();
       for (const layer of [...layers, ...overlayLayers.map((o) => o.layer)]) layer.destroy?.();
       if (ready) app.destroy(true, { children: true });
@@ -133,6 +146,7 @@ export function App() {
       <div className="pointer-events-none absolute inset-0">
         {game && FEATURES.map((f) => (f.Panel ? <f.Panel key={f.id} game={game} /> : null))}
         {overlays && <OverlayBar overlays={overlays} list={OVERLAYS} />}
+        {game && <VersionBar game={game} />}
       </div>
     </div>
   );

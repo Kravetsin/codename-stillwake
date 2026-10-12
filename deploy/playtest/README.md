@@ -37,13 +37,17 @@ page, and send it in the clear without it.
 
 ## Play
 
-The host opens `https://<domain>/?host`, enters the password (any user name), and reads the session
-number in the dev panel (`` ` ``): `hosting ?join=N`. Friends open `https://<domain>/?join=N`.
+The host opens `https://<domain>/?host=<name>` (letters, digits and dashes) and enters the password,
+with any user name. Friends open `https://<domain>/?join=<name>`. A named session keeps its links
+through an update; a bare `?host` is numbered instead, as the dev panel (`` ` ``) shows:
+`hosting ?join=N`. The build is in the bottom-right corner of every page, for screenshots.
 
 ## Update
 
-Build the image again, load it on the server, and `docker compose up -d`: sessions running end, as
-everyone's page must load the new build.
+Build the image again, load it on the server, and `docker compose up -d`. The restart ends running
+sessions; within half a minute every open page offers to reload into the new build (`version.json`
+beside the page says which is out). A host's page saves its world first and loads it back after the
+reload, unless the new build cannot read that save.
 
 ## Settings
 
