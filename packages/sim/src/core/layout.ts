@@ -2,13 +2,21 @@ import { LEGEND, LEGEND_UNDER, MACHINES, type MachineKind } from '@stillwake/con
 
 /**
  * A map drawn as ASCII, one character per cell. Cells are numbered row by row from top-left. `under`,
- * when given, is a second map of the same size, of what lies under and inside the first.
+ * when given, is a second map of the same size, of what lies under and inside the first; `cables`,
+ * the cells of the two ends of each power cable laid on it.
  */
 export interface Layout {
   readonly width: number;
   readonly height: number;
   readonly rows: readonly string[];
   readonly under?: readonly string[];
+  readonly cables?: readonly (readonly [number, number])[];
+}
+
+/** A cell as a map is drawn: column and row. */
+export interface Point {
+  readonly x: number;
+  readonly y: number;
 }
 
 export const EMPTY_LAYOUT: Layout = { width: 0, height: 0, rows: [] };
@@ -19,9 +27,19 @@ export const EMPTY_LAYOUT: Layout = { width: 0, height: 0, rows: [] };
  * rows, it is read as written, so the space around a ship stays part of the grid. Short rows are
  * padded with space either way; the map under is padded to the map's size.
  */
-export function parseLayout(map: string | readonly string[], under?: readonly string[]): Layout {
+export function parseLayout(
+  map: string | readonly string[],
+  under?: readonly string[],
+  cables?: readonly (readonly [Point, Point])[],
+): Layout {
   const rows = typeof map === 'string' ? trimmed(map) : map;
-  const layout = checked(rows, LEGEND, '');
+  const drawn = checked(rows, LEGEND, '');
+  const layout = cables
+    ? {
+        ...drawn,
+        cables: cables.map(([a, b]) => [a.y * drawn.width + a.x, b.y * drawn.width + b.x] as const),
+      }
+    : drawn;
   if (under === undefined) return layout;
   const { width, height } = layout;
   if (under.length > height || under.some((row) => row.length > width)) {
@@ -67,6 +85,7 @@ export function cellsOf(layout: Layout, char: string, under = false): number[] {
 const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = {
   T: 'tank',
   G: 'generator',
+  P: 'solarPanel',
   V: 'vent',
   K: 'crate',
 };

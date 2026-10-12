@@ -4,8 +4,10 @@ Oxygen: what the ship's tanks and generators hold, and how it fills rooms, is us
 vents into space.
 
 - **Depends on:** `grid` (tanks, generators and vents are its machines), `items` (canisters), `rooms` (where cells
-  and vents are, hull, openings), `pipes` (which tanks a vent reaches).
-- **State:** `tanks` — the oxygen in each tank or generator holding any, by machine id, in id order; `aired` — the
+  and vents are, hull, openings), `pipes` (which tanks a vent reaches), `power` (how much of its draw
+  a generator gets).
+- **State:** `tanks` — the oxygen in each tank or generator holding any, by machine id, in id order;
+  `making` — each generator's work toward its next unit, by machine id; `aired` — the
   cells holding air, sorted; `clock` — ticks run, for the fill and leak beats. All saved. Derived:
   `orders` — each room's cells in the order its air lies in, and the rooms and vents they were found
   from. A tank drawn over an `o` on the map under the map starts with `AIR.canister`; an `o` under
@@ -33,10 +35,13 @@ vents into space.
   vents, in vent id order, as if they put the air back at once; what they cannot pay is taken as the
   last aired cells of the order, the far edge. A hero breathes room air only standing in a cell
   holding it (ADR 0016).
-- **Generators** make `AIR.generatorRate` units every `AIR.leakEvery` ticks, spread as the leak is,
-  each into a store of its own in `tanks` holding up to `AIR.generatorStore`; what does not fit is
-  lost. Draws take from a store as from a tank. A vent on a network with a generator counts as
-  supplied: its room is filling, not dry, while the store sits empty between units.
+- **Generators** make `AIR.generatorRate` units every `AIR.leakEvery` ticks at full power, each into
+  a store of its own in `tanks` holding up to `AIR.generatorStore`; what does not fit is lost. Each
+  tick a generator adds the rate times its power's satisfaction (thousandths) to its remainder in
+  `making`, saved, and makes a unit each time that reaches `AIR.leakEvery × 1000`: exactly the rate a
+  minute in full, proportionally less when short, nothing unpowered. Draws take from a store as from a
+  tank. A vent on a network with a powered generator counts as supplied: its room is filling, not dry,
+  while the store sits empty between units.
 - **A tick of air,** in the simulation phase, in this order:
   1. Each generator, in id order, makes its share for the tick.
   2. The rooms and vents are compared with those the orders were found from; on a change, the
@@ -66,7 +71,7 @@ vents into space.
   vents' networks (each counted once), how many ticks that lasts at what the room alone draws (its
   leak if aired, its vents' drain if venting; none when a generator feeds it), what the generators on
   those networks make a minute, and why a room in vacuum gets no air
-  (`atmosphere.noVent`, `notPiped` or `dry`). One survey for all rooms, so the air overlay reads it
+  (`atmosphere.noVent`, `notPiped`, `unpowered` — only unpowered generators behind it — or `dry`). One survey for all rooms, so the air overlay reads it
   four times a second, never every tick. It counts neither breathing nor other rooms on the same
   network.
 - **Operations:** `breathe(cell, amount)` — takes up to `amount` of air for a hero in `cell`, as
@@ -90,7 +95,7 @@ vents into space.
   `rooms`), so two modules built one cell apart do not leak through the walls they face.
 - `roomStatus` gathers the whole survey on each call: fine for one room, slow for every room each
   frame; `roomsAir` gives them all at once.
-- A generator needs no input, cannot be switched off, and its surplus is lost even with a tank on its
+- A generator needs nothing but power, cannot be switched off, and its surplus is lost even with a tank on its
   network: spilling into tanks comes with processing, before which no tank can be built.
 - Oxygen in a tank taken apart is lost, not refunded as canisters. A valve under a tank is not worked
   with E.

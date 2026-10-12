@@ -4,7 +4,8 @@ Plans, and the work that turns them into the ship. A plan either puts something 
 pipe, a tank) or marks what a layer of a cell holds for removal. Heroes work on plans by hand; a plan
 completes through `grid`'s operations, paid from and refunded to the inventories in `items`.
 
-- **Depends on:** `grid` and `items`, through their queries and operations.
+- **Depends on:** `grid` and `items`, through their queries and operations; `power`, to keep a
+  cabled machine standing.
 - **State:** `plans` in the order they were made, each with its `progress` in ticks of work and, for a
   plan to place, what was `paid` for it; `nextPlanId`. All saved; nothing is derived.
 - **Files:** `rules.ts` — which plans may be made and worked; `costs.ts` — what things cost and take,
@@ -17,7 +18,8 @@ completes through `grid`'s operations, paid from and refunded to the inventories
   and a conduit and a back wall each have their own, as in the grid. A machine's plan covers its whole footprint.
 - A mark needs something in that layer of that cell, and one thing takes one mark. A crate is
   marked only empty, refused with `building.notEmpty`, and the tick of work that would take it apart
-  is refused the same way when items were put into it meanwhile. A machine's mark is
+  is refused the same way when items were put into it meanwhile. A machine a cable ends on is marked
+  and taken apart the same way only once its cables are cut, refused with `building.cabled`. A machine's mark is
   kept at the machine's top-left, whichever of its cells was marked. A marked thing is still built, so
   the grid refuses a plan for that slot until it is gone.
 - Work comes one tick at a time: a `work` command is one tick of one hero's work, and the client sends
@@ -42,9 +44,9 @@ completes through `grid`'s operations, paid from and refunded to the inventories
   peer's `work` would get; `ticksFor(planId)` — the ticks a plan takes in all.
 - **Commands:** `placePlan { cell, placement }`, refused with grid's keys or `building.planned`;
   `deconstruct { cell, layer }`, refused with `building.nothingThere`, `building.planned` or
-  `building.notEmpty`;
+  `building.notEmpty` or `building.cabled`;
   `cancelPlan { id }`, refused with `building.noPlan` or `items.full`; `work { plan }`, refused with
-  `building.noPlan`, `items.notEnough`, `building.notEmpty` or `items.full`.
+  `building.noPlan`, `items.notEnough`, `building.notEmpty`, `building.cabled` or `items.full`.
 
 ## Invariants
 

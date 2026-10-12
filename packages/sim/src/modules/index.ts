@@ -1,8 +1,9 @@
-import { WRECK, WRECK_UNDER } from '@stillwake/content';
+import { WRECK, WRECK_CABLES, WRECK_UNDER } from '@stillwake/content';
 import { parseLayout } from '../core/layout';
 import type { AnyModule } from '../core/module';
 import { defineSim } from '../core/sim';
 // `pnpm new:module` adds a module's import below this line and its id to MODULES.
+import { power } from './power';
 import { debris } from './debris';
 import { atmosphere } from './atmosphere';
 import { building } from './building';
@@ -20,6 +21,7 @@ export const MODULES: readonly AnyModule[] = [
   items,
   rooms,
   pipes,
+  power,
   atmosphere,
   crew,
   hazards,
@@ -29,7 +31,7 @@ export const MODULES: readonly AnyModule[] = [
 export const stillwake = defineSim(MODULES);
 
 /** The map every new game starts from. */
-export const wreck = parseLayout(WRECK, WRECK_UNDER);
+export const wreck = parseLayout(WRECK, WRECK_UNDER, WRECK_CABLES);
 export { BACK, CONDUIT, STRUCTURE } from './grid';
 export type { Layer, Placement, Toggle } from './grid';
 export { grid };
@@ -45,3 +47,5 @@ export { crew };
 export { hazards };
 export { debris };
 export type { Piece } from './debris';
+export { power };
+export type { Cable, PowerNetwork } from './power';

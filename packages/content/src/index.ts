@@ -6,6 +6,7 @@ export { LEGEND, LEGEND_UNDER, type LegendChar } from './legend';
 export { MACHINES, type MachineKind, type MachineSpec } from './machines';
 export { DEFAULT_HULL, MATERIALS, type Material, type MaterialId } from './materials';
 export { DEBRIS } from './debris';
+export { CABLE_COST, POWER } from './power';
 export {
   CRATE,
   FLOOR,
@@ -16,4 +17,4 @@ export {
   type ItemSpec,
   type Yields,
 } from './items';
-export { WRECK, WRECK_UNDER } from './wreck';
+export { WRECK, WRECK_CABLES, WRECK_UNDER } from './wreck';

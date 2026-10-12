@@ -36,8 +36,11 @@ A living document: what is decided about the game and what is still open. Techni
   drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty
   room joins the two, and the vents fill the rest through the doorway. Every outer hull cell
   leaks a little all the time (its material decides how much), paid like a breath: from the tanks,
-  or from the room's own air without them. Growth is held back by the fill, the leak and breathing. Without air a hero breathes from the suit tank. Power and wires run on the
-  same network system.
+  or from the room's own air without them. Growth is held back by the fill, the leak and breathing. Without air a hero breathes from the suit tank.
+- **Power runs on cables** laid point to point between machines and anchors, hanging inside the
+  ship and taut out in space; a network short of power slows everything on it alike. Solar panels
+  work only outside; the oxygen generator is the first thing that needs power
+  ([0017](decisions/0017-power-runs-on-cables.md)).
 - **Building is cell by cell, in layers.** Structure: hull walls of different materials, floors,
   ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.
   Conduits: pipes and wires run through walls, one of each per cell. Machines stand on floors and

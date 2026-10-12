@@ -1,6 +1,6 @@
 /**
  * The starting wreck: one deck of a broken-off ship section in open space. The hero wakes in room A,
- * small, aired by a generator piped to its vent; a crate beside them holds the starting store. Behind
+ * small, aired by a generator piped to its vent and cabled to a solar panel on the roof above; a crate beside them holds the starting store. Behind
  * a closed doorway on the left is room B, a hole one cell tall in its hull: open the door and A's air
  * is gone. An airlock off A's right end, a closet between two closed doorways, is the way outside.
  * Rows are read as written and padded with space to the first, the widest: the space around the
@@ -24,7 +24,7 @@ export const WRECK: readonly string[] = [
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',
-  '                                                                                                ',
+  '                                                  PPP                                           ',
   '                              #########################                                         ',
   '                              #..............#........####                                      ',
   '                              #..............D........D..D                                      ',
@@ -130,4 +130,18 @@ export const WRECK_UNDER: readonly string[] = [
   '',
   '',
   '                                              ---   s',
+];
+
+/**
+ * The wreck's cables, as the cells of their two ends: the solar panel on the roof to the generator in
+ * room A, through the roof.
+ */
+export const WRECK_CABLES: readonly (readonly [
+  { readonly x: number; readonly y: number },
+  { readonly x: number; readonly y: number },
+])[] = [
+  [
+    { x: 50, y: 17 },
+    { x: 46, y: 21 },
+  ],
 ];

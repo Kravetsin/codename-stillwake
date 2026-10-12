@@ -1,11 +1,13 @@
 import type { QueryApi } from '../../core/module';
 import type { GridModule, Layer } from '../grid';
 import type { ItemsModule } from '../items';
+import type { PowerModule } from '../power';
 import { buildOf, builtAt, ticksFor } from './costs';
 import type { Action, Plan } from './state';
 
 type Grid = QueryApi<GridModule>;
 type Items = QueryApi<ItemsModule>;
+type Power = QueryApi<PowerModule>;
 
 /**
  * Structure and machines exclude each other in a cell; a conduit runs through either, and a back
@@ -62,10 +64,21 @@ export function clearAt(
   return top;
 }
 
-/** `building.notEmpty` when taking `layer` out of `cell` would take a crate holding something. */
-function notEmpty(grid: Grid, items: Items, cell: number, layer: Layer): string | undefined {
+/**
+ * Why taking `layer` out of `cell` would leave something behind: `building.notEmpty` for a crate
+ * holding something, `building.cabled` for a machine a cable ends on.
+ */
+function inUse(
+  grid: Grid,
+  items: Items,
+  power: Power,
+  cell: number,
+  layer: Layer,
+): string | undefined {
   const machine = layer === 'machine' ? grid.machineAt(cell) : undefined;
-  if (machine?.kind !== 'crate') return undefined;
+  if (!machine) return undefined;
+  if (power.cabled(machine.cell)) return 'building.cabled';
+  if (machine.kind !== 'crate') return undefined;
   return items.crate(machine.id).some((s) => s !== null) ? 'building.notEmpty' : undefined;
 }
 
@@ -73,6 +86,7 @@ function notEmpty(grid: Grid, items: Items, cell: number, layer: Layer): string 
 export function planProblem(
   grid: Grid,
   items: Items,
+  power: Power,
   plans: readonly Plan[],
   cell: number,
   action: Action,
@@ -81,7 +95,7 @@ export function planProblem(
     const at = markedCell(grid, cell, action.clear);
     if (at === undefined) return 'building.nothingThere';
     if (isMarked(plans, action.clear, at)) return 'building.planned';
-    return notEmpty(grid, items, at, action.clear);
+    return inUse(grid, items, power, at, action.clear);
   }
   const gridProblem = grid.placementProblem(cell, action.place);
   if (gridProblem) return gridProblem;
@@ -99,11 +113,12 @@ export function planProblem(
 /**
  * Why work on plan `id` by peer `peer` is refused: the plan is gone; it is not begun and the hero
  * cannot pay; or this tick would take apart what a mark names, and it is a crate that holds
- * something again or the refund does not fit.
+ * something again, a machine cabled since, or the refund does not fit.
  */
 export function workProblem(
   grid: Grid,
   items: Items,
+  power: Power,
   plans: readonly Plan[],
   id: number,
   peer: number,
@@ -115,5 +130,7 @@ export function workProblem(
   }
   if (plan.progress + 1 < ticksFor(grid, plan)) return undefined;
   const built = builtAt(grid, plan.cell, plan.clear);
-  return notEmpty(grid, items, plan.cell, plan.clear) ?? (built && items.fullFor(peer, built.cost));
+  return (
+    inUse(grid, items, power, plan.cell, plan.clear) ?? (built && items.fullFor(peer, built.cost))
+  );
 }

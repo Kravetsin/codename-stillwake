@@ -1,12 +1,21 @@
 import { AIR, BUILDS, DECONSTRUCT_SPEEDUP } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
-import { parseLayout } from '../../core/layout';
+import { parseLayout, type Layout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import type { Placement } from '../grid';
-import { atmosphere, building, grid, MODULES, rooms, items, stillwake as world } from '../index';
+import {
+  atmosphere,
+  building,
+  grid,
+  MODULES,
+  power,
+  rooms,
+  items,
+  stillwake as world,
+} from '../index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
@@ -31,7 +40,7 @@ const canisters = (w: Scenario, peer: number) =>
     .inventory(peer)
     .reduce((sum, s) => sum + (s?.item === 'canister' ? s.count : 0), 0);
 
-function setUp(map = ROOM): {
+function setUp(map: string | Layout = ROOM): {
   w: Scenario;
   tank: number;
   vent: number;
@@ -242,8 +251,20 @@ describe('air machines', () => {
 });
 
 describe('generators', () => {
-  /** ROOM with a generator in place of the tank: its port is its bottom-left cell too. */
-  const GENERATED = ROOM.replace(/TT/g, 'GG');
+  /**
+   * ROOM with a generator in place of the tank, its port its bottom-left cell too, cabled to a solar
+   * panel out in space below the room.
+   */
+  const GENERATED = parseLayout(
+    [...parseLayout(ROOM.replace(/TT/g, 'GG')).rows, 'PPP'],
+    undefined,
+    [
+      [
+        { x: 0, y: 5 },
+        { x: 1, y: 2 },
+      ],
+    ],
+  );
   /** Ticks between two units a generator makes. */
   const EVERY = AIR.leakEvery / AIR.generatorRate;
   const store = (w: Scenario, id: number) => w.query(atmosphere).oxygenIn(id);
@@ -283,6 +304,21 @@ describe('generators', () => {
       w.run();
     }
     expect(surveyOf(w, room)).toMatchObject({ status: 'aired', lasts: undefined });
+  });
+
+  it('makes nothing cut off from its power, its room in vacuum for want of it', () => {
+    const { w, room, pipeUp } = setUp(GENERATED);
+    pipeUp();
+    const gen = w.query(grid).machineAt(at(1, 2))?.cell ?? 0;
+    w.do(power, 'cut', { a: gen, b: at(0, 5) }).run();
+    w.run(20 * EVERY);
+    expect(w.query(atmosphere).airedCells()).toEqual([]);
+    expect(store(w, generatorOf(w))).toBe(0);
+    expect(surveyOf(w, room)).toMatchObject({
+      status: 'vacuum',
+      made: 0,
+      problem: 'atmosphere.unpowered',
+    });
   });
 
   it('takes no canister: it is no tank', () => {

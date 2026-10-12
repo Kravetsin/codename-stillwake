@@ -4,7 +4,7 @@ import { cellsOf } from '../core/layout';
 import { defineSim } from '../core/sim';
 import { builder } from '../testing/builder';
 import { scenario, type Scenario } from '../testing/scenario';
-import { atmosphere, crew, grid, items, MODULES, rooms, stillwake, wreck } from './index';
+import { atmosphere, crew, grid, items, MODULES, power, rooms, stillwake, wreck } from './index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 const at = (x: number, y: number) => y * wreck.width + x;
@@ -50,13 +50,18 @@ describe('the starting wreck', () => {
     expect(margin).toBeGreaterThanOrEqual(16);
   });
 
-  it('holds a generator, a vent, a crate with the store, three doorways and a place to wake', () => {
+  it('holds a panel cabled to a generator, a vent, a crate with the store, three doorways', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
-    expect(q.machines().map((m) => m.kind)).toEqual(['generator', 'vent', 'crate']);
+    expect(q.machines().map((m) => m.kind)).toEqual(['solarPanel', 'generator', 'vent', 'crate']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(9).fill({ kind: 'door', open: false }));
-    const crate = q.machines()[2]?.id ?? 0;
+    const crate = q.machines()[3]?.id ?? 0;
+    const panel = q.machines()[0]?.cell ?? 0;
+    const generator = q.machines()[1]?.cell ?? 0;
+    expect(sim.query(power).networks()).toEqual([
+      { id: panel, nodes: [panel, generator], supply: 5, demand: 4, satisfaction: 1000 },
+    ]);
     expect(
       sim
         .query(items)

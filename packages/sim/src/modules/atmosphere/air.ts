@@ -2,6 +2,7 @@ import { AIR, MATERIALS } from '@stillwake/content';
 import type { DeepReadonly, QueryApi } from '../../core/module';
 import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
+import type { PowerModule } from '../power';
 import type { Room, RoomsModule } from '../rooms';
 import type { Orders } from './order';
 
@@ -15,6 +16,11 @@ export type RoomStatus = 'vacuum' | 'filling' | 'aired' | 'venting';
 export interface Air {
   tanks: { tank: number; oxygen: number }[];
   aired: number[];
+  /**
+   * Each generator's work toward its next unit, by machine id, in id order: a unit is
+   * `AIR.leakEvery × 1000`, and a generator adds `AIR.generatorRate` × its power's satisfaction a tick.
+   */
+  making: { generator: number; part: number }[];
 }
 
 type Seen = DeepReadonly<Air>;
@@ -23,6 +29,7 @@ export interface World {
   readonly grid: QueryApi<GridModule>;
   readonly rooms: QueryApi<RoomsModule>;
   readonly pipes: QueryApi<PipesModule>;
+  readonly power: QueryApi<PowerModule>;
 }
 
 /**
@@ -34,7 +41,7 @@ interface Survey {
   readonly ventsIn: Map<number | 'space', number[]>;
   /** The tanks and generators on each network, in id order: draws take from both alike. */
   readonly tanksOn: Map<number, number[]>;
-  /** How many generators stand on each network. */
+  /** The satisfaction, in thousandths, of the generators on each network, summed: 0 when none is powered. */
   readonly madeOn: Map<number, number>;
   /** How many cells of each room are aired, by room id: rooms are named by cells. */
   readonly airedIn: Int32Array;
@@ -57,7 +64,9 @@ function survey(air: Seen, world: World): Survey {
         const tanks = tanksOn.get(network);
         if (tanks) tanks.push(m.id);
         else tanksOn.set(network, [m.id]);
-        if (m.kind === 'generator') madeOn.set(network, (madeOn.get(network) ?? 0) + 1);
+        if (m.kind === 'generator') {
+          madeOn.set(network, (madeOn.get(network) ?? 0) + world.power.satisfaction(m.id));
+        }
         continue;
       }
       const place = world.rooms.roomAt(m.cell);
@@ -137,8 +146,8 @@ function status(s: Survey, room: Room): RoomStatus {
   if (room.openings.length > 0) return 'venting';
   if (s.airedIn[room.id] === room.volume) return 'aired';
   const vents = s.ventsIn.get(room.id) ?? [];
-  // A generator's store sits empty between the units it makes: its room is filling all the same.
-  return vents.some((n) => s.madeOn.has(n) || oxygenOn(s, n) > 0) ? 'filling' : 'vacuum';
+  // A powered generator's store sits empty between the units it makes: its room is filling all the same.
+  return vents.some((n) => (s.madeOn.get(n) ?? 0) > 0 || oxygenOn(s, n) > 0) ? 'filling' : 'vacuum';
 }
 
 /** What a room's state is, read from its cells and its vents' networks. */
@@ -245,7 +254,12 @@ export interface RoomAir {
    */
   readonly lasts: number | undefined;
   /** Why a room in vacuum gets no air, as an i18n key. */
-  readonly problem: 'atmosphere.noVent' | 'atmosphere.notPiped' | 'atmosphere.dry' | undefined;
+  readonly problem:
+    | 'atmosphere.noVent'
+    | 'atmosphere.notPiped'
+    | 'atmosphere.unpowered'
+    | 'atmosphere.dry'
+    | undefined;
 }
 
 /** Every room's air, in `rooms()` order, from one survey. */
@@ -259,7 +273,7 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
     const networks = s.ventsIn.get(room.id) ?? [];
     const oxygen = [...new Set(networks)].reduce((sum, n) => sum + oxygenOn(s, n), 0);
     const made = [...new Set(networks)].reduce(
-      (sum, n) => sum + (s.madeOn.get(n) ?? 0) * AIR.generatorRate,
+      (sum, n) => sum + Math.floor(((s.madeOn.get(n) ?? 0) * AIR.generatorRate) / 1000),
       0,
     );
     const now = status(s, room);
@@ -280,7 +294,9 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
           ? 'atmosphere.noVent'
           : networks.length === 0
             ? 'atmosphere.notPiped'
-            : 'atmosphere.dry';
+            : networks.some((n) => s.madeOn.has(n))
+              ? 'atmosphere.unpowered'
+              : 'atmosphere.dry';
     return {
       room: room.id,
       status: now,
@@ -322,15 +338,24 @@ function dueAt(perMinute: number, clock: number): number {
 }
 
 /**
- * Each generator, in id order, makes this tick's share of `AIR.generatorRate` into its own store, up
- * to `AIR.generatorStore`; what does not fit is lost. A store emptied leaves the list, as a tank's.
+ * Each generator, in id order, works toward its next unit by `AIR.generatorRate` × its power's
+ * satisfaction, and puts each unit it finishes into its own store, up to `AIR.generatorStore`; what
+ * does not fit is lost. A store emptied leaves the list, as a tank's. At full power a minute makes
+ * exactly the rate; the fraction carries over in `making`.
  */
-function produce(air: Air, world: World, clock: number): void {
-  const made = dueAt(AIR.generatorRate, clock);
-  if (made === 0) return;
+function produce(air: Air, world: World): void {
+  const unit = AIR.leakEvery * 1000;
+  const making: Air['making'] = [];
   let added = false;
   for (const m of world.grid.machines()) {
     if (m.kind !== 'generator') continue;
+    let part =
+      (air.making.find((g) => g.generator === m.id)?.part ?? 0) +
+      AIR.generatorRate * world.power.satisfaction(m.id);
+    const made = Math.floor(part / unit);
+    part -= made * unit;
+    making.push({ generator: m.id, part });
+    if (made === 0) continue;
     const store = air.tanks.find((t) => t.tank === m.id);
     if (store) store.oxygen = Math.min(AIR.generatorStore, store.oxygen + made);
     else {
@@ -338,6 +363,7 @@ function produce(air: Air, world: World, clock: number): void {
       added = true;
     }
   }
+  air.making = making;
   if (added) air.tanks.sort((a, b) => a.tank - b.tank);
 }
 
@@ -350,7 +376,7 @@ function produce(air: Air, world: World, clock: number): void {
  * networks, and what they cannot pay taken from its air's far edge.
  */
 export function stepAir(air: Air, world: World, orders: Orders, clock: number): void {
-  produce(air, world, clock);
+  produce(air, world);
   const s = survey(air, world);
   const edits: Edits = { removed: new Set(), added: [] };
 

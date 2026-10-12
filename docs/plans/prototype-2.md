@@ -228,7 +228,7 @@ falls there instead of being refused.
   no item is made or lost by moves, drops and pick-ups; fuzz draws both commands; `SAVE_FORMAT`
   bumped; a smoke test drops a stack and picks it up.
 
-**P2-05 · Taking debris apart** · S · sim `items`, client · after P2-04
+**P2-05 · Taking debris apart** · struck: the furnace (P2-10) takes salvage apart instead · was S
 `dismantle { slot }`: one tick of hand work on the salvage item in that slot of the sender's
 inventory, sent each tick the left button is held with that slot selected. Progress per hero (slot,
 item, ticks), reset when the slot's contents change; at `dismantleTicks` one item becomes its yields.
@@ -258,7 +258,49 @@ four outrun it; the door to B empties A within a few ticks; the airlock cycles w
 cell; walling the breach seals B — scenarios for the breathing rule and the generator, the client
 reporting a crossing of the air's edge, and the air overlay counting generators.
 
-**P2-08 · Playtest** · S · after P2-07
+**P2-09 · Power and cables** · L · sim `power` (new), `atmosphere`, `building`, content, client,
+ADR 0017 · after P2-07
+Cables run point to point between nodes and take no cell: a node is a machine that makes or uses
+power (its top-left cell names it) or an anchor — any cell with a wall, floor, door or back wall and
+no machine, an anchor only while a cable ends there. `power.lay { a, b }` puts a cable at once, paid
+from the sender (`POWER.cable`), refused with `power.noNode`, `sameNode`, `tooLong` (nearest cells of
+the two nodes over `POWER.maxSpan` apart), `twice` or `items.notEnough`; `power.cut { a, b }` refunds
+what was paid, refused with `power.noCable` or `items.full`. A network is what cables join, derived;
+each tick its supply and demand give every consumer on it a satisfaction in thousandths, floored, all
+slowed alike when short. A solar panel (3×1) makes `POWER` output only while all its cells are in
+space. The oxygen generator is the first consumer: it makes `generatorRate` × satisfaction, a saved
+remainder carrying the fraction; unpowered, its room in vacuum says `atmosphere.unpowered`. A machine
+with a cable is not taken apart: `building.cabled`. The wreck's roof carries a panel cabled to the
+generator, its cables listed in content as cell pairs. Client: a Cable tool (press on a node, drag, let
+go on a node; the ghost sags and turns red with the refusal), nodes ringed by their network's state
+while it is out, cables drawn sagging inside the ship and straight with an end in space, hidden where
+they cross walls; Deconstruct clicked by a cable cuts it.
+Done when: scenarios for lay, cut and every refusal; a panel inside a room makes nothing; 5 against 8
+gives 625‰ and the generator exactly 125 a minute; a cut cable starves the generator; `building.cabled`
+on the mark and the last tick; the wreck runs the generator full and airs A in 15 s; invariants for
+cable ends and satisfaction; fuzz draws `lay` and `cut`; `SAVE_FORMAT` bumped.
+
+**P2-10 · The furnace** · M · sim `furnace` (new), `items`, `atmosphere`, content, client · after
+P2-09
+A 2×2 machine with a pipe port and four slots in `items` (one in, three out), opened with E like a
+crate. With salvage in its input it draws `POWER` and, at the start of each item, its `oxygen` from its
+pipe (`atmosphere.draw`), then smelts it into its `yields` over `smeltTicks` scaled by satisfaction;
+it waits with no oxygen or no room for the yields. The wreck gets a furnace on the panel's network, so
+smelting slows the generator until a second panel goes up; `STARTING_CRATE` goes empty.
+Done when: scenarios — a chunk smelts in its ticks at full power and proportionally slower when short;
+no power or a dry pipe stalls it; full outputs make it wait; taking the input out resets it; on the
+wreck, catch, smelt and wall over B's breach; items conserved but by smelting.
+
+**P2-11 · Light and lamps** · M · content, client, sim `power` (a lamp consumer) · after P2-09
+A lamp (1×1 consumer) and a light map drawn over the world: a byte per cell, spreading with falloff
+through all but walls and closed doors, starlight in cells with no back wall, lamps by their
+satisfaction, a helmet lamp around each hero; recomputed only when the grid, doors or lamps' power
+change, uploaded as one texel per cell with linear filtering. Overlays, gauges and ghosts stay above
+it. The wreck's room A gets a lamp on the panel's network.
+Done when: unit tests for blocking, starlight, dimming and the helmet; a lamp's draw counted; the
+reference world rebuilds its light in under 2 ms.
+
+**P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says
 what the hero catches and with what and has items and crates among what is decided.

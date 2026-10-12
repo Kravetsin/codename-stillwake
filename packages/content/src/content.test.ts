@@ -5,6 +5,7 @@ import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
+import { CABLE_COST, POWER } from './power';
 import { DEBRIS } from './debris';
 import {
   CRATE,
@@ -15,7 +16,7 @@ import {
   type ItemId,
   type ItemSpec,
 } from './items';
-import { WRECK } from './wreck';
+import { WRECK, WRECK_CABLES } from './wreck';
 
 describe('materials', () => {
   const all = Object.values(MATERIALS);
@@ -209,6 +210,25 @@ describe('air', () => {
       expect(value).toBeGreaterThan(0);
     }
     expect(AIR.canister).toBeLessThanOrEqual(AIR.tankCapacity);
+  });
+});
+
+describe('power', () => {
+  it('is in whole units, and a cable costs something and spans more than a cell', () => {
+    expect(Number.isSafeInteger(POWER.maxSpan) && POWER.maxSpan > 1).toBe(true);
+    for (const value of Object.values(CABLE_COST)) {
+      expect(Number.isSafeInteger(value) && value > 0).toBe(true);
+    }
+    for (const m of Object.values(MACHINES) as { makes?: number; draws?: number }[]) {
+      for (const value of [m.makes, m.draws]) {
+        if (value !== undefined) expect(Number.isSafeInteger(value) && value > 0).toBe(true);
+      }
+    }
+  });
+
+  it("lets the wreck's one panel run its generator in full", () => {
+    expect(MACHINES.solarPanel.makes).toBeGreaterThanOrEqual(MACHINES.generator.draws);
+    expect(WRECK_CABLES.length).toBeGreaterThan(0);
   });
 });
 

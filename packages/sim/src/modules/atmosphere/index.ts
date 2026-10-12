@@ -11,6 +11,7 @@ import type { GridModule } from '../grid';
 import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { ItemsModule } from '../items';
+import type { PowerModule } from '../power';
 import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, strand, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 import { changedRooms, orderRooms } from './order';
@@ -27,7 +28,7 @@ export interface AtmosphereState extends Air {
   orderedVents: number[];
 }
 
-type Deps = [GridModule, ItemsModule, RoomsModule, PipesModule];
+type Deps = [GridModule, ItemsModule, RoomsModule, PipesModule, PowerModule];
 type ReadDeps = { grid: QueryApi<GridModule>; rooms: QueryApi<RoomsModule> };
 
 /** The cells of the vents, in machine id order: where each room's air lies around. */
@@ -99,10 +100,11 @@ function canisterProblem(
 
 const atmosphereModule = defineModule<Deps>()({
   id: 'atmosphere',
-  dependsOn: ['grid', 'items', 'rooms', 'pipes'],
+  dependsOn: ['grid', 'items', 'rooms', 'pipes', 'power'],
   init: (layout): AtmosphereState => ({
     tanks: startingTanks(layout),
     aired: [],
+    making: [],
     clock: 0,
     orders: new Map(),
     orderedRooms: new Int32Array(0),
@@ -130,6 +132,7 @@ const atmosphereModule = defineModule<Deps>()({
           grid: ctx.deps.grid.query,
           rooms: ctx.deps.rooms.query,
           pipes: ctx.deps.pipes.query,
+          power: ctx.deps.power.query,
         },
         id,
       ),
@@ -139,6 +142,7 @@ const atmosphereModule = defineModule<Deps>()({
         grid: ctx.deps.grid.query,
         rooms: ctx.deps.rooms.query,
         pipes: ctx.deps.pipes.query,
+        power: ctx.deps.power.query,
       }),
     /** Every cell holding air, sorted: live and read-only, for drawing the whole ship's air at once. */
     airedCells: (ctx) => ctx.state.aired,
@@ -154,7 +158,12 @@ const atmosphereModule = defineModule<Deps>()({
     breathe: (ctx, cell: number, amount: number) =>
       breathe(
         ctx.state,
-        { grid: ctx.deps.grid.query, rooms: ctx.deps.rooms.query, pipes: ctx.deps.pipes.query },
+        {
+          grid: ctx.deps.grid.query,
+          rooms: ctx.deps.rooms.query,
+          pipes: ctx.deps.pipes.query,
+          power: ctx.deps.power.query,
+        },
         ctx.state.orders,
         cell,
         amount,
@@ -206,6 +215,7 @@ const atmosphereModule = defineModule<Deps>()({
           grid: ctx.deps.grid.query,
           rooms: ctx.deps.rooms.query,
           pipes: ctx.deps.pipes.query,
+          power: ctx.deps.power.query,
         };
         // Rooms or vents moved: the orders of those rooms are found again; the air stays put.
         const vents = ventCells(world.grid);

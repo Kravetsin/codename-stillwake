@@ -41,7 +41,8 @@ free back slot: it stands behind anything, and in space.
 ## Maps
 
 `#` wall of `DEFAULT_HULL`, `=` floor, `H` ladder, `D`/`d` door closed/open, `-` pipe, `v`/`x` valve
-open/closed, `T` tank, `V` vent, `K` crate. A machine is drawn as its whole footprint; a map that draws part of
+open/closed, `T` tank, `G` oxygen generator, `P` solar panel, `V` vent, `K` crate. A map's power cables come
+beside it, as cell pairs (`Layout.cables`, read by `power`). A machine is drawn as its whole footprint; a map that draws part of
 one does not load. Every character but a space has a back wall, hull walls included, so a room drawn
 with a space inside is open behind there. Pipes under walls and machines are drawn on the map under
 it (`LEGEND_UNDER`).

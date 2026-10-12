@@ -7,7 +7,7 @@ import { buildMode } from '../../session/ui';
 /** What the left button does in the world while a tool is selected. */
 export type Tool =
   | { readonly kind: 'place'; readonly placement: Placement; readonly label: string }
-  | { readonly kind: 'deconstruct' | 'cancel'; readonly label: string };
+  | { readonly kind: 'cable' | 'deconstruct' | 'cancel'; readonly label: string };
 
 const place = (placement: Placement, label: string): Tool => ({ kind: 'place', placement, label });
 
@@ -26,6 +26,7 @@ export const TOOLS: readonly Tool[] = [
   ...(['pipe', 'valve'] as const).map((kind) =>
     place({ layer: 'conduit', kind }, t(`tool.${kind}`)),
   ),
+  { kind: 'cable', label: t('tool.cable') },
   ...(Object.keys(MACHINES) as MachineKind[]).map((kind) =>
     place({ layer: 'machine', kind }, t(`tool.${kind}`)),
   ),

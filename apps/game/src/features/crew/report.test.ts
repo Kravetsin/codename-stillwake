@@ -40,12 +40,19 @@ describe('telling the sim where the hero is', () => {
   });
 
   it('enters again on crossing the edge of the air inside one room', () => {
-    // A generator piped to a vent: the air spreads from the vent, nearest cells first.
+    // A generator piped to a vent and cabled to a panel above: the air spreads from the vent,
+    // nearest cells first.
     const s = stillwake.create(
       1,
       parseLayout(
-        ['.........', '#########', '#V......#', '#GG.....#', '#GG.....#', '#########'],
+        ['PPP      ', '#########', '#V......#', '#GG.....#', '#GG.....#', '#########'],
         ['', '', ' -', ' -', ' -'],
+        [
+          [
+            { x: 0, y: 0 },
+            { x: 1, y: 3 },
+          ],
+        ],
       ),
     );
     const air = () => s.query(atmosphere);

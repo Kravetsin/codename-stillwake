@@ -1,6 +1,7 @@
 import { defineModule, refuse, withFuzz, type Ctx } from '../../core/module';
 import type { GridModule, Layer, Placement } from '../grid';
 import type { ItemsModule } from '../items';
+import type { PowerModule } from '../power';
 import { buildOf, builtAt, ticksFor } from './costs';
 import { fuzzBuilding } from './fuzz';
 import { clearAt, covers, markedCell, planProblem, workProblem } from './rules';
@@ -8,7 +9,7 @@ import type { Action, BuildingState, Plan } from './state';
 
 export type { Action, BuildingState, Plan } from './state';
 
-type Deps = [GridModule, ItemsModule];
+type Deps = [GridModule, ItemsModule, PowerModule];
 
 /**
  * Builds what a plan asks for, or takes apart what a mark names and refunds it to the hero of peer
@@ -32,7 +33,7 @@ function complete(ctx: Ctx<BuildingState, Deps, never>, plan: Plan, from: number
 
 const buildingModule = defineModule<Deps>()({
   id: 'building',
-  dependsOn: ['grid', 'items'],
+  dependsOn: ['grid', 'items', 'power'],
   init: (): BuildingState => ({ plans: [], nextPlanId: 1 }),
 
   queries: {
@@ -44,10 +45,24 @@ const buildingModule = defineModule<Deps>()({
     clearAt: (ctx, cell: number) => clearAt(ctx.deps.grid.query, ctx.state.plans, cell),
     /** Why `action` cannot be planned at `cell`: what a ghost shows before the command is sent. */
     problem: (ctx, cell: number, action: Action) =>
-      planProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.plans, cell, action),
+      planProblem(
+        ctx.deps.grid.query,
+        ctx.deps.items.query,
+        ctx.deps.power.query,
+        ctx.state.plans,
+        cell,
+        action,
+      ),
     /** Why peer `peer`'s work on plan `id` would be refused: what the client shows first. */
     workProblem: (ctx, id: number, peer: number) =>
-      workProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.plans, id, peer),
+      workProblem(
+        ctx.deps.grid.query,
+        ctx.deps.items.query,
+        ctx.deps.power.query,
+        ctx.state.plans,
+        id,
+        peer,
+      ),
     /** Ticks of work plan `id` takes in all, for its progress bar. */
     ticksFor: (ctx, id: number) => {
       const plan = ctx.state.plans.find((p) => p.id === id);
@@ -61,6 +76,7 @@ const buildingModule = defineModule<Deps>()({
         const why = planProblem(
           ctx.deps.grid.query,
           ctx.deps.items.query,
+          ctx.deps.power.query,
           ctx.state.plans,
           p.cell,
           {
@@ -80,6 +96,7 @@ const buildingModule = defineModule<Deps>()({
         const why = planProblem(
           ctx.deps.grid.query,
           ctx.deps.items.query,
+          ctx.deps.power.query,
           ctx.state.plans,
           p.cell,
           {
@@ -117,6 +134,7 @@ const buildingModule = defineModule<Deps>()({
         const why = workProblem(
           ctx.deps.grid.query,
           ctx.deps.items.query,
+          ctx.deps.power.query,
           ctx.state.plans,
           p.plan,
           ctx.from,
