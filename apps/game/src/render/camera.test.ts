@@ -97,6 +97,20 @@ describe('camera', () => {
     expect(camera.takeLeft().map((b) => b.down)).toEqual([true, false]);
   });
 
+  it('leaves a drag begun on a panel alone as it crosses the world, unread and uncaptured', () => {
+    const { camera, pointer, captured } = setup();
+    // Pressed on a crate's slot, carried over the canvas, let go on the hotbar beyond it.
+    pointer('pointermove', 1, 10, 10);
+    pointer('pointermove', 1, 30, 10);
+    expect(captured.size).toBe(0);
+    pointer('pointerup', 0, 40, 10);
+    expect(camera.takeLeft()).toEqual([]);
+    // A press on the canvas after it is the world's again.
+    pointer('pointerdown', 1, 0, 0);
+    expect(captured.size).toBe(1);
+    expect(camera.takeLeft().map((b) => b.down)).toEqual([true]);
+  });
+
   it('follows a point, whatever the mouse does', () => {
     const { world, camera, pointer } = setup();
     camera.follow({ x: 1, y: 1 }, screen);

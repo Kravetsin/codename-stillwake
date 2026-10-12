@@ -1,11 +1,22 @@
 import { HERO, STARTING_CRATE, WRECK } from '@stillwake/content';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { CELL, START_ZOOM } from '../src/render/camera';
 
 /** Where `char` is first drawn on the wreck, in cells. */
 function find(char: string): { x: number; y: number } {
   const y = WRECK.findIndex((row) => row.includes(char));
   return { x: WRECK[y]?.indexOf(char) ?? -1, y };
+}
+
+/** Drags from one slot to another as a hand does, through every point between: over the world too. */
+async function drag(page: Page, from: string, to: string) {
+  const a = await page.locator(`[data-slot="${from}"]`).boundingBox();
+  const b = await page.locator(`[data-slot="${to}"]`).boundingBox();
+  if (!a || !b) throw new Error('no slot');
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 20 });
+  await page.mouse.up();
 }
 
 test('takes a stack from the wreck crate into the hotbar', async ({ page }) => {
@@ -48,20 +59,14 @@ test('drags a stack from the wreck crate into the inventory', async ({ page }) =
 
   const steel = page.locator('[data-slot="crate-1"]');
   await expect(steel).toContainText(String(STARTING_CRATE.steel));
-  await steel.hover();
-  await page.mouse.down();
-  await page.locator('[data-slot="inv-2"]').hover();
-  await page.mouse.up();
+  await drag(page, 'crate-1', 'inv-2');
 
   await expect(page.locator('[data-slot="inv-2"]')).toContainText(String(STARTING_CRATE.steel));
   await expect(steel).not.toContainText(/\d/);
 
   // Closed, the hotbar still takes a drag from one of its slots to another.
   await page.keyboard.press('Escape');
-  await page.locator('[data-slot="inv-2"]').hover();
-  await page.mouse.down();
-  await page.locator('[data-slot="inv-5"]').hover();
-  await page.mouse.up();
+  await drag(page, 'inv-2', 'inv-5');
   await expect(page.locator('[data-slot="inv-5"]')).toContainText(String(STARTING_CRATE.steel));
   await expect(page.locator('[data-slot="inv-2"]')).not.toContainText(/\d/);
 });

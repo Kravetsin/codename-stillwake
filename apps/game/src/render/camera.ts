@@ -62,6 +62,9 @@ export function createCamera(
   let mouse: { x: number; y: number } | undefined;
   let left: LeftButton[] = [];
   let leftDown = false;
+  // Whether the buttons held were pressed on the canvas: a drag begun on a panel, a stack carried
+  // from a crate to the hotbar, crosses the world without being the world's.
+  let ours = false;
 
   const toWorld = (sx: number, sy: number) => ({
     x: (sx - world.x) / world.scale.x / CELL,
@@ -76,6 +79,8 @@ export function createCamera(
   // down, the browser reports pressing or releasing another as a move, not as a down or an up.
   const onPointer = (e: PointerEvent) => {
     mouse = onCanvas(e);
+    if (e.type === 'pointerdown') ours = true;
+    if (!ours) return;
     const leftHeld = (e.buttons & 1) !== 0;
     if (leftHeld !== leftDown) {
       leftDown = leftHeld;
@@ -85,6 +90,7 @@ export function createCamera(
     const captured = canvas.hasPointerCapture(e.pointerId);
     if (e.buttons !== 0 && !captured) canvas.setPointerCapture(e.pointerId);
     if (e.buttons === 0 && captured) canvas.releasePointerCapture(e.pointerId);
+    if (e.buttons === 0) ours = false;
   };
   const onLeave = () => {
     mouse = undefined;
