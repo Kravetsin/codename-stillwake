@@ -2,6 +2,7 @@ import { debris } from '@stillwake/sim';
 import { Container, Graphics, Texture, TilingSprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { ITEM_LOOK } from '../../render/item-look';
+import { grabbing } from '../../session/predicted';
 import { aimedPiece } from '../../session/ui';
 import type { Feature } from '../feature';
 
@@ -102,7 +103,12 @@ export const debrisFeature: Feature = {
           -seen.y * CELL * PARALLAX,
         );
 
-        const pieces = sim.query(debris).pieces();
+        // A piece this peer is grabbing is gone at once, a round trip before the host's tick says so.
+        const grabbed = grabbing(game.client);
+        const pieces = sim
+          .query(debris)
+          .pieces()
+          .filter((p) => !grabbed.has(p.id));
         const ids = new Set(pieces.map((p) => p.id));
         for (const [id, s] of shown) {
           if (ids.has(id)) continue;

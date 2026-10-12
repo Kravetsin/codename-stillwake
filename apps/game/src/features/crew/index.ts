@@ -3,7 +3,7 @@ import { crew, grid, type Sim } from '@stillwake/sim';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
-import { predictedGrid } from '../../session/predicted';
+import { grabbing, predictedGrid } from '../../session/predicted';
 import { aimedPiece, buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
@@ -171,7 +171,7 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
-        const aim = pointer && aimAt(sim, game.client.id, current, pointer);
+        const aim = pointer && aimAt(sim, game.client.id, current, pointer, grabbing(game.client));
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim, shown);
         drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);

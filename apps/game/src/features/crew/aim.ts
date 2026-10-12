@@ -52,13 +52,15 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
  * block the mark beside it; when none can, the oldest, to show why. Then a crate, a tank, a door, a
- * valve: a valve under a machine or in a door's cell is not worked with E. Last, a piece of debris.
+ * valve: a valve under a machine or in a door's cell is not worked with E. Last, a piece of debris,
+ * unless it is one in `passOver`: grabbed already, its grab still in flight.
  */
 export function aimAt(
   sim: Sim,
   peer: number,
   hero: Hero,
   point: { x: number; y: number },
+  passOver: ReadonlySet<number> = new Set(),
 ): Aim | undefined {
   const cells = sim.query(grid).layers();
   const x = Math.floor(point.x);
@@ -78,7 +80,7 @@ export function aimAt(
   const press = pressOf(sim, peer, cell);
   if (press) return { cell, inReach, press };
   const piece = sim.query(debris).pieceAt(cell);
-  if (!piece) return { cell, inReach };
+  if (!piece || passOver.has(piece.id)) return { cell, inReach };
   return {
     cell,
     inReach,

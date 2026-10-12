@@ -320,6 +320,9 @@ describe('a piece of debris under the pointer', () => {
     expect(aim?.press).toEqual({ command: grab, problem: undefined });
     expect(aim?.piece).toBe(piece.id);
     expect(usesOf(aim, { pressed: true, held: true }, 3, -1).commands).toEqual([grab]);
+    // Grabbed, its grab in flight: the aim passes over it, so E cannot send it twice.
+    const passed = aimAt(space, 0, heroOn(x - 2, y), centre(x, y), new Set([piece.id]));
+    expect([passed?.piece, passed?.press]).toEqual([undefined, undefined]);
   });
 });
 

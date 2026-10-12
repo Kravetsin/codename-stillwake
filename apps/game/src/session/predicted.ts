@@ -1,5 +1,5 @@
 import type { Client } from '@stillwake/net';
-import { grid, type Command, type Sim, type Toggle } from '@stillwake/sim';
+import { debris, grid, type Command, type Sim, type Toggle } from '@stillwake/sim';
 
 /**
  * The grid's doors and valves as this peer shows them: the world with its own toggles still in
@@ -31,6 +31,15 @@ export function predictedGrid(client: Client): PredictedGrid {
   const predicted = { key, ...layers };
   made.set(sim, predicted);
   return predicted;
+}
+
+/** The pieces of debris this peer has a grab in flight for: gone from its view at once (0013). */
+export function grabbing(client: Client): ReadonlySet<number> {
+  return new Set(
+    client.inFlight.flatMap((c) =>
+      c.module === debris.id && c.type === 'grab' ? [(c.payload as { piece: number }).piece] : [],
+    ),
+  );
 }
 
 function toggleOf(c: Command): Toggle[] {

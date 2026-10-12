@@ -1,7 +1,15 @@
 import { createClient, type ToClient } from '@stillwake/net';
-import { command, grid, parseLayout, stillwake, STRUCTURE } from '@stillwake/sim';
+import {
+  command,
+  debris,
+  grid,
+  parseLayout,
+  stillwake,
+  STRUCTURE,
+  type Command,
+} from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { predictedGrid } from './predicted';
+import { grabbing, predictedGrid } from './predicted';
 
 /** A guest whose host is not here: the test sends its commands and releases its ticks by hand. */
 function guest(map: string) {
@@ -16,7 +24,7 @@ function guest(map: string) {
     client,
     door,
     /** Releases the next tick with these commands, stamped as this guest's, and runs it. */
-    run: (...commands: ReturnType<typeof door>[]) => {
+    run: (...commands: Command[]) => {
       receive({
         kind: 'tick',
         tick: client.sim.world.tick,
@@ -67,5 +75,20 @@ describe('the grid as this peer shows it', () => {
     const { client, door } = guest(MAP);
     client.send(door(1));
     expect(predictedGrid(client)).toBe(predictedGrid(client));
+  });
+});
+
+describe('the debris this peer is grabbing', () => {
+  it('is each piece with a grab in flight, and none once it has run', () => {
+    const { client, run } = guest(MAP);
+    const sent = [
+      command(debris, 'grab', { piece: 4 }),
+      command(grid, 'toggleDoor', { cell: 1 }),
+      command(debris, 'grab', { piece: 9 }),
+    ];
+    for (const c of sent) client.send(c);
+    expect([...grabbing(client)]).toEqual([4, 9]);
+    run(...sent);
+    expect(grabbing(client).size).toBe(0);
   });
 });
