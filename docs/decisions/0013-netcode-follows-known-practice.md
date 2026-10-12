@@ -28,7 +28,7 @@ Sources:
 | -------------------------------------------------- | ------------------------------------------- | ------------------------------------- |
 | Commands stamped with a tick, every peer simulates | lockstep: RTS, Factorio                     | kept                                  |
 | Hashes compared, a drifted peer resynced           | Factorio's desync detection                 | kept                                  |
-| Fixed timestep, an accumulator, capped catch-up    | "Fix Your Timestep!"                        | kept; woken by a worker while hidden  |
+| Fixed timestep, an accumulator, capped catch-up    | "Fix Your Timestep!"                        | kept; a worker's beat too             |
 | A playout buffer for released ticks                | "Deterministic Lockstep": 100 ms of playout | new: peers run ticks at a steady pace |
 | Remote entities drawn a fixed delay in the past    | Source: two to three send intervals         | kept: 150 ms, three sends             |
 | Bounded extrapolation when the buffer runs dry     | Unity Netcode: a few ticks, then hold       | new: 100 ms on, then standing         |
@@ -38,10 +38,12 @@ Sources:
   on its own clock, as the host releases them, holding two in reserve; a surplus beyond that drains
   a few extra ticks a frame. It never runs ticks as they arrive: the relay delivers in bursts, and the
   world, debris first, would move in bursts with it.
-- **Time does not stop with the frames.** Browsers stop animation frames in a hidden tab and slow its
-  timers to once a second, after five minutes to once a minute. While hidden, a dedicated worker's
-  timer wakes the session instead, so the host keeps releasing ticks and every peer keeps running
-  them. The desktop shell turns background throttling off.
+- **Time does not stop with the frames.** Browsers stop or slow animation frames in a background
+  tab and slow its timers to once a second, after five minutes to once a minute; Chrome does so
+  behind another tab or minimised often without telling the page it is hidden. So a dedicated
+  worker's timer moves time on every 50 ms always, beside the frames and from the same mark: the host
+  keeps releasing ticks and every peer keeps running them. The desktop shell turns background
+  throttling off.
 - **Others' heroes are drawn three sends in the past,** between the samples around that moment. When
   a hero's samples run out, it walks on along its last velocity for a moment, then stands, drawn
   standing rather than frozen mid-stride.

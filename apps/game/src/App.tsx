@@ -103,12 +103,13 @@ export function App() {
       overlayLayers = OVERLAYS.map((o) => ({ id: o.id, layer: o.layer() }));
       for (const { layer } of overlayLayers) world.addChild(layer.view);
 
-      // The world's time runs on in a hidden tab, when the frames stop: a hidden host would stop
-      // everyone's world, a hidden peer fall behind.
-      const time = keepTime((elapsedMs) => created.frame(elapsedMs), document);
+      // The world's time runs on when the frames slow or stop, in a hidden or covered tab: a host
+      // there would stop everyone's world, a peer fall behind.
+      const time = keepTime((elapsedMs) => created.frame(elapsedMs));
       stopTime = () => time.destroy();
       app.ticker.add((ticker) => {
         time.frame();
+        created.drawn(ticker.deltaMS);
         const frame = { game: created, screen: app.screen, camera, elapsedMs: ticker.deltaMS };
         for (const layer of layers) layer.update(frame);
         for (const { id, layer } of overlayLayers) {

@@ -29,12 +29,14 @@ export interface Game {
   speed: number;
   /** Fraction of the way to the next tick, for drawing between ticks. */
   readonly progress: number;
-  /** Frames per second, smoothed. */
+  /** Frames drawn per second, smoothed. */
   readonly fps: number;
   /** How often the host has caught this machine's world drifting and resynced it. */
   readonly desyncs: number;
   /** Advances time by `elapsedMs`, releases the ticks due if this machine hosts, and runs them. */
   frame(elapsedMs: number): readonly TickReport[];
+  /** Counts a frame drawn `intervalMs` after the last, for `fps`. */
+  drawn(intervalMs: number): void;
   save(): Promise<void>;
   /** Loads the dev slot as a session of this machine's own; false when the slot is empty. */
   load(): Promise<boolean>;
@@ -79,9 +81,12 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
       return desyncs;
     },
 
+    drawn(intervalMs) {
+      if (intervalMs > 0)
+        fps = fps === 0 ? 1000 / intervalMs : fps * 0.95 + (1000 / intervalMs) * 0.05;
+    },
+
     frame(elapsedMs) {
-      if (elapsedMs > 0)
-        fps = fps === 0 ? 1000 / elapsedMs : fps * 0.95 + (1000 / elapsedMs) * 0.05;
       let reports: TickReport[];
       if (session.host) {
         for (let n = clock.advance(elapsedMs * speed); n > 0; n--) session.host.advance();
