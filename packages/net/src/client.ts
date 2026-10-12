@@ -17,6 +17,11 @@ export interface Client {
   readonly sim: Sim;
   /** Asks the host to apply a command; it takes effect on the tick the host puts it in. */
   send(command: Command): void;
+  /**
+   * The commands this peer sent that have not run yet, oldest first: what the game shows at once,
+   * before the host's tick confirms or refuses it (0013). A command leaves when its tick runs.
+   */
+  readonly inFlight: readonly Command[];
   /** How many released ticks wait to run; a resync waiting among them is not counted. */
   readonly queued: number;
   /**
@@ -50,12 +55,27 @@ export function createClient(
   let heroes: { from: number; state: unknown }[] = [];
   let lastHash: string | undefined;
   let desyncs: DesyncReport[] = [];
+  const inFlight: Command[] = [];
   channel.onMessage((message) => {
     // A peer that holds its world is connected, never welcomed: a welcome here is our bug.
     if (message.kind === 'welcome') throw new Error('A client holding its world was welcomed.');
     if (message.kind === 'hero') heroes.push({ from: message.from, state: message.state });
     else released.push(message);
   });
+
+  // The host passes this peer's commands on in the order they came, over an ordered link: each of
+  // them in a released tick is the oldest in flight.
+  const landed = (commands: readonly Command[]) => {
+    for (const command of commands) {
+      if (command.from !== id) continue;
+      const head = inFlight.shift();
+      if (head?.module !== command.module || head.type !== command.type) {
+        throw new Error(
+          `Peer ${id} sent ${head ? `${head.module}.${head.type}` : 'nothing'} next, but ${command.module}.${command.type} came back.`,
+        );
+      }
+    }
+  };
 
   const resync = (save: string) => {
     // Our bug: the host resyncs only peers it welcomed, which join with a way to load.
@@ -72,7 +92,12 @@ export function createClient(
     },
 
     send(command) {
+      inFlight.push(command);
       channel.send({ kind: 'command', command });
+    },
+
+    get inFlight() {
+      return inFlight;
     },
 
     sendHero(state) {
@@ -119,6 +144,7 @@ export function createClient(
             `Expected tick ${sim.world.tick}, but the host released ${message.tick}.`,
           );
         }
+        landed(message.commands);
         reports.push(sim.step(message.commands));
         const tick = sim.world.tick;
         if (tick % HASH_EVERY === 0) {

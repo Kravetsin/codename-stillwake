@@ -4,6 +4,7 @@ import type { Platform } from '../platform/platform';
 import { BUILD } from './build';
 import { createClock } from './clock';
 import { createPlayout } from './playout';
+import { createRoundTrip, type RoundTrip } from './round-trip';
 
 const DEV_SLOT = 'dev';
 /** Where the latest desync report goes, for whoever hunts the bug. */
@@ -33,6 +34,8 @@ export interface Game {
   readonly fps: number;
   /** How often the host has caught this machine's world drifting and resynced it. */
   readonly desyncs: number;
+  /** How long this peer's commands take from sent to run, for the dev panel. */
+  readonly roundTrip: RoundTrip;
   /** Advances time by `elapsedMs`, releases the ticks due if this machine hosts, and runs them. */
   frame(elapsedMs: number): readonly TickReport[];
   /** Counts a frame drawn `intervalMs` after the last, for `fps`. */
@@ -57,6 +60,9 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
   let speed = 1;
   let fps = 0;
   let desyncs = 0;
+  // The game's own clock, in ms, for timing commands: the time every frame and beat moved on.
+  let now = 0;
+  const roundTrip = createRoundTrip();
 
   return {
     get host() {
@@ -80,6 +86,9 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     get desyncs() {
       return desyncs;
     },
+    get roundTrip() {
+      return roundTrip.read();
+    },
 
     drawn(intervalMs) {
       if (intervalMs > 0)
@@ -87,6 +96,8 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     },
 
     frame(elapsedMs) {
+      now += elapsedMs;
+      roundTrip.sent(session.client.inFlight.length, now);
       let reports: TickReport[];
       if (session.host) {
         for (let n = clock.advance(elapsedMs * speed); n > 0; n--) session.host.advance();
@@ -97,6 +108,7 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
         const rate = playout.rate(session.client.queued);
         reports = session.client.update(rate === 0 ? 0 : clock.advance(elapsedMs * rate));
       }
+      roundTrip.ran(session.client.inFlight.length, now);
       // A determinism bug: the host has already mended the world, so the report is all that is left.
       for (const report of session.client.takeDesyncs()) {
         desyncs += 1;
@@ -117,6 +129,7 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
       if (text === undefined) return false;
       session.leave?.();
       session = ownSession(definition.load(text));
+      roundTrip.reset();
       for (const listener of listeners) listener();
       return true;
     },

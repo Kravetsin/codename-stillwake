@@ -263,3 +263,62 @@ describe('a peer playing ticks out at its own pace', () => {
     expect(client.sim.world.tick).toBe(3);
   });
 });
+
+describe('commands in flight', () => {
+  it('are this peer’s sent and not yet run, leaving in order, refused ones too', () => {
+    const host = createHost(0);
+    const [toA, fromA] = loopback<ToClient, ToHost>();
+    const [toB, fromB] = loopback<ToClient, ToHost>();
+    const a = createClient(game.create(1), fromA, host.connect(toA));
+    const b = createClient(game.create(1), fromB, host.connect(toB));
+    a.send(write('one'));
+    b.send(write('other'));
+    a.send(write(''));
+    expect(a.inFlight.map((c) => c.payload)).toEqual([{ text: 'one' }, { text: '' }]);
+    host.advance();
+    a.send(write('three'));
+    const [report] = a.update();
+    expect(report?.refused).toHaveLength(1);
+    expect(a.inFlight.map((c) => c.payload)).toEqual([{ text: 'three' }]);
+    expect(b.inFlight).toHaveLength(1);
+    host.advance();
+    a.update();
+    expect(a.inFlight).toEqual([]);
+  });
+
+  it('stay in flight through a resync, and leave when their tick runs after it', () => {
+    let receive: (message: ToClient) => void = () => {};
+    const client = createClient(
+      game.create(1),
+      { send: () => {}, onMessage: (h) => (receive = h) },
+      2,
+      (save) => game.load(save),
+    );
+    client.send(write('kept'));
+    receive({ kind: 'resync', save: game.create(1).save() });
+    client.update();
+    expect(client.inFlight).toHaveLength(1);
+    receive({ kind: 'tick', tick: 0, commands: [{ ...write('kept'), from: 2 }] });
+    client.update();
+    expect(client.inFlight).toEqual([]);
+    expect(client.sim.query(board).notes()).toEqual(['0:kept']);
+  });
+
+  it('throws when what comes back is not what was sent next: our bug', () => {
+    let receive: (message: ToClient) => void = () => {};
+    const client = createClient(
+      game.create(1),
+      { send: () => {}, onMessage: (h) => (receive = h) },
+      3,
+    );
+    client.send(write('mine'));
+    receive({
+      kind: 'tick',
+      tick: 0,
+      commands: [{ module: 'drift', type: 'push', payload: { by: 1 }, from: 3 }],
+    });
+    expect(() => client.update()).toThrow(
+      'Peer 3 sent board.write next, but drift.push came back.',
+    );
+  });
+});

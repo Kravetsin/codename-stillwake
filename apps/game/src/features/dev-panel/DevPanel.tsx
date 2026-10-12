@@ -16,6 +16,8 @@ interface Reading {
   desyncs: number;
   /** Released ticks waiting to run: a joined peer's reserve. */
   queued: number;
+  /** This peer's commands from sent to run, in ms: the last and the median of late. */
+  roundTrip: { last: number | undefined; median: number | undefined };
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -31,6 +33,7 @@ function read(game: Game, open: ReadonlySet<string>): Reading {
     link: link.get(),
     desyncs: game.desyncs,
     queued: game.client.queued,
+    roundTrip: game.roundTrip,
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -129,6 +132,15 @@ export function DevPanel({ game }: { readonly game: Game }) {
         <dd>{reading.tick}</dd>
         <dt>hash</dt>
         <dd>{reading.hash}</dd>
+        {reading.roundTrip.last !== undefined && (
+          <>
+            <dt>act</dt>
+            <dd>
+              {Math.round(reading.roundTrip.last)} ms · median{' '}
+              {Math.round(reading.roundTrip.median ?? 0)} ms
+            </dd>
+          </>
+        )}
         {describeLink(reading.link, reading.queued) && (
           <>
             <dt>net</dt>
