@@ -151,7 +151,19 @@ export function Inventory({ game }: { readonly game: Game }) {
   const releaseAt = (place: Place) => () => {
     const from = dragFrom.current;
     dragFrom.current = undefined;
-    if (from && held && !samePlace(from, place)) clickAt(place)('left', false);
+    if (!from || samePlace(from, place)) return;
+    if (held) return clickAt(place)('left', false);
+    if (shown) return;
+    // Along the hotbar with the inventory closed, where a press only chooses a slot: the stack is
+    // lifted and put down in one go, as two clicks would with it open.
+    const click = { button: 'left', shift: false, crate } as const;
+    const lifted = clickOn(undefined, { ...click, place: from, stack: slotAt(reading, from) });
+    if (!lifted.picked) return;
+    const put = clickOn(lifted.picked, { ...click, place, stack: slotAt(reading, place) });
+    if (!put.command) return;
+    game.client.send(put.command);
+    setReading(read(game, crate));
+    setChosen(place.slot);
   };
 
   const clickAt = (place: Place) => (button: 'left' | 'right', shift: boolean) => {

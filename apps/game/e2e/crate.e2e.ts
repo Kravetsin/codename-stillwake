@@ -55,4 +55,13 @@ test('drags a stack from the wreck crate into the inventory', async ({ page }) =
 
   await expect(page.locator('[data-slot="inv-2"]')).toContainText(String(STARTING_CRATE.steel));
   await expect(steel).not.toContainText(/\d/);
+
+  // Closed, the hotbar still takes a drag from one of its slots to another.
+  await page.keyboard.press('Escape');
+  await page.locator('[data-slot="inv-2"]').hover();
+  await page.mouse.down();
+  await page.locator('[data-slot="inv-5"]').hover();
+  await page.mouse.up();
+  await expect(page.locator('[data-slot="inv-5"]')).toContainText(String(STARTING_CRATE.steel));
+  await expect(page.locator('[data-slot="inv-2"]')).not.toContainText(/\d/);
 });
