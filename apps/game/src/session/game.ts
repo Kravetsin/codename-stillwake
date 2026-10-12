@@ -3,6 +3,7 @@ import { TICKS_PER_SECOND, type SimDefinition, type TickReport } from '@stillwak
 import type { Platform } from '../platform/platform';
 import { BUILD } from './build';
 import { createClock } from './clock';
+import { createPlayout } from './playout';
 
 const DEV_SLOT = 'dev';
 /** Where the latest desync report goes, for whoever hunts the bug. */
@@ -24,7 +25,7 @@ export interface Game {
   /** This machine's host; none in a session joined from another machine. */
   readonly host: Host | undefined;
   readonly client: Client;
-  /** How many game seconds pass per real second. The host's speed is everyone's. */
+  /** How many game seconds pass per real second. The host's speed is everyone's: a peer's is unused. */
   speed: number;
   /** Fraction of the way to the next tick, for drawing between ticks. */
   readonly progress: number;
@@ -49,6 +50,7 @@ export function ownSession(sim: Parameters<typeof localSession>[0]): Session {
 export function createGame(definition: SimDefinition, platform: Platform, start: Session): Game {
   let session = start;
   const clock = createClock(1000 / TICKS_PER_SECOND);
+  const playout = createPlayout();
   const listeners = new Set<() => void>();
   let speed = 1;
   let fps = 0;
@@ -80,10 +82,16 @@ export function createGame(definition: SimDefinition, platform: Platform, start:
     frame(elapsedMs) {
       if (elapsedMs > 0)
         fps = fps === 0 ? 1000 / elapsedMs : fps * 0.95 + (1000 / elapsedMs) * 0.05;
-      // A joined session's ticks come from its host; the clock still paces drawing between them.
-      const due = clock.advance(elapsedMs * speed);
-      if (session.host) for (let n = due; n > 0; n--) session.host.advance();
-      const reports = session.client.update();
+      let reports: TickReport[];
+      if (session.host) {
+        for (let n = clock.advance(elapsedMs * speed); n > 0; n--) session.host.advance();
+        reports = session.client.update();
+      } else {
+        // A joined session plays its host's ticks out at a steady pace, never as they arrive (0013);
+        // while it holds, so does the time drawn between ticks.
+        const rate = playout.rate(session.client.queued);
+        reports = session.client.update(rate === 0 ? 0 : clock.advance(elapsedMs * rate));
+      }
       // A determinism bug: the host has already mended the world, so the report is all that is left.
       for (const report of session.client.takeDesyncs()) {
         desyncs += 1;

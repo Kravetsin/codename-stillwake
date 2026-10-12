@@ -14,6 +14,8 @@ interface Reading {
   creative: boolean;
   link: LinkStatus;
   desyncs: number;
+  /** Released ticks waiting to run: a joined peer's reserve. */
+  queued: number;
   /** Every module id, with its JSON only for the modules whose entry is open. */
   slices: [string, string | undefined][];
 }
@@ -28,6 +30,7 @@ function read(game: Game, open: ReadonlySet<string>): Reading {
     creative: sim.query(items).creative(),
     link: link.get(),
     desyncs: game.desyncs,
+    queued: game.client.queued,
     slices: Object.entries(sim.world.slices).map(([id, slice]) => [
       id,
       open.has(id) ? show(slice) : undefined,
@@ -46,14 +49,14 @@ function hullWall(sim: Sim): number | undefined {
 }
 
 /** Where this tab stands on the dev relay, in a line. */
-function describeLink(status: LinkStatus): string | undefined {
+function describeLink(status: LinkStatus, queued: number): string | undefined {
   if (status.role === 'alone') return undefined;
   if (status.role === 'host') {
     return status.session === undefined
       ? 'hosting…'
       : `hosting ?join=${status.session} · peers ${status.peers}`;
   }
-  return `joined ${status.session} · ${status.state}`;
+  return `joined ${status.session} · ${status.state} · queued ${queued}`;
 }
 
 /** Pretty JSON that also shows derived `Map`s, `Set`s and typed arrays readably. */
@@ -126,11 +129,11 @@ export function DevPanel({ game }: { readonly game: Game }) {
         <dd>{reading.tick}</dd>
         <dt>hash</dt>
         <dd>{reading.hash}</dd>
-        {describeLink(reading.link) && (
+        {describeLink(reading.link, reading.queued) && (
           <>
             <dt>net</dt>
             <dd>
-              {describeLink(reading.link)}
+              {describeLink(reading.link, reading.queued)}
               {reading.desyncs > 0 && ` · resynced ${reading.desyncs}×`}
             </dd>
           </>

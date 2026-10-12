@@ -214,3 +214,52 @@ describe('heroes', () => {
     expect(client.takeHeroes()).toEqual([{ from: 1, state: { x: 5 } }]);
   });
 });
+
+describe('a peer playing ticks out at its own pace', () => {
+  /** A client fed by hand, as the host's messages reach it over a network. */
+  const fed = () => {
+    let receive: (message: ToClient) => void = () => {};
+    const client = createClient(
+      game.create(1),
+      { send: () => {}, onMessage: (handler) => (receive = handler) },
+      1,
+      (save) => game.load(save),
+    );
+    const tick = (n: number, text?: string) =>
+      receive({ kind: 'tick', tick: n, commands: text ? [{ ...write(text), from: 0 }] : [] });
+    return { client, tick, resync: (save: string) => receive({ kind: 'resync', save }) };
+  };
+
+  it('counts the ticks waiting and runs no more than it is let', () => {
+    const { client, tick } = fed();
+    for (let n = 0; n < 5; n++) tick(n);
+    expect(client.queued).toBe(5);
+    expect(client.update(2)).toHaveLength(2);
+    expect(client.update(0)).toHaveLength(0);
+    expect(client.queued).toBe(3);
+    expect(client.update()).toHaveLength(3);
+    expect(client.sim.world.tick).toBe(5);
+  });
+
+  it('takes a resync in its place among the ticks, not counting it', () => {
+    const { client, tick, resync } = fed();
+    // The host's world on tick 2, which differs from what this peer will have made of it.
+    const truth = game.create(1);
+    truth.step([{ ...write('host'), from: 0 }]);
+    truth.step([]);
+    tick(0, 'peer');
+    tick(1);
+    resync(truth.save());
+    tick(2);
+    expect(client.queued).toBe(3);
+    client.update(1);
+    expect(client.takeDesyncs()).toEqual([]);
+    // Tick 1 runs, then the resync behind it is taken; tick 2 waits.
+    expect(client.update(1)).toHaveLength(1);
+    expect(client.takeDesyncs()).toHaveLength(1);
+    expect(client.sim.query(board).notes()).toEqual(['0:host']);
+    expect(client.queued).toBe(1);
+    client.update();
+    expect(client.sim.world.tick).toBe(3);
+  });
+});

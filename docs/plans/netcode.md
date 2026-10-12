@@ -41,17 +41,17 @@ N-01
   ticks queued ahead of it, and does not count. No limit runs everything, as now: the host's own
   client, its saves (`local.ts`) and the desync fuzz.
 - A joined session runs as many ticks a frame as its clock has due, as the host releases them. It
-  starts on a cold queue, at joining or after a session swap, once `PLAYOUT_TICKS` (2) wait, and
-  holds when the queue is empty. While more than `PLAYOUT_TICKS + 2` wait, it also runs the surplus,
-  at most `DRAIN_TICKS` (10) more a frame: a joiner's first ticks, a backlog after a hidden tab, and a
-  host at ×4 speed all drain this way, about thirty times real time.
+  starts once `PLAYOUT_TICKS` (2) wait, and holds, the clock with it, whenever the queue runs dry,
+  until they wait again. Each tick waiting beyond `PLAYOUT_TICKS + 1` speeds its clock by a quarter:
+  a joiner's first ticks, a backlog after a hidden tab, and a host at ×4 speed drain this way, at
+  most the clock's catch-up of five ticks a frame.
 - `game.progress` stays the clock's, now true on a peer, so debris drifts between ticks as on the
   host. The dev panel's `net` line shows `queued`.
 - `fuzzDesync` draws a limit for each update from its generator, 0 included, so a limit boundary and
   a resync with ticks behind it are exercised.
 
 Done when: unit tests of the playout: ticks delivered in bursts run one per 50 ms; a cold queue waits
-for `PLAYOUT_TICKS`; an empty queue holds; a 600-tick backlog drains within a second of frames;
+for `PLAYOUT_TICKS`; an empty queue holds; a 1200-tick backlog drains within five seconds of frames;
 `update` with a limit takes a resync in order; the desync suite passes with limits drawn; the check by
 eye shows debris drifting smoothly on the guest.
 

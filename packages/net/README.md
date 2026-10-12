@@ -17,7 +17,10 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   reused. Peer 0 is the host player's own client: the reference world joiners start from and hashes
   are checked against.
 - **A client** runs only the ticks the host released, in order; a gap is a bug and throws. It sends
-  commands; it never changes its world any other way.
+  commands; it never changes its world any other way. `queued` counts the ticks waiting, and
+  `update(limit)` runs at most that many: a joined game plays them out at a steady pace, two in
+  reserve, rather than as the relay delivers them in bursts
+  ([0013](../../docs/decisions/0013-netcode-follows-known-practice.md), `apps/game/src/session`).
 - **A `Channel`** delivers in order, and keeps what arrives before a receiver is set until one is.
 
 ## Joining mid-session
@@ -40,7 +43,7 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 - Heroes are client-authoritative and outside the simulation. A client sends `hero` with a state net
   never reads; the host passes it to every other peer stamped with the sender, and keeps nothing.
 - The game sends its hero every 50 ms while it changes and once a second regardless, and draws the
-  others 100 ms behind, between the two samples around that moment (`apps/game/src/features/crew`).
+  others 150 ms behind, between the two samples around that moment (`apps/game/src/features/crew`).
 
 ## Hash checks
 
@@ -57,7 +60,7 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 ## Testing
 
 - `fuzzDesync` runs a host and three clients in one process on every registered module's fuzz
-  generator, clients updating out of step, hashes compared every 20 ticks; `joinAt` adds a client
+  generator, clients updating out of step and a few ticks at a time, hashes compared every 20 ticks; `joinAt` adds a client
   joining mid-run. A resync counts as a desync, so the host mending a client cannot hide a
   determinism bug. A module with commands and no generator fails it.
 

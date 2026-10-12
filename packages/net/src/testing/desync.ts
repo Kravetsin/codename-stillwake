@@ -39,7 +39,8 @@ export interface DesyncRun {
 
 /**
  * The desync fuzz test: a host and its clients in one process, random commands from every module's
- * fuzz generator sent by random clients, clients updating out of step as over a real network, and
+ * fuzz generator sent by random clients, clients updating out of step and a few ticks at a time as
+ * over a real network, and
  * their state hashes compared at every check.
  */
 export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): DesyncRun {
@@ -76,17 +77,21 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
   });
   const fuzzable = definition.modules.filter((m) => m.fuzz);
   const rng = createRng(seed ^ 0x5eed);
+  // How many ticks each update may run, drawn apart so the command stream stays each seed's own.
+  const pace = createRng(seed ^ 0x9ace);
   let commands = 0;
   let refused = 0;
 
   // Refusals are counted on the first client only; every client sees the same ones.
-  const update = (client: Client) => {
-    const reports = client.update();
+  const update = (client: Client, limit?: number) => {
+    const reports = client.update(limit);
     if (client === clients[0]) for (const r of reports) refused += r.refused.length;
   };
   const check = () => {
     for (const client of clients) update(client);
     const hashes = clients.map((client) => client.sim.hash());
+    // The hashes just sent may have earned a resync: taken now, running no tick.
+    for (const client of clients) update(client, 0);
     // The host resyncs a drifted peer on its own; a resync is a desync all the same.
     const reports = clients.flatMap((client) => client.takeDesyncs());
     return new Set(hashes).size === 1 && reports.length === 0
@@ -118,7 +123,12 @@ export function fuzzDesync(definition: SimDefinition, options: DesyncOptions): D
       );
     }
     host.advance();
-    for (const client of clients) if (rng.below(3) !== 0) update(client);
+    // As a peer playing ticks out at its own pace: a few at a time, none, or all that wait.
+    for (const client of clients) {
+      if (rng.below(3) === 0) continue;
+      const limit = pace.below(5);
+      update(client, limit === 4 ? undefined : limit);
+    }
     tamper?.(tick, clients);
 
     if ((tick + 1) % checkEvery === 0) {

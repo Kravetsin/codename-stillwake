@@ -17,11 +17,14 @@ export interface Client {
   readonly sim: Sim;
   /** Asks the host to apply a command; it takes effect on the tick the host puts it in. */
   send(command: Command): void;
+  /** How many released ticks wait to run; a resync waiting among them is not counted. */
+  readonly queued: number;
   /**
-   * Runs every released tick not run yet, in order, and returns their reports. Every `HASH_EVERY`
-   * ticks it tells the host its hash; a resync from the host, met in order, is taken in between.
+   * Runs the released ticks not run yet, in order, at most `limit` of them, and returns their
+   * reports. Every `HASH_EVERY` ticks it tells the host its hash; a resync from the host, met in
+   * order, is taken in between and does not count. Without a limit it runs every one.
    */
-  update(): TickReport[];
+  update(limit?: number): TickReport[];
   /** Tells every other peer, through the host, where this peer's hero is now. */
   sendHero(state: unknown): void;
   /** The other peers' heroes received since the last call, in order of arrival. */
@@ -92,16 +95,24 @@ export function createClient(
       return lastHash;
     },
 
-    update() {
+    get queued() {
+      return released.filter((m) => m.kind === 'tick').length;
+    },
+
+    update(limit = Infinity) {
       const reports: TickReport[] = [];
       // Sent once the loop is done: the host may check a hash at once and save the host player's
       // world, which must not happen with this client halfway through its ticks.
       const hashes: { tick: number; hash: string }[] = [];
-      for (const message of released.splice(0)) {
+      while (released.length > 0) {
+        const message = released[0] as TickMessage | ResyncMessage;
         if (message.kind === 'resync') {
+          released.shift();
           resync(message.save);
           continue;
         }
+        if (reports.length >= limit) break;
+        released.shift();
         // The host releases ticks one by one over an ordered link; a gap is our bug.
         if (message.tick !== sim.world.tick) {
           throw new Error(
