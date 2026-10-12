@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Hero } from './hero';
-import { limbsOf, poseOf, STRIDE } from './pose';
+import { HEAD, headTurn, limbsOf, poseOf, STRIDE } from './pose';
 
 const standing: Hero = { x: 5500, y: 10000, vx: 0, vy: 0, climbing: false, facing: 1 };
 
@@ -61,5 +61,24 @@ describe('limbsOf', () => {
     const across = limbsOf('float', { ...standing, vx: 120 }, 1, 0).tilt;
     const up = limbsOf('float', { ...standing, vy: -120 }, 1, 0).tilt;
     expect(across).toBeGreaterThan(up);
+  });
+});
+
+describe('headTurn', () => {
+  it('looks straight at a point ahead, down positive', () => {
+    expect(headTurn(5, 0)).toBe(0);
+    expect(headTurn(4, 1)).toBeCloseTo(Math.atan2(1, 4));
+    expect(headTurn(4, -1)).toBeCloseTo(-Math.atan2(1, 4));
+  });
+
+  it('never looks further up or down than the neck allows', () => {
+    expect(headTurn(0.1, -10)).toBe(-HEAD.up);
+    expect(headTurn(0.1, 10)).toBe(HEAD.down);
+    expect(headTurn(0, -3)).toBe(-HEAD.up);
+  });
+
+  it('only looks up or down at a point behind, as at one as far ahead', () => {
+    expect(headTurn(-4, 1)).toBeCloseTo(headTurn(4, 1));
+    expect(headTurn(-4, 0)).toBe(0);
   });
 });

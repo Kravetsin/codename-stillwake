@@ -18,11 +18,23 @@ export interface Limbs {
 }
 
 /** Cells walked, climbed or swum per full cycle of the limbs: two steps. */
-export const STRIDE = { walk: 2.4, climb: 1.2, float: 3 };
+export const STRIDE = { walk: 3.6, climb: 1.2, float: 3 };
 const BREATH_MS = 2600;
 const DRIFT_MS = 3400;
 /** Radians a hero passed out in space turns per second. */
 const TUMBLE = 0.7;
+
+/** How far the head turns toward the pointer, in radians: up, and down. */
+export const HEAD = { up: 0.6, down: 0.5 };
+
+/**
+ * The head's turn toward a point `dx` ahead of its neck, the way the hero faces, and `dy` below it;
+ * positive looks down. Behind the hero it only looks up or down, as at a point as far ahead.
+ */
+export function headTurn(dx: number, dy: number): number {
+  if (dx === 0 && dy === 0) return 0;
+  return Math.max(-HEAD.up, Math.min(HEAD.down, Math.atan2(dy, Math.abs(dx))));
+}
 
 /** The pose of `hero`: its body in space or not, passed out or not. */
 export function poseOf(hero: Hero, inSpace: boolean, out: boolean): Pose {

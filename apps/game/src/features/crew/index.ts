@@ -43,10 +43,20 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
 
-/** Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out. */
-function show(figure: Figure, hero: Hero, ship: Ship, out: boolean, elapsedMs: number) {
+/**
+ * Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out, its
+ * head toward `look` if given: this machine's hero looks at the pointer.
+ */
+function show(
+  figure: Figure,
+  hero: Hero,
+  ship: Ship,
+  out: boolean,
+  elapsedMs: number,
+  look?: { x: number; y: number },
+) {
   const inSpace = ship.space(bodyCell(hero, ship.width));
-  figure.show(hero, poseOf(hero, inSpace, out), elapsedMs);
+  figure.show(hero, poseOf(hero, inSpace, out), elapsedMs, look);
 }
 
 /**
@@ -127,11 +137,11 @@ export const crewFeature: Feature = {
         const between = clock.progress();
         const x = previous.x + (current.x - previous.x) * between;
         const y = previous.y + (current.y - previous.y) * between;
-        show(own, { ...current, x, y }, ship, out, elapsedMs);
         camera.follow({ x: x / UNIT, y: (y - HERO.height / 2) / UNIT }, screen);
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
+        show(own, { ...current, x, y }, ship, out, elapsedMs, pointer);
         const aim = pointer && aimAt(sim, game.client.id, current, pointer);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);

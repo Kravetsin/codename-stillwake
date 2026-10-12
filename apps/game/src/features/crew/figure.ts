@@ -2,7 +2,7 @@ import { HERO } from '@stillwake/content';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { UNIT, type Hero } from './hero';
-import { limbsOf, type Limbs, type Pose } from './pose';
+import { headTurn, limbsOf, type Limbs, type Pose } from './pose';
 
 const VISOR = 0x2b3a4a;
 const PACK = 0x6b7486;
@@ -12,6 +12,8 @@ const FAR = 0.7;
 const EDGE = 0.45;
 /** Milliseconds for a limb to settle into a new angle: a pose change eases, a stride barely lags. */
 const SETTLE_MS = 30;
+/** Slower for the head, so it follows the pointer rather than snapping to it. */
+const HEAD_SETTLE_MS = 90;
 
 const W = (HERO.width / UNIT) * CELL;
 const H = (HERO.height / UNIT) * CELL;
@@ -40,9 +42,9 @@ function limb(colour: number, edge: number, size: { width: number; length: numbe
     .stroke({ width: 1, color: edge });
 }
 
-/** `from` moved toward `to` over `elapsedMs`, settling in about `SETTLE_MS`. */
-function settle(from: number, to: number, elapsedMs: number): number {
-  return from + (to - from) * Math.min(1, elapsedMs / SETTLE_MS);
+/** `from` moved toward `to` over `elapsedMs`, settling in about `within` milliseconds. */
+function settle(from: number, to: number, elapsedMs: number, within = SETTLE_MS): number {
+  return from + (to - from) * Math.min(1, elapsedMs / within);
 }
 
 /** An angle settled toward `to` the short way round, so a body stops tumbling without unwinding. */
@@ -81,6 +83,9 @@ export function createFigure(colour: number) {
     .stroke(edge)
     .roundRect(W * 0.02, -H * 0.93, W * 0.38, H * 0.13, W * 0.06)
     .fill(VISOR);
+  // The helmet turns at the neck.
+  helmet.pivot.set(0, -NECK);
+  helmet.position.set(0, -NECK);
 
   // The body turns and leans around its middle; `view` is placed at the feet.
   const body = new Container();
@@ -95,11 +100,15 @@ export function createFigure(colour: number) {
   let last: { x: number; y: number } | undefined;
   let travelled = 0;
   let timeMs = 0;
+  let head = 0;
 
   return {
     view,
-    /** Places the figure at `hero`'s feet, in thousandths of a cell, and eases it into `pose`. */
-    show(hero: Hero, pose: Pose, elapsedMs: number) {
+    /**
+     * Places the figure at `hero`'s feet, in thousandths of a cell, and eases it into `pose`, its
+     * head toward `look`, a point in cells, if given and the hero is awake.
+     */
+    show(hero: Hero, pose: Pose, elapsedMs: number, look?: { x: number; y: number }) {
       timeMs += elapsedMs;
       if (last) travelled += (Math.abs(hero.x - last.x) + Math.abs(hero.y - last.y)) / UNIT;
       last = { x: hero.x, y: hero.y };
@@ -120,6 +129,11 @@ export function createFigure(colour: number) {
       frontLeg.rotation = -shown.frontLeg;
       backLeg.rotation = -shown.backLeg;
       body.rotation = shown.tilt;
+      const awake = pose !== 'lie' && pose !== 'tumble';
+      const neck = { x: hero.x / UNIT, y: hero.y / UNIT - NECK / CELL };
+      const turn = look && awake ? headTurn((look.x - neck.x) * hero.facing, look.y - neck.y) : 0;
+      head = settle(head, turn, elapsedMs, HEAD_SETTLE_MS);
+      helmet.rotation = head;
       // Lying down, the middle sinks as the body turns, so it comes to rest on the floor.
       const c = Math.abs(Math.cos(shown.tilt));
       const s = Math.abs(Math.sin(shown.tilt));
