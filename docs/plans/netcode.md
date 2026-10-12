@@ -62,9 +62,8 @@ eye shows debris drifting smoothly on the guest.
   measured at the switch carries over, so nothing is counted twice or lost. A beat runs
   `game.frame(elapsed)`: the host releases ticks and every client runs them. The worker and the
   listener stop when the game is destroyed, as StrictMode does once in development.
-- A beat leaves others' heroes queued in the client; the crew layer, on its first frame after a gap
-  longer than `GONE_MS`, keeps only each peer's newest, so the offset estimate does not take minutes
-  of samples arriving at once.
+- A beat leaves others' heroes queued in the client, all taken on the first frame after: the offset
+  estimate places them at once and the hero stands where its newest says, which a test pins down.
 - The Electron window sets `backgroundThrottling: false`.
 - Tests inject the beat source: no test runner can hide a tab.
 

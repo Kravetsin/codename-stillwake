@@ -20,7 +20,8 @@ void app.whenReady().then(() => {
     width: 1600,
     height: 900,
     backgroundColor: '#0b0f17',
-    webPreferences: { preload: path.join(here, '../src/preload.cjs') },
+    // A hidden or minimised window keeps its timers: a host there still runs everyone's world.
+    webPreferences: { preload: path.join(here, '../src/preload.cjs'), backgroundThrottling: false },
   });
   window.removeMenu();
   // The window shows the game and nothing else: a file dropped on it, or a link, opens nowhere.

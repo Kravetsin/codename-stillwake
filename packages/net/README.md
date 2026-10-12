@@ -70,8 +70,9 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   WebSocket every dev tab holds: `?host` opens a session, `?join=<id>` joins it. It routes by session
   and peer and reads nothing; a tab that leaves is disconnected from its host. Release builds will
   talk over Steam instead.
-- Ticks are released from the game's frames, which a browser pauses in a hidden tab: put the host and
-  its peers in separate windows, not tabs of one.
+- Ticks are released from the game's frames, and while the tab is hidden, when a browser stops them,
+  from a worker's beat every 50 ms (`apps/game/src/session/time.ts`): a hidden host keeps everyone's
+  world going. Its hero stands still meanwhile and is hidden from the others after three seconds.
 
 ## Deliberately not handled
 

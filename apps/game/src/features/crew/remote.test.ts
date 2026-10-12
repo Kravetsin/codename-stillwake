@@ -89,6 +89,16 @@ describe("others' heroes", () => {
     expect(heroes.at(11_025 + BEHIND_MS)[0]?.hero.x).toBe(75);
   });
 
+  it('come back where they are after this tab was hidden, its samples taken all at once', () => {
+    const heroes = createRemoteHeroes();
+    heroes.add(2, { ...hero(0), at: 0 }, 1000);
+    // Hidden for a minute, this tab drew nothing; its frames' clock moved on 100 ms meanwhile.
+    for (let t = 50; t <= 60_000; t += SEND_MS) heroes.add(2, { ...hero(t), at: t }, 1100);
+    expect(heroes.at(1100 + BEHIND_MS)[0]?.hero.x).toBe(60_000);
+    heroes.add(2, { ...hero(60_050), at: 60_050 }, 1150);
+    expect(heroes.at(1150 + BEHIND_MS)[0]?.hero.x).toBe(60_050);
+  });
+
   it('forget samples once a later one is past, so the buffer stays short', () => {
     const heroes = createRemoteHeroes();
     for (let t = 0; t < 10_000; t += SEND_MS) heroes.add(1, hero(t), t);

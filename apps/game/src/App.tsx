@@ -14,6 +14,7 @@ import { BUILD } from './session/build';
 import { createGame, ownSession, type Game, type Session } from './session/game';
 import { hostOnRelay, joinOnRelay, link } from './session/relay-link';
 import { relayFor } from './session/relay-socket';
+import { keepTime } from './session/time';
 import { startedAnew, takeResume, watchForUpdates } from './session/update';
 import { VersionBar } from './session/VersionBar';
 
@@ -60,6 +61,7 @@ export function App() {
     let destroyCamera = () => {};
     let unlink = () => {};
     let unwatch = () => {};
+    let stopTime = () => {};
     let layers: Layer[] = [];
     let overlayLayers: { id: string; layer: Layer }[] = [];
     const switched = createOverlaySwitch(
@@ -101,8 +103,12 @@ export function App() {
       overlayLayers = OVERLAYS.map((o) => ({ id: o.id, layer: o.layer() }));
       for (const { layer } of overlayLayers) world.addChild(layer.view);
 
+      // The world's time runs on in a hidden tab, when the frames stop: a hidden host would stop
+      // everyone's world, a hidden peer fall behind.
+      const time = keepTime((elapsedMs) => created.frame(elapsedMs), document);
+      stopTime = () => time.destroy();
       app.ticker.add((ticker) => {
-        created.frame(ticker.deltaMS);
+        time.frame();
         const frame = { game: created, screen: app.screen, camera, elapsedMs: ticker.deltaMS };
         for (const layer of layers) layer.update(frame);
         for (const { id, layer } of overlayLayers) {
@@ -134,6 +140,7 @@ export function App() {
       destroyCamera();
       unlink();
       unwatch();
+      stopTime();
       switched.destroy();
       for (const layer of [...layers, ...overlayLayers.map((o) => o.layer)]) layer.destroy?.();
       if (ready) app.destroy(true, { children: true });
