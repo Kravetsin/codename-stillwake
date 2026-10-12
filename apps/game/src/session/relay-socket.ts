@@ -1,3 +1,4 @@
+import { badNetworkFrom, overBadNetwork } from './bad-network';
 import type { RelaySocket } from './relay-link';
 
 /** What `relaySocket` needs of a WebSocket: the browser's, or a test's stand-in. */
@@ -47,9 +48,20 @@ export function relaySocket(
 
 /**
  * The relay a page reaches for `?host` and `?join`: the dev server's socket in development, else
- * the playtest server's, at `relay` beside the page; none for a page opened from disk.
+ * the playtest server's, at `relay` beside the page; none for a page opened from disk. `?lag` and
+ * `?jitter` in the page's address make either a bad network (0013).
  */
 export function relayFor(
+  page: Pick<Location, 'href' | 'protocol'>,
+  hot: RelaySocket | undefined,
+  open?: (url: string) => SocketLike,
+): RelaySocket | undefined {
+  const socket = reach(page, hot, open);
+  const network = badNetworkFrom(page.href);
+  return socket && network ? overBadNetwork(socket, network) : socket;
+}
+
+function reach(
   page: Pick<Location, 'href' | 'protocol'>,
   hot: RelaySocket | undefined,
   open?: (url: string) => SocketLike,

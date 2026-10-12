@@ -41,6 +41,8 @@ The host opens `https://<domain>/?host=<name>` (letters, digits and dashes) and 
 with any user name. Friends open `https://<domain>/?join=<name>`. A named session keeps its links
 through an update; a bare `?host` is numbered instead, as the dev panel (`` ` ``) shows:
 `hosting ?join=N`. The build is in the bottom-right corner of every page, for screenshots.
+Add `&lag=<ms>&jitter=<ms>` to a page to make its link worse on purpose, to see what a distant
+friend would ([0013](../../docs/decisions/0013-netcode-follows-known-practice.md)).
 
 ## Update
 

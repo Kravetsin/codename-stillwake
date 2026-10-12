@@ -198,7 +198,7 @@ what must hold across entries: capacities above zero, unique ids.
 ## Scripts
 
 `pnpm dev` (the game in a browser, dev panel on `` ` ``; `?host` in one window and `?join=<id>` in another
-for co-op over the dev relay), `pnpm desktop` (the built game in the Electron shell), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
+for co-op over the dev relay; add `&lag=100&jitter=60` to a page for a bad network), `pnpm desktop` (the built game in the Electron shell), `pnpm test`, `pnpm typecheck`, `pnpm lint`,
 `pnpm format` / `pnpm format:check`, `pnpm build`, `pnpm e2e`, `pnpm new:module <name> [--client]`. One package:
 `pnpm --filter @stillwake/sim test`. Run `pnpm format` before `pnpm format:check`. CI runs format
 check, lint, types, tests, build and the smoke tests.
