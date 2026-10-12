@@ -93,6 +93,20 @@ describe('hero controller', () => {
     expect(stepHero(stepHero(turned, right, ship), still, ship).facing).toBe(1);
   });
 
+  it('faces the pointer whichever way it walks, and still moves the way it walks', () => {
+    const { ship, hero } = start(`
+      #######
+      #.....#
+      #.....#
+      #..S..#
+      #######
+    `);
+    const back = stepHero(hero, { ...left, face: 1 }, ship);
+    expect(back.facing).toBe(1);
+    expect(back.x).toBeLessThan(hero.x);
+    expect(stepHero(back, { ...still, face: -1 }, ship).facing).toBe(-1);
+  });
+
   it('falls no faster than its top speed', () => {
     const depth = 60;
     const shaft = ['###', '#.#', '#.#', '#S#', ...Array<string>(depth).fill('#.#'), '###'];

@@ -43,6 +43,17 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
 }
 
+/** Within this many cells of the body's middle the pointer turns nobody: no flicker over the hero. */
+const FACE_DEADZONE = 0.25;
+
+/** The side of `hero` the pointer is on, in cells; none without a pointer or right over the hero. */
+function faceOf(pointer: { x: number } | undefined, hero: Hero): -1 | 1 | undefined {
+  if (!pointer) return undefined;
+  const dx = pointer.x - hero.x / UNIT;
+  if (Math.abs(dx) < FACE_DEADZONE) return hero.facing;
+  return dx < 0 ? -1 : 1;
+}
+
 /**
  * Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out, its
  * head toward `look` if given: this machine's hero looks at the pointer.
@@ -102,10 +113,12 @@ export const crewFeature: Feature = {
           hero = { previous: woke, current: woke };
         }
         wasOut = out;
+        // The hero faces the pointer's side, read where the camera was last frame.
+        const face = faceOf(camera.pointer(), hero.current);
         for (let due = clock.advance(elapsedMs); due > 0; due--) {
           // Passed out, the hero takes no orders and only falls; keys pressed meanwhile are spent.
           const taken = keys.take();
-          const input = out ? ({ x: 0, y: 0, jump: false } as const) : taken;
+          const input = out ? ({ x: 0, y: 0, jump: false } as const) : { ...taken, face };
           hero = { previous: hero.current, current: stepHero(hero.current, input, ship) };
         }
         const { previous, current } = hero;

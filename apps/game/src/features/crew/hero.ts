@@ -33,11 +33,16 @@ export interface Hero {
   readonly facing: -1 | 1;
 }
 
-/** What the player holds during one step; `y` is -1 for up. `jump` is set once per press. */
+/**
+ * What the player holds during one step; `y` is -1 for up. `jump` is set once per press. `face` is
+ * the side the pointer is on, which the hero faces whichever way it moves; with none, it faces the
+ * way it walks.
+ */
 export interface Input {
   readonly x: -1 | 0 | 1;
   readonly y: -1 | 0 | 1;
   readonly jump: boolean;
+  readonly face?: -1 | 1;
 }
 
 /** A hero standing on the bottom of `cell`, in the middle. */
@@ -65,7 +70,7 @@ export function bodyCell(hero: Hero, width: number): number {
  * the body in space there is no gravity: the hero swims where the keys point and stops with them.
  */
 export function stepHero(hero: Hero, input: Input, ship: Ship): Hero {
-  const facing = input.x === 0 ? hero.facing : input.x;
+  const facing = input.face ?? (input.x === 0 ? hero.facing : input.x);
   if (ship.space(bodyCell(hero, ship.width))) return swim(ship, hero.x, hero.y, input, facing);
   const grab =
     !hero.climbing &&

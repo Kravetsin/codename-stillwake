@@ -110,7 +110,8 @@ export function createFigure(colour: number) {
      */
     show(hero: Hero, pose: Pose, elapsedMs: number, look?: { x: number; y: number }) {
       timeMs += elapsedMs;
-      if (last) travelled += (Math.abs(hero.x - last.x) + Math.abs(hero.y - last.y)) / UNIT;
+      // Walking backwards, away from where it faces, the stride runs backwards too.
+      if (last) travelled += ((hero.x - last.x) * hero.facing + Math.abs(hero.y - last.y)) / UNIT;
       last = { x: hero.x, y: hero.y };
       const to = limbsOf(pose, hero, travelled, timeMs);
       const from = shown ?? to;
