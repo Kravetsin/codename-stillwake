@@ -99,6 +99,9 @@ export function createFigure(colour: number) {
   let shown: Limbs | undefined;
   let last: { x: number; y: number } | undefined;
   let travelled = 0;
+  // Where the stride began: a hero setting off starts its step from standing, not mid-stride.
+  let strideFrom = 0;
+  let wasPose: Pose | undefined;
   let timeMs = 0;
   let head = 0;
 
@@ -106,14 +109,16 @@ export function createFigure(colour: number) {
     view,
     /**
      * Places the figure at `hero`'s feet, in thousandths of a cell, and eases it into `pose`, its
-     * head toward `look`, a point in cells, if given and the hero is awake.
+     * head turned by `hero.look` while awake.
      */
-    show(hero: Hero, pose: Pose, elapsedMs: number, look?: { x: number; y: number }) {
+    show(hero: Hero, pose: Pose, elapsedMs: number) {
       timeMs += elapsedMs;
       // Walking backwards, away from where it faces, the stride runs backwards too.
       if (last) travelled += ((hero.x - last.x) * hero.facing + Math.abs(hero.y - last.y)) / UNIT;
       last = { x: hero.x, y: hero.y };
-      const to = limbsOf(pose, hero, travelled, timeMs);
+      if (pose !== wasPose) strideFrom = travelled;
+      wasPose = pose;
+      const to = limbsOf(pose, hero, travelled - strideFrom, timeMs);
       const from = shown ?? to;
       shown = {
         frontArm: settle(from.frontArm, to.frontArm, elapsedMs),
@@ -131,9 +136,7 @@ export function createFigure(colour: number) {
       backLeg.rotation = -shown.backLeg;
       body.rotation = shown.tilt;
       const awake = pose !== 'lie' && pose !== 'tumble';
-      const neck = { x: hero.x / UNIT, y: hero.y / UNIT - NECK / CELL };
-      const turn = look && awake ? headTurn((look.x - neck.x) * hero.facing, look.y - neck.y) : 0;
-      head = settle(head, turn, elapsedMs, HEAD_SETTLE_MS);
+      head = settle(head, awake ? (hero.look ?? 0) : 0, elapsedMs, HEAD_SETTLE_MS);
       helmet.rotation = head;
       // Lying down, the middle sinks as the body turns, so it comes to rest on the floor.
       const c = Math.abs(Math.cos(shown.tilt));
@@ -146,3 +149,10 @@ export function createFigure(colour: number) {
 }
 
 export type Figure = ReturnType<typeof createFigure>;
+
+/** How `hero`'s head turns to look at `point`, in cells; straight ahead with no point. */
+export function lookOf(hero: Hero, point: { x: number; y: number } | undefined): number {
+  if (!point) return 0;
+  const neck = { x: hero.x / UNIT, y: hero.y / UNIT - NECK / CELL };
+  return headTurn((point.x - neck.x) * hero.facing, point.y - neck.y);
+}

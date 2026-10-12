@@ -7,7 +7,7 @@ import { aimedPiece, buildMode, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
-import { createFigure, type Figure } from './figure';
+import { createFigure, lookOf, type Figure } from './figure';
 import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship } from './hero';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes } from './remote';
@@ -54,20 +54,10 @@ function faceOf(pointer: { x: number } | undefined, hero: Hero): -1 | 1 | undefi
   return dx < 0 ? -1 : 1;
 }
 
-/**
- * Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out, its
- * head toward `look` if given: this machine's hero looks at the pointer.
- */
-function show(
-  figure: Figure,
-  hero: Hero,
-  ship: Ship,
-  out: boolean,
-  elapsedMs: number,
-  look?: { x: number; y: number },
-) {
+/** Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out. */
+function show(figure: Figure, hero: Hero, ship: Ship, out: boolean, elapsedMs: number) {
   const inSpace = ship.space(bodyCell(hero, ship.width));
-  figure.show(hero, poseOf(hero, inSpace, out), elapsedMs, look);
+  figure.show(hero, poseOf(hero, inSpace, out), elapsedMs);
 }
 
 /**
@@ -113,15 +103,17 @@ export const crewFeature: Feature = {
           hero = { previous: woke, current: woke };
         }
         wasOut = out;
-        // The hero faces the pointer's side, read where the camera was last frame.
-        const face = faceOf(camera.pointer(), hero.current);
+        // The hero faces the pointer's side and looks at it, read where the camera was last frame.
+        const pointed = camera.pointer();
+        const face = faceOf(pointed, hero.current);
         for (let due = clock.advance(elapsedMs); due > 0; due--) {
           // Passed out, the hero takes no orders and only falls; keys pressed meanwhile are spent.
           const taken = keys.take();
           const input = out ? ({ x: 0, y: 0, jump: false } as const) : { ...taken, face };
           hero = { previous: hero.current, current: stepHero(hero.current, input, ship) };
         }
-        const { previous, current } = hero;
+        const { previous } = hero;
+        const current = { ...hero.current, look: out ? 0 : lookOf(hero.current, pointed) };
 
         const report = reportOf(sim, game.client.id, current);
         if (report) game.client.send(report);
@@ -154,7 +146,7 @@ export const crewFeature: Feature = {
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
-        show(own, { ...current, x, y }, ship, out, elapsedMs, pointer);
+        show(own, { ...current, x, y }, ship, out, elapsedMs);
         const aim = pointer && aimAt(sim, game.client.id, current, pointer);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);

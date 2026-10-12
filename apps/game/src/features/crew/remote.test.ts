@@ -50,6 +50,22 @@ describe("others' heroes", () => {
     expect(heroes.at(GONE_MS + 1).map((h) => h.id)).toEqual([3]);
   });
 
+  it('set off from where a hero stood still, not most of the way along its first step', () => {
+    const heroes = createRemoteHeroes();
+    heroes.add(2, hero(0), 1000);
+    // Standing still, it is heard again only when it moves, a second later.
+    heroes.add(2, hero(500), 2000);
+    expect(heroes.at(2000 + BEHIND_MS - SEND_MS)).toEqual([{ id: 2, hero: hero(0) }]);
+    expect(heroes.at(2000 + BEHIND_MS - SEND_MS / 2)[0]?.hero.x).toBe(250);
+  });
+
+  it('turn their heads between samples too', () => {
+    const heroes = createRemoteHeroes();
+    heroes.add(2, { ...hero(0), look: 0 }, 1000);
+    heroes.add(2, { ...hero(0), look: 0.4 }, 1050);
+    expect(heroes.at(1000 + BEHIND_MS + 25)[0]?.hero.look).toBeCloseTo(0.2);
+  });
+
   it('forget samples once a later one is past, so the buffer stays short', () => {
     const heroes = createRemoteHeroes();
     for (let t = 0; t < 10_000; t += SEND_MS) heroes.add(1, hero(t), t);
@@ -65,6 +81,15 @@ describe('sending the hero', () => {
     // A second of frames: the first at once, then one per SEND_MS.
     expect(sent.length).toBeGreaterThanOrEqual(1000 / SEND_MS - 1);
     expect(sent.length).toBeLessThanOrEqual(1000 / SEND_MS + 1);
+  });
+
+  it('sends a hero standing still when its head turns', () => {
+    const sent: Hero[] = [];
+    const sender = createHeroSender((h) => sent.push(h));
+    sender.step(SEND_MS, { ...hero(5), look: 0 });
+    sender.step(SEND_MS, { ...hero(5), look: 0.01 });
+    sender.step(SEND_MS, { ...hero(5), look: 0.3 });
+    expect(sent.map((h) => h.look)).toEqual([0, 0.3]);
   });
 
   it('sends a hero standing still only on the beat', () => {

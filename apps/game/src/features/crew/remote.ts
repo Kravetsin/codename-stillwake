@@ -8,6 +8,8 @@ export const BEAT_MS = 1000;
 export const BEHIND_MS = 100;
 /** A hero silent this long has gone, its peer with it: the host tells no one of a peer leaving. */
 export const GONE_MS = 3000;
+/** A turn of the head smaller than this, in radians, is not worth a send. */
+const LOOK_STEP = 0.03;
 /** Farther than this between two samples is a jump, such as waking at the spawn, not a walk. */
 const SNAP = 3 * UNIT;
 
@@ -25,6 +27,10 @@ export function createRemoteHeroes() {
   return {
     add(from: number, hero: Hero, at: number) {
       const list = samples.get(from) ?? [];
+      // A hero standing still is sent only on the beat: it stood where it was heard last until a
+      // send ago, so it sets off from there instead of jumping most of the first step.
+      const last = list[list.length - 1];
+      if (last && at - last.at > 2 * SEND_MS) list.push({ at: at - SEND_MS, hero: last.hero });
       list.push({ at, hero });
       samples.set(from, list);
     },
@@ -51,10 +57,15 @@ function between(a: Sample, b: Sample | undefined, then: number): Hero {
   if (!b || then <= a.at) return a.hero;
   if (Math.abs(b.hero.x - a.hero.x) > SNAP || Math.abs(b.hero.y - a.hero.y) > SNAP) return a.hero;
   const t = (then - a.at) / (b.at - a.at);
+  const look =
+    a.hero.look === undefined || b.hero.look === undefined
+      ? a.hero.look
+      : a.hero.look + (b.hero.look - a.hero.look) * t;
   return {
     ...a.hero,
     x: a.hero.x + (b.hero.x - a.hero.x) * t,
     y: a.hero.y + (b.hero.y - a.hero.y) * t,
+    ...(look === undefined ? {} : { look }),
   };
 }
 
@@ -70,7 +81,9 @@ export function createHeroSender(send: (hero: Hero) => void) {
       sinceSent += elapsedMs;
       if (sinceSent < SEND_MS) return;
       const moved =
-        !sent || (['x', 'y', 'facing', 'climbing'] as const).some((k) => sent?.[k] !== hero[k]);
+        !sent ||
+        (['x', 'y', 'facing', 'climbing'] as const).some((k) => sent?.[k] !== hero[k]) ||
+        Math.abs((sent.look ?? 0) - (hero.look ?? 0)) > LOOK_STEP;
       if (!moved && sinceSent < BEAT_MS) return;
       send(hero);
       sent = hero;

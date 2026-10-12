@@ -31,6 +31,11 @@ export interface Hero {
   readonly vy: number;
   readonly climbing: boolean;
   readonly facing: -1 | 1;
+  /**
+   * The head's turn toward the pointer, in radians, down positive: only drawn, and sent with the
+   * hero so others see where it looks. The controller never reads it.
+   */
+  readonly look?: number;
 }
 
 /**
