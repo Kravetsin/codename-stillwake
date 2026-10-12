@@ -160,6 +160,22 @@ describe('a peer leaving', () => {
     clients[0]?.update();
     expect(clients[0]?.sim.query(board).notes()).toEqual(['0:bye']);
   });
+
+  it('sends its farewell on its behalf, after what it sent, and only once', () => {
+    const host = createHost(0);
+    const clients = [0, 1].map(() => {
+      const [toClient, toHost] = loopback<ToClient, ToHost>();
+      return createClient(game.create(1), toHost, host.connect(toClient));
+    });
+    clients[1]?.send(write('bye'));
+    host.disconnect(1, write('gone'));
+    host.disconnect(1, write('gone'));
+    host.advance();
+    clients[0]?.update();
+    const notes = clients[0]?.sim.query(board).notes() ?? [];
+    expect(notes).toHaveLength(2);
+    expect(notes[1]?.endsWith('gone')).toBe(true);
+  });
 });
 
 describe('heroes', () => {

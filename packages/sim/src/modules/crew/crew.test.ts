@@ -67,7 +67,7 @@ describe('crew', () => {
   it('brings a hero in with a full suit where its client says, and moves it after', () => {
     const { w } = setUp();
     w.do(crew, 'enter', { cell: at(4, 1) }, 2).run();
-    expect(hero(w, 2)).toEqual({ hero: 2, cell: at(4, 1), suit: CREW.suit, out: 0 });
+    expect(hero(w, 2)).toEqual({ hero: 2, cell: at(4, 1), suit: CREW.suit, out: 0, colour: 0 });
     breaths(w, 3);
     w.do(crew, 'enter', { cell: at(6, 2) }, 2).run();
     expect(hero(w, 2)).toMatchObject({ cell: at(6, 2), suit: CREW.suit - 3 });
@@ -88,7 +88,7 @@ describe('crew', () => {
     w.run(CREW.passOut - 1);
     expect(hero(w)?.out).toBe(1);
     w.run();
-    expect(hero(w)).toEqual({ hero: 0, cell: at(4, 1), suit: CREW.suit, out: 0 });
+    expect(hero(w)).toEqual({ hero: 0, cell: at(4, 1), suit: CREW.suit, out: 0, colour: 0 });
   });
 
   it('breathes room air in a room holding any, refilling the suit, paid by the tank', () => {
@@ -150,6 +150,65 @@ describe('crew', () => {
     expect(w.query(atmosphere).roomStatus(room)).toBe('venting');
     breaths(w, 2);
     expect(hero(w)?.suit).toBe(CREW.suit - 2);
+  });
+
+  describe('suit colours', () => {
+    const colours = (w: Scenario) =>
+      (w.sim.world.slices.crew as { heroes: { colour: number }[] }).heroes.map((h) => h.colour);
+
+    it('puts each hero coming in into the first colour no one wears', () => {
+      const { w } = setUp();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 0).run();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 1).run();
+      w.do(crew, 'pickColour', { colour: 2 }, 0).run();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 2).run();
+      expect(colours(w)).toEqual([2, 1, 0]);
+    });
+
+    it('shares the least worn colour once every colour is worn', () => {
+      const { w } = setUp();
+      for (let id = 0; id <= CREW.colours; id++) w.do(crew, 'enter', { cell: at(4, 1) }, id).run();
+      expect(colours(w)).toEqual([...Array.from({ length: CREW.colours }, (_, i) => i), 0]);
+    });
+
+    it('lets a hero put on a free colour, and keeps it through a breath and a move', () => {
+      const { w } = setUp();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 0).run();
+      w.do(crew, 'pickColour', { colour: CREW.colours - 1 }, 0).run();
+      expect(w.refusals).toEqual([]);
+      breaths(w, 2);
+      w.do(crew, 'enter', { cell: at(6, 2) }, 0).run();
+      expect(hero(w)?.colour).toBe(CREW.colours - 1);
+    });
+
+    it('frees the colour of a hero whose peer left, for the next to come in', () => {
+      const { w } = setUp();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 0).run();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 1).run();
+      w.do(crew, 'leave', {}, 1).run();
+      expect(hero(w, 1)).toBeUndefined();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 2).run();
+      expect(colours(w)).toEqual([0, 1]);
+      w.do(crew, 'leave', {}, 1).run();
+      expect(w.refusals).toEqual(['crew.noHero']);
+    });
+
+    it('refuses a colour another hero wears, one that is not there, and a hero not aboard', () => {
+      const { w } = setUp();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 0).run();
+      w.do(crew, 'enter', { cell: at(4, 1) }, 1).run();
+      w.do(crew, 'pickColour', { colour: 0 }, 1).run();
+      w.do(crew, 'pickColour', { colour: CREW.colours }, 1).run();
+      w.do(crew, 'pickColour', { colour: 1.5 }, 1).run();
+      w.do(crew, 'pickColour', { colour: 3 }, 7).run();
+      expect(w.refusals).toEqual([
+        'crew.colourTaken',
+        'crew.noSuchColour',
+        'crew.noSuchColour',
+        'crew.noHero',
+      ]);
+      expect(colours(w)).toEqual([0, 1]);
+    });
   });
 
   it('keeps each hero to itself, in id order whatever order they came in', () => {

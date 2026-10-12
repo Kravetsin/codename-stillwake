@@ -12,6 +12,19 @@
         "--strictPort"
       ],
       "port": 5173
+    },
+    {
+      "name": "game-coop",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "apps/game/node_modules/vite/bin/vite.js",
+        "apps/game",
+        "--port",
+        "5173",
+        "--strictPort",
+        "--host"
+      ],
+      "port": 5173
     }
   ]
 }

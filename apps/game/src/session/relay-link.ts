@@ -1,3 +1,4 @@
+import { command, crew } from '@stillwake/sim';
 import type { Channel, Host, ToClient, ToHost } from '@stillwake/net';
 import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import { RELAY } from '../dev/relay';
@@ -71,7 +72,8 @@ export function hostOnRelay(
     },
     [RELAY.left]: ({ peer }: { peer: number }) => {
       const id = ids.get(peer);
-      if (id !== undefined) host()?.disconnect(id);
+      // Its hero goes with it, and frees its colour for the next to come.
+      if (id !== undefined) host()?.disconnect(id, command(crew, 'leave', {}));
       ids.delete(peer);
       receivers.delete(peer);
       show();

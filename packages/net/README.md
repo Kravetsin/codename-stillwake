@@ -31,7 +31,9 @@ sends plain data in order. Single-player is a host and one client over a loopbac
   simulation), loads the world and returns a client that catches up on the ticks that came since.
 - The build is the short commit hash and, for a changed tree, `+` and a hash of the changes, set by
   the game's Vite config.
-- `Host.disconnect(id)` drops a peer that left: it is sent nothing more and checked no more.
+- `Host.disconnect(id, farewell?)` drops a peer that left: it is sent nothing more and checked no
+  more, and `farewell`, if given, goes out in the next tick stamped with its id. The game passes
+  `crew.leave`, so a peer's hero leaves with it.
 
 ## Heroes
 
@@ -70,7 +72,8 @@ sends plain data in order. Single-player is a host and one client over a loopbac
 
 ## Deliberately not handled
 
-- Others are told nothing when a peer leaves: its hero is hidden after three silent seconds.
+- Others hear of a peer leaving only through the farewell the game passes; its figure is hidden after
+  three silent seconds.
 - A host that loads a save leaves its joined peers behind. A joined tab that loads a save leaves the
   session for a world of its own.
 - No host migration, no anti-cheat: friends trust each other (0002).

@@ -5,7 +5,8 @@ holding any, the suit anywhere else, passing out when the suit runs dry.
 
 - **Depends on:** `atmosphere` (its `breathe` operation decides whether a cell's room has air and takes it).
 - **State:** `spawn` — the map's first `S`, or cell 0 on a map without one; `clock` — ticks run, for
-  the breath beat; `heroes` — by peer id, in id order: cell, suit, ticks left passed out. All saved.
+  the breath beat; `heroes` — by peer id, in id order: cell, suit, ticks left passed out, suit
+  colour. All saved.
 
 ## Rules
 
@@ -20,23 +21,32 @@ holding any, the suit anywhere else, passing out when the suit runs dry.
   Anything taken pays the breath and the rest tops up the suit; nothing taken (a room with no air,
   or none) takes the breath from the suit. Room air is taken as `atmosphere` says: paid by its
   tanks, or from the far edge of the room's air, so a room without supply runs out under its heroes.
+- **Suit colours** tell heroes apart: `CREW.colours` of them. A hero coming in wears the first colour
+  no hero wears, or with all worn, the least worn (the first on a tie). `pickColour { colour }` puts
+  the sender's hero into a colour no other hero wears.
+- `leave {}` takes the sender's hero out, its colour freed: the host sends it on behalf of a peer it
+  heard leave (`Host.disconnect`'s farewell).
 - A suit at zero passes the hero out for `CREW.passOut` ticks; then it wakes at the spawn with a full
   suit. The client moves its hero there when the passing out ends.
 
 ## API
 
-- **Queries:** `spawn()`; `hero(id)` — `{ hero, cell, suit, out }`; `heroes()` — all of them, in id
-  order.
-- **Commands:** `enter { cell }`; no refusals: a cell off the grid or in a wall is simply no air.
+- **Queries:** `spawn()`; `hero(id)` — `{ hero, cell, suit, out, colour }`; `heroes()` — all of
+  them, in id order.
+- **Commands:** `enter { cell }`, with no refusals: a cell off the grid or in a wall is simply no
+  air; `pickColour { colour }`, refused with `crew.noHero`, `crew.noSuchColour` or
+  `crew.colourTaken`; `leave {}`, refused with `crew.noHero`.
 
 ## Invariants
 
 - A suit holds between nothing and `CREW.suit`.
 - Heroes are in id order, one per peer.
+- While no more heroes are aboard than there are colours, no two wear the same.
 
 ## Deliberately not handled
 
 - The sim trusts the client's cell: heroes move on the client, and friends trust each other.
 - Peer ids last a session but are saved: after a load a hero belongs to whoever connects in its slot,
-  until lasting player ids arrive with joining (P1-41). Heroes of peers who leave stay.
+  until lasting player ids arrive with joining (P1-41). Heroes of peers who left before a save stay
+  in it, with their colours.
 - A spawn in vacuum makes a hero pass out again and again.

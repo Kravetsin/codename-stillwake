@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { t } from '../../i18n/en';
 import type { Game } from '../../session/game';
 import { shownPrompt } from './prompt';
+import { SuitColours } from './SuitColours';
 import { SuitGauge } from './SuitGauge';
 
 /**
@@ -23,11 +24,12 @@ function UsePrompt() {
   );
 }
 
-/** The hero's suit, and the prompt for E. */
+/** The hero's suit and its colour, and the prompt for E. */
 export function CrewPanel({ game }: { readonly game: Game }) {
   return (
     <>
       <SuitGauge game={game} />
+      <SuitColours game={game} />
       <UsePrompt />
     </>
   );

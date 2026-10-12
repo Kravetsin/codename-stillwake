@@ -23,9 +23,10 @@ export interface Host {
   admit(channel: Channel<ToHost, ToClient>): number;
   /**
    * Drops peer `id`, gone from the session: it is sent nothing more, and its hashes are checked no
-   * more. Its commands already received still go out in the next tick.
+   * more. Its commands already received still go out in the next tick, then `farewell`, if given,
+   * stamped with its id: what the game does with a peer that left, such as take its hero out.
    */
-  disconnect(id: number): void;
+  disconnect(id: number, farewell?: Command): void;
   /** Releases the next tick, carrying every command received since the last one. */
   advance(): void;
 }
@@ -100,10 +101,12 @@ export function createHost(firstTick: number, world?: WorldSource): Host {
 
     connect,
 
-    disconnect(id) {
+    disconnect(id, farewell) {
       const at = peers.findIndex((p) => p.id === id);
-      if (at >= 0) peers.splice(at, 1);
+      if (at < 0) return;
+      peers.splice(at, 1);
       resyncedAt.delete(id);
+      if (farewell) pending.push({ ...farewell, from: id });
     },
 
     admit(channel) {

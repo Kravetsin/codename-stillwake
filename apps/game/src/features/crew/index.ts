@@ -14,10 +14,8 @@ import { createHeroSender, createRemoteHeroes } from './remote';
 import { poseOf } from './pose';
 import { promptOf, samePrompt, shownPrompt } from './prompt';
 import { reportOf } from './report';
+import { suitOf } from './suits';
 
-const BODY = 0xe8b04a;
-/** Other players' heroes, so a player tells their own apart at a glance. */
-const OTHER = 0x5fc8c0;
 const AIM_READY = 0x7fe08a;
 const AIM_REFUSED = 0xe05555;
 
@@ -41,6 +39,26 @@ function drawAim(g: Graphics, sim: Sim, aim: Aim | undefined, refused: boolean) 
   const w = (Math.max(...xs) + 1) * CELL - x;
   const h = (Math.max(...ys) + 1) * CELL - y;
   g.rect(x + 1, y + 1, w - 2, h - 2).stroke({ width: 2, color: refused ? AIM_REFUSED : AIM_READY });
+}
+
+/** A hero's figure and the suit colour it was drawn in. */
+interface Worn {
+  readonly figure: Figure;
+  readonly colour: number;
+}
+
+/**
+ * `worn` in `colour`: the same figure while its colour holds, else a new one in its place in
+ * `parent`, since a figure's colours are drawn into it.
+ */
+function wear(worn: Worn | undefined, colour: number, parent: Container): Worn {
+  if (worn?.colour === colour) return worn;
+  const figure = createFigure(colour);
+  if (worn) {
+    parent.addChildAt(figure.view, parent.getChildIndex(worn.figure.view));
+    worn.figure.view.destroy({ children: true });
+  } else parent.addChild(figure.view);
+  return { figure, colour };
 }
 
 /** Within this many cells of the body's middle the pointer turns nobody: no flicker over the hero. */
@@ -72,16 +90,17 @@ export const crewFeature: Feature = {
   id: 'crew',
   Panel: CrewPanel,
   layer() {
-    const own = createFigure(BODY);
+    const ownView = new Container();
     const others = new Container();
-    const shownOthers = new Map<number, Figure>();
+    let own: Worn | undefined;
+    const shownOthers = new Map<number, Worn>();
     const remote = createRemoteHeroes();
     let clockMs = 0;
     let sendTo: { sendHero(state: unknown): void } | undefined;
     const sender = createHeroSender((hero) => sendTo?.sendHero(hero));
     const aimView = new Graphics();
     const view = new Container();
-    view.addChild(aimView, others, own.view);
+    view.addChild(aimView, others, ownView);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -125,17 +144,15 @@ export const crewFeature: Feature = {
         for (const { from, state } of game.client.takeHeroes())
           remote.add(from, state as Hero, clockMs);
         const heard = remote.at(clockMs);
-        for (const [id, shown] of shownOthers) shown.view.visible = heard.some((h) => h.id === id);
+        for (const [id, shown] of shownOthers) {
+          shown.figure.view.visible = heard.some((h) => h.id === id);
+        }
         for (const { id, hero: other } of heard) {
-          let shown = shownOthers.get(id);
-          if (!shown) {
-            shown = createFigure(OTHER);
-            shownOthers.set(id, shown);
-            others.addChild(shown.view);
-          }
-          shown.view.visible = true;
+          const shown = wear(shownOthers.get(id), suitOf(sim, id), others);
+          shownOthers.set(id, shown);
+          shown.figure.view.visible = true;
           const otherOut = (sim.query(crew).hero(id)?.out ?? 0) > 0;
-          show(shown, other, ship, otherOut, elapsedMs);
+          show(shown.figure, other, ship, otherOut, elapsedMs);
         }
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
@@ -146,7 +163,8 @@ export const crewFeature: Feature = {
 
         // Aimed after following, so the pointer is read where the camera now is.
         const pointer = camera.pointer();
-        show(own, { ...current, x, y }, ship, out, elapsedMs);
+        own = wear(own, suitOf(sim, game.client.id), ownView);
+        show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
         const aim = pointer && aimAt(sim, game.client.id, current, pointer);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim);

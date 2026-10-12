@@ -1,6 +1,6 @@
 import { CREW } from '@stillwake/content';
 import { cellsOf } from '../../core/layout';
-import { defineModule, withFuzz } from '../../core/module';
+import { defineModule, refuse, withFuzz } from '../../core/module';
 import type { AtmosphereModule } from '../atmosphere';
 import { fuzzCrew } from './fuzz';
 
@@ -13,6 +13,18 @@ export interface Hero {
   suit: number;
   /** Ticks left passed out; 0 while conscious. */
   out: number;
+  /** Its suit colour, of `CREW.colours`: what tells heroes apart. */
+  colour: number;
+}
+
+/**
+ * The colour a hero coming in wears: the first no hero wears, or with every one worn, the one worn
+ * least, the first of those on a tie.
+ */
+function freeColour(heroes: readonly Hero[]): number {
+  const worn = Array.from({ length: CREW.colours }, () => 0);
+  for (const h of heroes) worn[h.colour] = (worn[h.colour] ?? 0) + 1;
+  return worn.indexOf(Math.min(...worn));
 }
 
 export interface CrewState {
@@ -48,8 +60,35 @@ const crewModule = defineModule<[AtmosphereModule]>()({
           hero.cell = p.cell;
           return;
         }
-        ctx.state.heroes.push({ hero: ctx.from, cell: p.cell, suit: CREW.suit, out: 0 });
+        const colour = freeColour(ctx.state.heroes);
+        ctx.state.heroes.push({ hero: ctx.from, cell: p.cell, suit: CREW.suit, out: 0, colour });
         ctx.state.heroes.sort((a, b) => a.hero - b.hero);
+      },
+    },
+    /**
+     * The sender's peer has left the session: its hero goes, and its colour with it. The host sends it
+     * on the peer's behalf, hearing it go.
+     */
+    leave: {
+      validate(ctx) {
+        if (!ctx.state.heroes.some((h) => h.hero === ctx.from)) return refuse('crew.noHero');
+      },
+      apply(ctx) {
+        ctx.state.heroes = ctx.state.heroes.filter((h) => h.hero !== ctx.from);
+      },
+    },
+    /** The sender's hero puts on suit colour `colour`, if no other hero wears it. */
+    pickColour: {
+      validate(ctx, p: { colour: number }) {
+        if (!ctx.state.heroes.some((h) => h.hero === ctx.from)) return refuse('crew.noHero');
+        if (!Number.isInteger(p.colour) || p.colour < 0 || p.colour >= CREW.colours)
+          return refuse('crew.noSuchColour');
+        if (ctx.state.heroes.some((h) => h.hero !== ctx.from && h.colour === p.colour))
+          return refuse('crew.colourTaken');
+      },
+      apply(ctx, p: { colour: number }) {
+        const hero = ctx.state.heroes.find((h) => h.hero === ctx.from);
+        if (hero) hero.colour = p.colour;
       },
     },
   },
