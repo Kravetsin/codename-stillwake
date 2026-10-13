@@ -1,7 +1,10 @@
-import type { MaterialId } from './materials';
+import type { ItemId } from './items';
 
-/** Whole units of materials a build takes from its builder, and gives back when taken apart. */
-export type BuildCost = Readonly<Partial<Record<MaterialId, number>>>;
+/**
+ * Whole units of items a build takes from its builder, and gives back when taken apart: materials
+ * mostly, salvage or planks for what is built before there are any.
+ */
+export type BuildCost = Readonly<Partial<Record<ItemId, number>>>;
 
 export interface Build {
   readonly cost: BuildCost;

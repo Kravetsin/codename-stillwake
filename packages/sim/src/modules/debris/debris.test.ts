@@ -1,12 +1,13 @@
-import { DEBRIS, INVENTORY, ITEMS } from '@stillwake/content';
+import { DEBRIS, INVENTORY, ITEMS, LOOT, type ItemId, type LootEntry } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout, type Layout } from '../../core/layout';
+import { createRng } from '../../core/rng';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import { crew, items, MODULES, stillwake as world } from '../index';
-import { cellOf, debris, type Piece } from './index';
+import { cellOf, debris, lootOf, type Piece } from './index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 
@@ -49,6 +50,9 @@ function until(w: Scenario, x: number): Scenario {
   while ((pieces(w)[0]?.x ?? 0) >= (x + 1) * 1000) w.run();
   return w;
 }
+/** What catching a piece of `item` may give: itself, or a container's loot. */
+const gives = (item: ItemId): readonly ItemId[] =>
+  (LOOT as Partial<Record<ItemId, readonly LootEntry[]>>)[item]?.map((e) => e.item) ?? [item];
 const count = (w: Scenario, item: string, peer: number) =>
   w
     .query(items)
@@ -170,7 +174,7 @@ describe('debris', () => {
     expect(share).toEqual([...share].sort((a, b) => b - a));
   });
 
-  it('puts a piece grabbed from space into the inventory as its salvage item', () => {
+  it('puts a piece grabbed from space into the inventory: salvage as itself, a container opened', () => {
     const w = spawned();
     const piece = pieces(w)[0];
     if (!piece) throw new Error('no piece');
@@ -179,7 +183,33 @@ describe('debris', () => {
       .run();
     expect(w.refusals).toEqual([]);
     expect(pieces(w)).toEqual([]);
-    expect(count(w, piece.item, 2)).toBe(1);
+    const got = w
+      .query(items)
+      .inventory(2)
+      .filter((s) => s !== null);
+    expect(got.length).toBeGreaterThan(0);
+    for (const s of got) expect(gives(piece.item)).toContain(s.item);
+    if (gives(piece.item)[0] === piece.item) expect(count(w, piece.item, 2)).toBe(1);
+  });
+
+  it('opens a container into its loot, each entry within its bounds, and salvage into itself', () => {
+    const rng = createRng(7);
+    const seen = new Map<ItemId, Set<number>>();
+    for (let i = 0; i < 400; i++) {
+      for (const [container, loot] of Object.entries(LOOT) as [ItemId, readonly LootEntry[]][]) {
+        const got = lootOf(container, rng);
+        for (const [item, n] of Object.entries(got) as [ItemId, number][]) {
+          const entry = loot.find((e) => e.item === item);
+          if (!entry) throw new Error(`${container} gave ${item}`);
+          expect(n >= entry.min && n <= entry.max).toBe(true);
+          seen.set(item, (seen.get(item) ?? new Set()).add(n));
+        }
+      }
+    }
+    // The planks a cargo crate holds come in every count of their range.
+    const planks = LOOT.cargoCrate[0];
+    expect(seen.get('planks')?.size).toBe(planks.max - planks.min + 1);
+    expect(lootOf('scrapChunk', rng)).toEqual({ scrapChunk: 1 });
   });
 
   it('gives a piece grabbed twice on one tick to the first, and refuses the second', () => {
@@ -189,7 +219,7 @@ describe('debris', () => {
     w.do(debris, 'grab', { piece: id }, 2).do(debris, 'grab', { piece: id }, 1).run();
     expect(w.refusals).toEqual(['debris.gone']);
     expect(w.query(items).inventory(1).filter(Boolean)).toEqual([]);
-    expect(w.query(items).inventory(2).filter(Boolean)).toHaveLength(1);
+    expect(w.query(items).inventory(2).filter(Boolean).length).toBeGreaterThan(0);
   });
 
   it('refuses a piece that never was or is gone', () => {
@@ -229,9 +259,12 @@ describe('debris', () => {
     expect(w.refusals).toEqual([]);
     expect(pieces(w)).toHaveLength(0);
     // In space nothing falls: it stays in the hero's cell for anyone to pick up.
-    expect(w.query(items).floor()).toEqual([
-      expect.objectContaining({ item: piece.item, count: 1, cell: at(12, 1), by: 0 }),
-    ]);
+    const floor = w.query(items).floor();
+    expect(floor.length).toBeGreaterThan(0);
+    for (const stack of floor) {
+      expect(stack).toEqual(expect.objectContaining({ cell: at(12, 1), by: 0 }));
+      expect(gives(piece.item)).toContain(stack.item);
+    }
   });
 
   it('finds the cell under a piece, and the piece in a cell', () => {

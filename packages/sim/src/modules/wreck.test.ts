@@ -53,11 +53,11 @@ describe('the starting wreck', () => {
     expect((margin - 0.5) * 1000).toBeGreaterThan(HERO.tether + HERO.height / 2);
   });
 
-  it('holds a panel cabled to a lamp, a generator and a furnace, a vent, an empty crate, three doorways', () => {
+  it('holds a panel cabled to a lamp, a generator and a furnace, a vent, no crate, three doorways', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
     const kinds = q.machines().map((m) => m.kind);
-    expect(kinds).toEqual(['solarPanel', 'lamp', 'generator', 'furnace', 'vent', 'crate']);
+    expect(kinds).toEqual(['solarPanel', 'lamp', 'generator', 'furnace', 'vent']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(9).fill({ kind: 'door', open: false }));
     const [panel, lamp, generator, furnaceAt] = q.machines().map((m) => m.cell);
@@ -71,13 +71,6 @@ describe('the starting wreck', () => {
         satisfaction: 1000,
       },
     ]);
-    const crate = q.machines()[5]?.id ?? 0;
-    expect(
-      sim
-        .query(items)
-        .crate(crate)
-        .filter((s) => s !== null),
-    ).toEqual([]);
     expect(A).toContain(sim.query(crew).spawn());
   });
 

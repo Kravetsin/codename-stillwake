@@ -23,6 +23,7 @@ export const DEBRIS = {
   kinds: [
     { item: 'scrapChunk', weight: 6 },
     { item: 'hullPlate', weight: 3 },
+    { item: 'cargoCrate', weight: 2 },
     { item: 'supplyPod', weight: 1 },
   ],
 } as const satisfies {
@@ -35,3 +36,23 @@ export const DEBRIS = {
   readonly aimRadius: number;
   readonly kinds: readonly { readonly item: ItemId; readonly weight: number }[];
 };
+
+/** One kind of thing a container holds: between `min` and `max` of `item`, in one of `oneIn` of them. */
+export interface LootEntry {
+  readonly item: ItemId;
+  readonly min: number;
+  readonly max: number;
+  readonly oneIn?: number;
+}
+
+/**
+ * What a container opens into when caught, drawn entry by entry in order from the world's PRNG: the
+ * count first, in `[min, max]`, after the one-in roll when there is one.
+ */
+export const LOOT = {
+  cargoCrate: [{ item: 'planks', min: 3, max: 6 }],
+  supplyPod: [
+    { item: 'canister', min: 1, max: 1 },
+    { item: 'scrap', min: 6, max: 6 },
+  ],
+} as const satisfies Readonly<Partial<Record<ItemId, readonly LootEntry[]>>>;

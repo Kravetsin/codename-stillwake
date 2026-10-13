@@ -248,7 +248,7 @@ describe('taking apart', () => {
     w.do(items, 'move', { src: { crate: 1, slot: 0 }, dst: {}, count: 99 }, 1).run();
     hold(w, 1, apartTicks(MACHINES.crate.buildTicks));
     expect(w.query(grid).machines()).toEqual([]);
-    expect(count(w, 'scrap')).toBe(STOCK.scrap + MACHINES.crate.cost.scrap);
+    expect(count(w, 'iron')).toBe(STOCK.iron + MACHINES.crate.cost.iron);
   });
 
   it('takes a machine apart from any cell of its mark, and a pipe out of a wall', () => {

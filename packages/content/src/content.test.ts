@@ -7,7 +7,7 @@ import { LIGHT } from './light';
 import { MACHINES, type MachineSpec } from './machines';
 import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
-import { DEBRIS } from './debris';
+import { DEBRIS, LOOT, type LootEntry } from './debris';
 import { FLOOR, INVENTORY, ITEMS, type ItemId, type ItemSpec } from './items';
 import { WRECK, WRECK_CABLES } from './wreck';
 
@@ -145,7 +145,7 @@ describe('salvage', () => {
     }
   });
 
-  it('drifts past at whole rates under a cell a tick, as salvage items of positive weight', () => {
+  it('drifts past at whole rates under a cell a tick, as salvage or containers of positive weight', () => {
     for (const value of [
       DEBRIS.every,
       DEBRIS.max,
@@ -161,8 +161,24 @@ describe('salvage', () => {
     expect(Number.isSafeInteger(DEBRIS.drift.max)).toBe(true);
     expect(DEBRIS.drift.min <= DEBRIS.drift.max && DEBRIS.drift.max < 1000).toBe(true);
     for (const kind of DEBRIS.kinds) {
-      expect(ITEMS[kind.item]).toHaveProperty('yields');
+      const opens = (LOOT as Partial<Record<ItemId, unknown>>)[kind.item] !== undefined;
+      expect(opens || 'yields' in ITEMS[kind.item]).toBe(true);
       expect(Number.isSafeInteger(kind.weight) && kind.weight > 0).toBe(true);
+    }
+  });
+
+  it('opens containers into whole counts of real items, a one-in roll above one', () => {
+    for (const [container, loot] of Object.entries(LOOT) as [ItemId, readonly LootEntry[]][]) {
+      expect(ITEMS).toHaveProperty(container);
+      expect(loot.length).toBeGreaterThan(0);
+      for (const entry of loot) {
+        expect(ITEMS).toHaveProperty(entry.item);
+        expect(LOOT).not.toHaveProperty(entry.item);
+        expect(Number.isSafeInteger(entry.min) && entry.min >= 0).toBe(true);
+        expect(Number.isSafeInteger(entry.max) && entry.max >= Math.max(1, entry.min)).toBe(true);
+        if (entry.oneIn !== undefined)
+          expect(Number.isSafeInteger(entry.oneIn) && entry.oneIn > 1).toBe(true);
+      }
     }
   });
 
@@ -182,12 +198,13 @@ describe('builds', () => {
     }
   });
 
-  it('cost whole units of real materials, something for each, and take whole ticks', () => {
+  it('cost whole units of real items, something for each, and take whole ticks', () => {
     for (const build of all) {
       const amounts = Object.entries(build.cost);
       expect(amounts.length).toBeGreaterThan(0);
-      for (const [material, amount] of amounts) {
-        expect(Object.keys(MATERIALS)).toContain(material);
+      for (const [item, amount] of amounts) {
+        expect(Object.keys(ITEMS)).toContain(item);
+        expect(LOOT).not.toHaveProperty(item);
         expect(Number.isSafeInteger(amount)).toBe(true);
         expect(amount).toBeGreaterThan(0);
       }

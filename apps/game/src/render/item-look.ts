@@ -5,9 +5,11 @@ export const ITEM_LOOK: Readonly<Record<ItemId, { readonly round: boolean }>> = 
   scrap: { round: false },
   iron: { round: false },
   canister: { round: true },
+  planks: { round: false },
   scrapChunk: { round: false },
   hullPlate: { round: false },
   supplyPod: { round: true },
+  cargoCrate: { round: false },
 };
 
 /** The colour as CSS writes it. */

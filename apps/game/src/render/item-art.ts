@@ -78,6 +78,28 @@ export const ITEM_ART: Readonly<
     ],
     palette: { K, g: 0x9aa3ad, b: 0x3a8fd0, B: 0x7fc4f0, d: 0x24608f, w: 0xe8f4ff },
   },
+  // A bundle of boards, tied.
+  planks: {
+    rows: [
+      '................',
+      '................',
+      '................',
+      '..KKKKKKKKKKKK..',
+      '..KwWwwwwwWwwK..',
+      '..KKKKKKKKKKKK..',
+      '..KwwwWwwwwwWK..',
+      '..KKKKKKKKKKKK..',
+      '..KWwwwwwWwwwK..',
+      '..KKKKKKKKKKKK..',
+      '..KwwwwWwwwwwK..',
+      '..KKKKKKKKKKKK..',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+    palette: { K: 0x3a2618, w: 0xb07a46, W: 0x8a5a32 },
+  },
   // A torn lump of hull, rust over bare metal.
   scrapChunk: {
     rows: [
@@ -143,6 +165,28 @@ export const ITEM_ART: Readonly<
       '................',
     ],
     palette: { K, y: 0xe0b84a, Y: 0xf6dc8a, k: 0x2a3440, s: 0x9aa3ad, d: 0x6a737d },
+  },
+  // A crate of boards bound in metal, stencilled.
+  cargoCrate: {
+    rows: [
+      '................',
+      '................',
+      '.KKKKKKKKKKKKKK.',
+      '.KmmmmmmmmmmmmK.',
+      '.KmwwwwwwwwwwmK.',
+      '.KmWwwwwwwwwWmK.',
+      '.KmwwwyyyywwwmK.',
+      '.KmwwwyyyywwwmK.',
+      '.KmWwwwwwwwwWmK.',
+      '.KmwwwwwwwwwwmK.',
+      '.KmmmmmmmmmmmmK.',
+      '.KKKKKKKKKKKKKK.',
+      '................',
+      '................',
+      '................',
+      '................',
+    ],
+    palette: { K, m: 0x6a737d, w: 0x9a6a40, W: 0x7a5232, y: 0xe0b84a },
   },
 };
 

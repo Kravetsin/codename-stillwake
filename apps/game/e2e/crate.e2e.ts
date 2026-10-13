@@ -30,58 +30,96 @@ async function start(page: Page) {
 
 interface DevGame {
   client: {
-    sim: { world: { slices: { debris: { pieces: { id: number }[] } } } };
+    sim: {
+      world: {
+        slices: {
+          debris: { pieces: { id: number; item: string }[] };
+          grid: { machines: { kind: string }[] };
+        };
+      };
+    };
     send(c: { module: string; type: string; payload: unknown }): void;
   };
 }
 
 /**
- * Catches the first piece of debris to drift by into the hotbar's first slot, as a hero out in space
- * would: the wreck's crate starts empty, and salvage is the only way to anything. Driven through the
+ * Catches the first piece of debris of a kind in `of` to drift by into the hotbar's first slot, as a
+ * hero out in space would: salvage is the only way to anything. Driven through the
  * dev handle, the hero stepped out for the one tick of the grab; its controller brings it back.
  */
-async function catchPiece(page: Page) {
+async function catchPiece(page: Page, of: readonly string[] = Object.keys(ITEMS)) {
   await page.waitForFunction(
-    () =>
-      (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.debris.pieces
-        .length > 0,
-    null,
-    { timeout: 30_000 },
+    (kinds) =>
+      (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.debris.pieces.some(
+        (p) => kinds.includes(p.item),
+      ),
+    of,
+    { timeout: 45_000 },
   );
   await page.evaluate(
-    (space) => {
+    ({ space, kinds }) => {
       const game = (window as unknown as { __game: DevGame }).__game;
-      const piece = game.client.sim.world.slices.debris.pieces[0];
+      const piece = game.client.sim.world.slices.debris.pieces.find((p) => kinds.includes(p.item));
       if (!piece) throw new Error('no piece');
       game.client.send({ module: 'crew', type: 'enter', payload: { cell: space } });
       game.client.send({ module: 'debris', type: 'grab', payload: { piece: piece.id } });
     },
-    10 * WRECK[0]!.length + 10,
+    { space: 10 * WRECK[0]!.length + 10, kinds: of },
   );
   await expect(page.locator('[data-slot="inv-0"]')).toHaveAttribute('data-item', /./);
 }
 
-/** Moves the pointer over the middle of the first cell drawn as `char`, and presses E there. */
-async function useAt(page: Page, char: string) {
+/** Moves the pointer over the middle of cell `at`, as the camera shows it while the hero stands. */
+async function pointAt(page: Page, at: { x: number; y: number }) {
   // The camera centres the middle of the hero's body, standing where it wakes.
   const view = page.viewportSize() ?? { width: 0, height: 0 };
   const spawn = find('S');
-  const at = find(char);
   const scale = CELL * START_ZOOM;
   const middle = { x: spawn.x + 0.5, y: spawn.y + 1 - HERO.height / 1000 / 2 };
   await page.mouse.move(
     view.width / 2 + (at.x + 0.5 - middle.x) * scale,
     view.height / 2 + (at.y + 0.5 - middle.y) * scale,
   );
+}
+
+/** Moves the pointer over the middle of the first cell drawn as `char`, and presses E there. */
+async function useAt(page: Page, char: string) {
+  await pointAt(page, find(char));
   await page.keyboard.press('KeyE');
 }
 
-test('puts a caught piece into the wreck crate and takes it back into the hotbar', async ({
-  page,
-}) => {
+/** Where a crate is built: on the floor right of where the hero wakes, in reach. */
+const CRATE = { x: find('S').x + 1, y: find('S').y };
+
+/**
+ * Builds a crate beside the hero, as a player would, in creative mode so it costs nothing: its plan
+ * sent, then worked with the left button held on it. Opens it with E.
+ */
+async function buildCrate(page: Page) {
+  await page.evaluate(
+    (cell) => {
+      const game = (window as unknown as { __game: DevGame }).__game;
+      game.client.send({ module: 'items', type: 'setCreative', payload: { on: true } });
+      const placement = { layer: 'machine', kind: 'crate' };
+      game.client.send({ module: 'building', type: 'placePlan', payload: { cell, placement } });
+    },
+    CRATE.y * WRECK[0]!.length + CRATE.x,
+  );
+  await pointAt(page, CRATE);
+  await page.mouse.down();
+  await page.waitForFunction(() =>
+    (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.grid.machines.some(
+      (m) => m.kind === 'crate',
+    ),
+  );
+  await page.mouse.up();
+  await page.keyboard.press('KeyE');
+}
+
+test('puts a caught piece into a crate and takes it back into the hotbar', async ({ page }) => {
   await start(page);
   await catchPiece(page);
-  await useAt(page, 'K');
+  await buildCrate(page);
   await page.locator('[data-slot="inv-0"]').click();
   await page.locator('[data-slot="crate-4"]').click();
   await expect(page.locator('[data-slot="crate-4"]')).toHaveAttribute('data-item', /./);
@@ -94,7 +132,7 @@ test('puts a caught piece into the wreck crate and takes it back into the hotbar
 test('drags a stack into the crate and back, and along the closed hotbar', async ({ page }) => {
   await start(page);
   await catchPiece(page);
-  await useAt(page, 'K');
+  await buildCrate(page);
   await drag(page, 'inv-0', 'crate-2');
   await expect(page.locator('[data-slot="crate-2"]')).toHaveAttribute('data-item', /./);
   await drag(page, 'crate-2', 'inv-2');
@@ -111,7 +149,10 @@ test('drags a stack into the crate and back, and along the closed hotbar', async
 test('smelts a caught piece in the furnace into what it yields', async ({ page }) => {
   test.setTimeout(120_000);
   await start(page);
-  await catchPiece(page);
+  await catchPiece(
+    page,
+    Object.keys(ITEMS).filter((id) => 'yields' in ITEMS[id as keyof typeof ITEMS]),
+  );
   // Once room A is aired the generator's store fills: smelting, which slows the generator, would
   // otherwise starve the room and the furnace alike while the hero breathes there.
   await page.waitForFunction(
@@ -149,7 +190,7 @@ test('drops a stack with Q, which the hero picks up again once it may', async ({
   // that, it is picked up again.
   await expect(slot).not.toHaveAttribute('data-item');
   await page.waitForTimeout(2500);
-  // The hero wakes facing right: the stack flew onto the crate beside it.
+  // The hero wakes facing right: the stack flew ahead of it.
   await page.keyboard.down('KeyD');
   await expect(slot).toHaveAttribute('data-item', /./, { timeout: 10_000 });
   await page.keyboard.up('KeyD');

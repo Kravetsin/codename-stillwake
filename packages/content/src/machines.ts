@@ -60,7 +60,14 @@ export const MACHINES = {
     draws: 1,
     plug: { x: 11, y: 1 },
   },
-  crate: { width: 2, height: 1, ports: [], cost: { scrap: 6 }, buildTicks: 40, slots: 27 },
+  crate: {
+    width: 2,
+    height: 1,
+    ports: [],
+    cost: { planks: 6, iron: 2 },
+    buildTicks: 40,
+    slots: 27,
+  },
   furnace: {
     width: 2,
     height: 2,

@@ -16,15 +16,18 @@ export interface ItemSpec {
 
 /**
  * Everything a hero carries, by the id saves store: never rename one. Every material is an item by
- * the same id; the salvage items are what debris becomes when caught.
+ * the same id; the salvage items are what debris becomes when caught; a container caught opens.
  */
 export const ITEMS = {
   scrap: { stack: 500 },
   iron: { stack: 500 },
   canister: { stack: 5 },
+  planks: { stack: 50 },
   scrapChunk: { stack: 10, yields: { scrap: 12 }, smeltTicks: 100, oxygen: 2 },
   hullPlate: { stack: 5, yields: { iron: 6, scrap: 4 }, smeltTicks: 200, oxygen: 4 },
-  supplyPod: { stack: 1, yields: { canister: 1, scrap: 6 }, smeltTicks: 300, oxygen: 3 },
+  // Containers: caught, they open into their loot (`LOOT`), and are never carried.
+  supplyPod: { stack: 1 },
+  cargoCrate: { stack: 1 },
 } as const satisfies Readonly<Record<string, ItemSpec>>;
 
 export type ItemId = keyof typeof ITEMS;

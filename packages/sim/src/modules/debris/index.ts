@@ -1,9 +1,9 @@
-import { DEBRIS, type ItemId } from '@stillwake/content';
+import { DEBRIS, LOOT, type ItemId, type LootEntry } from '@stillwake/content';
 import { defineModule, refuse, withFuzz, type QueryApi } from '../../core/module';
 import type { Rng } from '../../core/rng';
 import type { CrewModule } from '../crew';
 import type { GridModule } from '../grid';
-import type { ItemsModule } from '../items';
+import type { Cost, ItemsModule } from '../items';
 import type { RoomsModule } from '../rooms';
 import { fuzzDebris } from './fuzz';
 
@@ -74,6 +74,22 @@ function kindOf(rng: Rng): ItemId {
 }
 
 /**
+ * What catching a piece of `item` gives: the item itself, or, for a container, its loot drawn by
+ * `rng` entry by entry: the one-in roll, then the count.
+ */
+export function lootOf(item: ItemId, rng: Rng): Cost {
+  const loot = (LOOT as Readonly<Partial<Record<ItemId, readonly LootEntry[]>>>)[item];
+  if (!loot) return { [item]: 1 };
+  const got: Partial<Record<ItemId, number>> = {};
+  for (const entry of loot) {
+    if (entry.oneIn !== undefined && rng.below(entry.oneIn) !== 0) continue;
+    const count = entry.min + rng.below(entry.max - entry.min + 1);
+    if (count > 0) got[entry.item] = (got[entry.item] ?? 0) + count;
+  }
+  return got;
+}
+
+/**
  * Why peer `peer` cannot grab piece `id`: it is gone, or the hero or the piece is not in space. A
  * full inventory is no reason: what does not fit floats where the hero is.
  */
@@ -126,7 +142,10 @@ const debrisModule = defineModule<Deps>()({
   },
 
   commands: {
-    /** Catches piece `piece` into the sender's inventory as its salvage item. */
+    /**
+     * Catches piece `piece` into the sender's inventory: as its salvage item, or, a container, as
+     * what it opens into; what does not fit falls at the hero's feet.
+     */
     grab: {
       validate(ctx, p: { piece: number }) {
         const why = grabProblem(
@@ -148,7 +167,7 @@ const debrisModule = defineModule<Deps>()({
         if (!piece) throw new Error('debris.grab: applied to a piece that is gone');
         const hero = ctx.deps.crew.query.hero(ctx.from);
         if (!hero) throw new Error('debris.grab: applied with no hero');
-        ctx.deps.items.op.giveOrDrop(ctx.from, { [piece.item]: 1 }, hero.cell);
+        ctx.deps.items.op.giveOrDrop(ctx.from, lootOf(piece.item, ctx.rng), hero.cell);
       },
     },
   },

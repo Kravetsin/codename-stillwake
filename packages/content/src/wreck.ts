@@ -1,9 +1,9 @@
 /**
  * The starting wreck: one deck of a broken-off ship section in open space. The hero wakes in room A,
  * small, aired by a generator piped to its vent and cabled to a solar panel on the roof above,
- * which also runs a furnace beside the vent and a lamp under the ceiling; the crate beside them is
- * empty. Behind a closed doorway on the left is room B, a hole one cell tall in its hull: open the
- * door and A's air is gone. An airlock off A's right end, a closet between two closed doorways, is
+ * which also runs a furnace beside the vent and a lamp under the ceiling; there is no crate, which
+ * is built of planks and iron. Behind a closed doorway on the left is room B, a hole one cell tall
+ * in its hull: open the door and A's air is gone. An airlock off A's right end, a closet between two closed doorways, is
  * the way outside. Rows are read as written and padded with space to the first, the widest: the
  * space around the wreck, 192 × 96 cells, is room to build and to swim in, its edge too far for a
  * tether to reach.
@@ -31,7 +31,7 @@ export const WRECK: readonly string[] = [
   '                              #..............#....L...####                                      ',
   '                              #..............D........D..D                                      ',
   '                               ..............DGG.FF...D..D                                      ',
-  '                              #..............DGGVFFSKKD..D                                      ',
+  '                              #..............DGGVFFS..D..D                                      ',
   '                              ############################                                      ',
   '                                                                                                ',
   '                                                                                                ',
