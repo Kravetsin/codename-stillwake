@@ -19,7 +19,9 @@ const COLOUR_BY_CODE = new Map<number, number>(
 );
 
 /** The wall behind a cell: dark, so the room reads as inside and space as space. */
-const BACK_PANEL = 0x1a2130;
+// Under the light on trial (`?rc`) the back wall is lighter: the light, not the paint, darkens it.
+const RC = typeof location !== 'undefined' && new URLSearchParams(location.search).has('rc');
+const BACK_PANEL = RC ? 0x535d72 : 0x1a2130;
 const FLOOR = 0x9aa3b5;
 const LADDER = 0xb08d57;
 const DOOR = 0xc97a3a;

@@ -4,7 +4,7 @@ import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
-import { aimedPiece, buildMode, heroSpot, openCrate } from '../../session/ui';
+import { aimedPiece, buildMode, heroDrawnAt, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -196,6 +196,7 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
+        heroDrawnAt.set({ x: x / UNIT, y: y / UNIT });
         popups.update(elapsedMs, x, y);
         if (!keys.holdsLeft()) served.clear();
         const aim =

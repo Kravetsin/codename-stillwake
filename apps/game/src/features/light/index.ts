@@ -4,6 +4,7 @@ import { BufferImageSource, Container, Sprite, Texture } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { GLOW, glowTexture } from '../../render/glow';
 import type { Feature } from '../feature';
+import { rcLight } from './rc/trial';
 import { darknessOf, lampLevel, shine, starsOf, type Lit, type Source } from './lightmap';
 
 /** The ship is looked over this often for a change in what lights it. */
@@ -19,6 +20,8 @@ const LAMP_GLOW = { colour: 0xffd9a0, cells: 3 };
 export const lightFeature: Feature = {
   id: 'light',
   layer() {
+    // `?rc` tries light by radiance cascades in place of light by cells.
+    if (new URLSearchParams(location.search).has('rc')) return rcLight();
     const view = new Container();
     const glows = new Container();
     glows.blendMode = 'add';
