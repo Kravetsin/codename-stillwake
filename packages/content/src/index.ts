@@ -8,6 +8,7 @@ export { MACHINES, type MachineKind, type MachineSpec } from './machines';
 export { DEFAULT_HULL, MATERIALS, type Material, type MaterialId } from './materials';
 export { DEBRIS, LOOT, type LootEntry } from './debris';
 export { FURNACE } from './furnace';
+export { RESEARCH, SCHEMATICS, START_KNOWN, UNLOCKS } from './research';
 export { CABLE_COST, POWER } from './power';
 export { FLOOR, INVENTORY, ITEMS, type ItemId, type ItemSpec, type Yields } from './items';
 export { WRECK, WRECK_CABLES, WRECK_UNDER } from './wreck';

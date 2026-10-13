@@ -28,6 +28,8 @@ export const ITEMS = {
   // Containers: caught, they open into their loot (`LOOT`), and are never carried.
   supplyPod: { stack: 1 },
   cargoCrate: { stack: 1 },
+  // Analysed, it teaches a machine (`SCHEMATICS`), and is used up.
+  schematic: { stack: 10 },
 } as const satisfies Readonly<Record<string, ItemSpec>>;
 
 export type ItemId = keyof typeof ITEMS;

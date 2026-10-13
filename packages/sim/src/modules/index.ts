@@ -3,6 +3,7 @@ import { parseLayout } from '../core/layout';
 import type { AnyModule } from '../core/module';
 import { defineSim } from '../core/sim';
 // `pnpm new:module` adds a module's import below this line and its id to MODULES.
+import { research } from './research';
 import { furnace } from './furnace';
 import { power } from './power';
 import { debris } from './debris';
@@ -28,6 +29,7 @@ export const MODULES: readonly AnyModule[] = [
   hazards,
   debris,
   furnace,
+  research,
 ];
 
 export const stillwake = defineSim(MODULES);
@@ -52,3 +54,4 @@ export type { Piece } from './debris';
 export { power };
 export type { Cable, PowerNetwork } from './power';
 export { furnace };
+export { research };

@@ -1,5 +1,5 @@
-import { BUILDS, CABLE_COST, MACHINES, MATERIALS } from '@stillwake/content';
-import { building, command, grid, parseLayout, power, stillwake } from '@stillwake/sim';
+import { BUILDS, CABLE_COST, MACHINES, MATERIALS, START_KNOWN } from '@stillwake/content';
+import { building, command, grid, parseLayout, power, research, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { EN } from '../../i18n/en';
 import { costLines } from '../../render/CostRow';
@@ -7,6 +7,7 @@ import { hand, overlayOn } from '../../session/ui';
 import {
   cardAt,
   costOf,
+  known,
   layersFor,
   overlayFor,
   planOut,
@@ -180,6 +181,7 @@ describe('the overlay as a filter', () => {
       grid: sim.query(grid),
       building: sim.query(building),
       power: sim.query(power),
+      research: sim.query(research),
     });
     const pick = (cell: number, overlay?: string) => what(cardAt(cell, overlay, q()));
     const hull = sim.query(grid).structureAt(0);
@@ -195,5 +197,23 @@ describe('the overlay as a filter', () => {
     // Under the power overlay, the cable on a node a cable ends at; nothing on one with none.
     expect(pick(0, POWER)).toBe('cable');
     expect(pick(14, POWER)).toBeUndefined();
+  });
+
+  it('shows and picks only the cards the world knows, the cable always', () => {
+    // The tank and the wall of the scrap the hull is of, in a world knowing only its start.
+    const rows = ['#######', '#TT ..#', '#TT...#', '#######'];
+    const sim = stillwake.create(1, { ...parseLayout(rows), known: START_KNOWN });
+    const q = {
+      grid: sim.query(grid),
+      building: sim.query(building),
+      power: sim.query(power),
+      research: sim.query(research),
+    };
+    expect(TOOLS.filter((each) => known(each, q)).map(what)).toEqual(
+      expect.arrayContaining(['cable', 'furnace', 'analyzer', 'crate']),
+    );
+    expect(known(card('tank') ?? TOOLS[0]!, q)).toBe(false);
+    expect(cardAt(9, undefined, q)).toBeUndefined();
+    expect(what(cardAt(0, undefined, q))).toBe('wall:scrap');
   });
 });

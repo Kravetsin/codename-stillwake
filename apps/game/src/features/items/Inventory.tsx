@@ -4,6 +4,7 @@ import {
   furnace,
   grid,
   items,
+  research,
   type Drop,
   type Move,
   type Place,
@@ -45,6 +46,11 @@ function read(game: Game, crate: number | undefined) {
     furnace:
       crate !== undefined && kind === 'furnace'
         ? { at: game.client.sim.query(furnace).at(crate) }
+        : undefined,
+    // An analyzer shows what is in its slot, how far its analysis is and why it stands still.
+    analyzer:
+      crate !== undefined && kind === 'analyzer'
+        ? { at: game.client.sim.query(research).at(crate) }
         : undefined,
   };
 }
@@ -322,7 +328,29 @@ export function Inventory({ game }: { readonly game: Game }) {
               )}
             </div>
           )}
-          {crate !== undefined && reading.crate && !reading.furnace && (
+          {crate !== undefined && reading.crate && reading.analyzer && (
+            <div
+              data-panel="crate"
+              className="rounded border border-sky-700/70 bg-slate-900/90 p-1"
+            >
+              <div className="flex items-center gap-2">
+                {box({ crate, slot: 0 })}
+                <div className="h-1.5 w-20 overflow-hidden rounded bg-slate-700">
+                  <div
+                    data-progress
+                    className="h-full bg-sky-400"
+                    style={{
+                      width: `${reading.analyzer.at ? (100 * reading.analyzer.at.progress) / reading.analyzer.at.work : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              {reading.analyzer.at?.problem && (
+                <p className="mt-1 text-[10px] text-red-300">{t(reading.analyzer.at.problem)}</p>
+              )}
+            </div>
+          )}
+          {crate !== undefined && reading.crate && !reading.furnace && !reading.analyzer && (
             <div
               data-panel="crate"
               className="rounded border border-amber-700/70 bg-slate-900/90 p-1"

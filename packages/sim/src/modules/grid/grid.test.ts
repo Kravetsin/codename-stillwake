@@ -425,6 +425,7 @@ describe('invariants', () => {
             vent: [0],
             lamp: [0],
             crate: [0, 1],
+            analyzer: [0, 1, 5, 6],
           }[m.kind];
           for (const offset of spec) {
             const cell = m.cell + offset;

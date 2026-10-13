@@ -457,7 +457,7 @@ bar, why it stands); the new blueprints' pictures shown when the list grows. The
 everything.
 Done when: scenarios for learning a material and a schematic, nothing new, slower when short and
 stalled unpowered, `building.unknown`, creative; invariants: known only grows and holds real ids;
-`SAVE_FORMAT` bumped; an e2e analyses iron and sees the iron wall's card appear.
+`SAVE_FORMAT` bumped; client tests for the cards shown and picked and for what was just learned.
 
 **P2-24 · The torn wreck** · M · content, wreck tests, concept · after P2-23
 Room B torn half away, open to space, the analyzer surviving in it uncabled; the wreck knows the
@@ -465,7 +465,8 @@ furnace, the analyzer, the crate, scrap walls and back walls; balance for the wa
 cabling the analyzer through a peg.
 Done when: scenarios on the wreck — B is space, its analyzer unpowered; walls and back walls make it a
 room; cables power it; analysing scrap unlocks its list; one solo session from waking to the first
-unlock in about ten minutes; the concept updated.
+unlock in about ten minutes; an e2e analyses iron and sees the iron wall's card appear; the
+concept updated.
 
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.

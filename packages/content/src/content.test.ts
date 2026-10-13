@@ -9,6 +9,7 @@ import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
 import { DEBRIS, LOOT, type LootEntry } from './debris';
 import { FURNACE } from './furnace';
+import { RESEARCH, SCHEMATICS, START_KNOWN, UNLOCKS } from './research';
 import { FLOOR, INVENTORY, ITEMS, type ItemId, type ItemSpec } from './items';
 import { WRECK, WRECK_CABLES } from './wreck';
 
@@ -318,5 +319,26 @@ describe('light', () => {
       expect(n).toBeLessThan(1);
     }
     expect(LIGHT.particle).toBeGreaterThan(0);
+  });
+});
+
+describe('research', () => {
+  // Every blueprint by the name the build menu gives its card.
+  const titled = (id: string) => `${id[0]?.toUpperCase() ?? ''}${id.slice(1)}`;
+  const blueprints = [
+    ...Object.keys(MATERIALS).flatMap((m) => [`wall${titled(m)}`, `backWall${titled(m)}`]),
+    ...Object.keys(BUILDS),
+    ...Object.keys(MACHINES),
+  ];
+
+  it('learns every blueprint once, known from the start, from a material or from a schematic', () => {
+    const learned = [...START_KNOWN, ...Object.values(UNLOCKS).flat(), ...SCHEMATICS];
+    expect([...learned].sort()).toEqual([...blueprints].sort());
+    for (const item of Object.keys(UNLOCKS)) expect(ITEMS).toHaveProperty(item);
+    expect(ITEMS).toHaveProperty('schematic');
+  });
+
+  it('analyses in whole ticks', () => {
+    expect(Number.isSafeInteger(RESEARCH.ticks) && RESEARCH.ticks > 0).toBe(true);
   });
 });

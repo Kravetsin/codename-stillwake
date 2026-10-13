@@ -1,7 +1,8 @@
-import { defineModule, refuse, withFuzz, type Ctx } from '../../core/module';
+import { defineModule, refuse, withFuzz, type Ctx, type ReadCtx } from '../../core/module';
 import type { GridModule, Layer, Placement } from '../grid';
 import type { Cost, ItemsModule } from '../items';
 import type { PowerModule } from '../power';
+import type { ResearchModule } from '../research';
 import { buildOf, builtAt, ticksFor } from './costs';
 import { fuzzBuilding } from './fuzz';
 import { clearAt, covers, lackOf, markedCell, planProblem, workProblem } from './rules';
@@ -9,7 +10,27 @@ import type { Action, BuildingState, Plan } from './state';
 
 export type { Action, BuildingState, Plan } from './state';
 
-type Deps = [GridModule, ItemsModule, PowerModule];
+type Deps = [GridModule, ItemsModule, PowerModule, ResearchModule];
+
+/**
+ * Why `action` cannot be planned at `cell`: a blueprint not known (ADR 0024), or what the grid,
+ * the plans and what is in use say.
+ */
+function problemOf(
+  ctx: ReadCtx<BuildingState, Deps>,
+  cell: number,
+  action: Action,
+): string | undefined {
+  if ('place' in action && !ctx.deps.research.query.knows(action.place)) return 'building.unknown';
+  return planProblem(
+    ctx.deps.grid.query,
+    ctx.deps.items.query,
+    ctx.deps.power.query,
+    ctx.state.plans,
+    cell,
+    action,
+  );
+}
 
 /**
  * Builds what a blueprint asks for, or takes apart what a mark names, refunding it to the hero of
@@ -33,7 +54,7 @@ function complete(ctx: Ctx<BuildingState, Deps, never>, plan: Plan, from: number
 
 const buildingModule = defineModule<Deps>()({
   id: 'building',
-  dependsOn: ['grid', 'items', 'power'],
+  dependsOn: ['grid', 'items', 'power', 'research'],
   init: (): BuildingState => ({ plans: [], nextPlanId: 1 }),
 
   queries: {
@@ -45,15 +66,7 @@ const buildingModule = defineModule<Deps>()({
     clearAt: (ctx, cell: number, layers?: readonly Layer[]) =>
       clearAt(ctx.deps.grid.query, ctx.state.plans, cell, layers),
     /** Why `action` cannot be planned at `cell`: what a ghost shows before the command is sent. */
-    problem: (ctx, cell: number, action: Action) =>
-      planProblem(
-        ctx.deps.grid.query,
-        ctx.deps.items.query,
-        ctx.deps.power.query,
-        ctx.state.plans,
-        cell,
-        action,
-      ),
+    problem: (ctx, cell: number, action: Action) => problemOf(ctx, cell, action),
     /** Why peer `peer`'s work on plan `id` would be refused: what the client shows first. */
     workProblem: (ctx, id: number, peer: number) =>
       workProblem(
@@ -86,16 +99,7 @@ const buildingModule = defineModule<Deps>()({
   commands: {
     placePlan: {
       validate(ctx, p: { cell: number; placement: Placement }) {
-        const why = planProblem(
-          ctx.deps.grid.query,
-          ctx.deps.items.query,
-          ctx.deps.power.query,
-          ctx.state.plans,
-          p.cell,
-          {
-            place: p.placement,
-          },
-        );
+        const why = problemOf(ctx, p.cell, { place: p.placement });
         if (why) return refuse(why);
       },
       apply(ctx, p: { cell: number; placement: Placement }) {

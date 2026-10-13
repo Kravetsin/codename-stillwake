@@ -5,7 +5,16 @@ import {
   type MachineSpec,
   type MaterialId,
 } from '@stillwake/content';
-import type { building, Cost, grid, Layer, Placement, power, QueryApi } from '@stillwake/sim';
+import type {
+  building,
+  Cost,
+  grid,
+  Layer,
+  Placement,
+  power,
+  QueryApi,
+  research,
+} from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
 import { hand, overlayOn } from '../../session/ui';
@@ -71,7 +80,13 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
       place('lamp', { layer: 'machine', kind: 'lamp' }),
     ],
   },
-  { id: 'production', tools: [place('furnace', { layer: 'machine', kind: 'furnace' })] },
+  {
+    id: 'production',
+    tools: [
+      place('furnace', { layer: 'machine', kind: 'furnace' }),
+      place('analyzer', { layer: 'machine', kind: 'analyzer' }),
+    ],
+  },
   { id: 'storage', tools: [place('crate', { layer: 'machine', kind: 'crate' })] },
 ];
 
@@ -185,7 +200,12 @@ interface Queries {
   readonly grid: QueryApi<typeof grid>;
   readonly building: QueryApi<typeof building>;
   readonly power: QueryApi<typeof power>;
+  readonly research: QueryApi<typeof research>;
 }
+
+/** Whether `tool` is a card the world knows (ADR 0024): the cable always, else its blueprint. */
+export const known = (tool: Tool, q: Pick<Queries, 'research'>): boolean =>
+  tool.kind === 'cable' || q.research.knows(tool.placement);
 
 /** What is placed at `cell` in `layers`: a plan first, then what is built, in their order. */
 function placementAt(cell: number, layers: readonly Layer[], q: Queries): Placement | undefined {
@@ -215,7 +235,8 @@ const materialOf = (p: Placement) => ('material' in p ? p.material : undefined);
 
 /**
  * The pipette's card for `cell` under `overlay`: under the power overlay the cable, on a node a
- * cable ends at; else the card that places what is there, planned or built, in `layersFor`.
+ * cable ends at; else the card that places what is there, planned or built, in `layersFor`, if its
+ * blueprint is known.
  */
 export function cardAt(cell: number, overlay: string | undefined, q: Queries): Tool | undefined {
   if (overlay === POWER) {
@@ -225,11 +246,13 @@ export function cardAt(cell: number, overlay: string | undefined, q: Queries): T
   }
   const placed = placementAt(cell, layersFor(overlay), q);
   if (!placed) return undefined;
-  return TOOLS.find(
+  const card = TOOLS.find(
     (each) =>
       each.kind === 'place' &&
       each.placement.layer === placed.layer &&
       each.placement.kind === placed.kind &&
       materialOf(each.placement) === materialOf(placed),
   );
+  // What is not known is not picked: it could not be planned.
+  return card && known(card, q) ? card : undefined;
 }

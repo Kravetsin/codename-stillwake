@@ -1,11 +1,21 @@
-import { building, items, type Cost } from '@stillwake/sim';
+import { building, items, research, type Cost } from '@stillwake/sim';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { t } from '../../i18n/en';
 import { CostRow, costLines } from '../../render/CostRow';
 import type { Game } from '../../session/game';
 import { overlayOn } from '../../session/ui';
 import { thumbOf } from './blueprint';
-import { costOf, planOut, POWER, putPlanAway, selected, tabFor, TABS, type Tool } from './tools';
+import {
+  costOf,
+  known,
+  planOut,
+  POWER,
+  putPlanAway,
+  selected,
+  tabFor,
+  TABS,
+  type Tool,
+} from './tools';
 
 /** The inventory's counts are read this often while the menu is open: a panel reads on a timer. */
 const REFRESH_MS = 250;
@@ -68,17 +78,24 @@ export function BuildMenu({ game }: { readonly game: Game }) {
     );
   }
 
-  const tools = TABS.find((each) => each.id === tab)?.tools ?? [];
+  // Only what the world knows is shown; a tab with nothing known, not at all.
+  const q = { research: game.client.sim.query(research) };
+  const tabs = TABS.map((each) => ({
+    ...each,
+    tools: each.tools.filter((t) => known(t, q)),
+  })).filter((each) => each.tools.length > 0);
+  const tools = (tabs.find((each) => each.id === tab) ?? tabs[0])?.tools ?? [];
+  const shownTab = tabs.some((each) => each.id === tab) ? tab : tabs[0]?.id;
   return (
     <div
       data-panel="build"
       className="pointer-events-auto absolute bottom-3 left-1/2 w-[28rem] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded border border-slate-700 bg-slate-900/95 p-2 font-mono text-xs text-slate-300"
     >
       <div className="mb-2 flex items-center gap-1">
-        {TABS.map((each) => (
+        {tabs.map((each) => (
           <button
             key={each.id}
-            className={`rounded px-2 py-1 ${each.id === tab ? 'bg-sky-700 text-white' : 'bg-slate-800 hover:bg-slate-700'}`}
+            className={`rounded px-2 py-1 ${each.id === shownTab ? 'bg-sky-700 text-white' : 'bg-slate-800 hover:bg-slate-700'}`}
             onClick={() => setTab(each.id)}
           >
             {t(`build.tab.${each.id}`)}

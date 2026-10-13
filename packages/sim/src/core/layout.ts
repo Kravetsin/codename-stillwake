@@ -11,6 +11,8 @@ export interface Layout {
   readonly rows: readonly string[];
   readonly under?: readonly string[];
   readonly cables?: readonly (readonly [number, number])[];
+  /** The blueprints known at the start (ADR 0024); every one when not given. */
+  readonly known?: readonly string[];
 }
 
 /** A cell as a map is drawn: column and row. */
@@ -90,6 +92,7 @@ const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = {
   V: 'vent',
   L: 'lamp',
   K: 'crate',
+  A: 'analyzer',
 };
 
 /**

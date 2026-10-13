@@ -47,6 +47,7 @@ const MACHINES_SHOWN: readonly { kind: MachineKind; x: number; y: number }[] = [
   { kind: 'vent', x: 8, y: 11 },
   { kind: 'furnace', x: 12, y: 10 },
   { kind: 'crate', x: 26, y: 11 },
+  { kind: 'analyzer', x: 22, y: 10 },
 ];
 
 const CODES: Record<string, { structure?: number; conduit?: number; material?: number }> = {

@@ -2,6 +2,7 @@ import {
   building,
   grid,
   power,
+  research,
   rooms,
   type Placement,
   type Plan,
@@ -15,7 +16,8 @@ import { costLines } from '../../render/CostRow';
 import { EFFECTS, particles } from '../../render/particles';
 import { hand, overlayOn, pointerTip } from '../../session/ui';
 import type { Feature } from '../feature';
-import { createSprites, joins, linksOf, piecesOf } from './blueprint';
+import { piecesOf } from '../../render/blueprint-art';
+import { createSprites, joins, linksOf } from './blueprint';
 import { judge, lineOf, onGrid, spotAt, type Act, type Spot, type Verdict } from './drag';
 import { nearGrid } from './near-grid';
 import { BuildMenu } from './BuildMenu';
@@ -142,7 +144,11 @@ export const buildingFeature: Feature = {
         // The middle button picks the card of what is under it.
         for (const at of camera.takeMiddle()) {
           if (!onGrid(size, at)) continue;
-          const card = cardAt(cellAt(at), overlay, { ...q, power: sim.query(power) });
+          const card = cardAt(cellAt(at), overlay, {
+            ...q,
+            power: sim.query(power),
+            research: sim.query(research),
+          });
           if (!card) continue;
           selected.set(card);
         }

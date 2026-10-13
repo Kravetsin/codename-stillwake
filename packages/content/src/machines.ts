@@ -60,6 +60,17 @@ export const MACHINES = {
     draws: 1,
     plug: { x: 11, y: 1 },
   },
+  // Learns blueprints from what is put in its slot (ADR 0024).
+  analyzer: {
+    width: 2,
+    height: 2,
+    ports: [],
+    cost: { scrap: 8, iron: 4 },
+    buildTicks: 200,
+    draws: 2,
+    slots: 1,
+    plug: { x: 26, y: 3 },
+  },
   crate: {
     width: 2,
     height: 1,

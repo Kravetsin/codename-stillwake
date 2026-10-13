@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { ITEMS } from '@stillwake/content';
 import { MODULES } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { EN, t } from './en';
@@ -36,5 +37,11 @@ describe('t', () => {
     expect(t('air.filling', { aired: 3, cells: 96 })).toBe('Filling · 3/96 cells');
     expect(t('air.filling', { aired: 3 })).toBe('Filling · 3/{cells} cells');
     expect(t('no.such.key')).toBe('no.such.key');
+  });
+});
+
+describe('item names', () => {
+  it('names every item there is', () => {
+    expect(Object.keys(ITEMS).filter((item) => !(`item.${item}` in EN))).toEqual([]);
   });
 });

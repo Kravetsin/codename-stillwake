@@ -10,6 +10,7 @@ export const ITEM_LOOK: Readonly<Record<ItemId, { readonly round: boolean }>> = 
   hullPlate: { round: false },
   supplyPod: { round: true },
   cargoCrate: { round: false },
+  schematic: { round: false },
 };
 
 /** The colour as CSS writes it. */

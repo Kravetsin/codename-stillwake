@@ -166,6 +166,28 @@ export const ITEM_ART: Readonly<
     ],
     palette: { K, y: 0xe0b84a, Y: 0xf6dc8a, k: 0x2a3440, s: 0x9aa3ad, d: 0x6a737d },
   },
+  // A rolled sheet of blueprint, a machine drawn on it.
+  schematic: {
+    rows: [
+      '................',
+      '................',
+      '..KKKKKKKKKKKK..',
+      '..KbbbbbbbbbbKK.',
+      '..KbwwwwbbbbbKdK',
+      '..KbwbbwbbwwbKdK',
+      '..KbwbbwwwwbbKdK',
+      '..KbwwwwbbbbbKdK',
+      '..KbbbbbbwwwbKdK',
+      '..KbwwbbbwbwbKdK',
+      '..KbbbbbbwwwbKdK',
+      '..KbbbbbbbbbbKK.',
+      '..KKKKKKKKKKKK..',
+      '................',
+      '................',
+      '................',
+    ],
+    palette: { K, b: 0x2f6fb0, w: 0xd8ecff, d: 0x1d4a7a },
+  },
   // A crate of boards bound in metal, stencilled.
   cargoCrate: {
     rows: [

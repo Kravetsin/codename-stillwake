@@ -12,6 +12,7 @@ import { powerFeature } from './power';
 import { furnaceFeature } from './furnace';
 import { effectsFeature } from './effects';
 import { lightFeature } from './light';
+import { researchFeature } from './research';
 
 /** Every client feature. Layers stack in this order; panels render in this order. */
 export const FEATURES: readonly Feature[] = [
@@ -32,5 +33,7 @@ export const FEATURES: readonly Feature[] = [
   buildingFeature,
   // Dust, sparks, embers and air over everything in the world, plans included.
   effectsFeature,
+  // What the world has just learned, over the game.
+  researchFeature,
   devPanel,
 ];

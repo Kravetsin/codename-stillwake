@@ -50,9 +50,13 @@ export interface LootEntry {
  * count first, in `[min, max]`, after the one-in roll when there is one.
  */
 export const LOOT = {
-  cargoCrate: [{ item: 'planks', min: 3, max: 6 }],
+  cargoCrate: [
+    { item: 'planks', min: 3, max: 6 },
+    { item: 'schematic', min: 1, max: 1, oneIn: 4 },
+  ],
   supplyPod: [
     { item: 'canister', min: 1, max: 1 },
     { item: 'scrap', min: 6, max: 6 },
+    { item: 'schematic', min: 1, max: 1, oneIn: 2 },
   ],
 } as const satisfies Readonly<Partial<Record<ItemId, readonly LootEntry[]>>>;
