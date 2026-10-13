@@ -8,7 +8,7 @@ import { traceRope } from '../../render/rope';
 import { heroBodies, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
-import { unpluggedTexture } from './art';
+import { boltTexture, unpluggedTexture } from './art';
 import { createCableRopes, type CableRopes } from './ropes';
 
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
@@ -45,6 +45,36 @@ function everyTick(draw: (sim: Sim) => void) {
   };
 }
 
+/** How fast a bolt over a machine with no power at all blinks, in blinks a second. */
+const BLINK = 1.5;
+
+/**
+ * A bolt over each machine that draws power and gets less than it would: red with none, amber with
+ * some. Laid into `into`, at the middle of each machine's top.
+ */
+function placeBolts(into: Container, sim: Sim): void {
+  for (const bolt of into.removeChildren()) bolt.destroy();
+  const q = sim.query(grid);
+  for (const m of q.machines()) {
+    const spec: MachineSpec = MACHINES[m.kind];
+    if (spec.draws === undefined) continue;
+    const satisfaction = sim.query(power).satisfaction(m.id);
+    if (satisfaction >= 1000) continue;
+    const bolt = new Sprite(boltTexture(satisfaction === 0));
+    const at = middleOf(q, m.cell);
+    bolt.anchor.set(0.5, 1);
+    bolt.position.set(at.x * CELL, (at.y - spec.height / 2) * CELL - 1);
+    bolt.label = satisfaction === 0 ? 'none' : 'short';
+    into.addChild(bolt);
+  }
+}
+
+/** Blinks the bolts in `bolts` over machines with no power at all, `time` seconds in. */
+function blink(bolts: Container, time: number): void {
+  const on = Math.floor(time * BLINK * 2) % 2 === 0;
+  for (const bolt of bolts.children) if (bolt.label === 'none') bolt.alpha = on ? 1 : 0.25;
+}
+
 /**
  * Cables out of the overlay: thin ropes hanging between their nodes inside the ship, swinging out of
  * a hero's way, and drifting loose out in space (`./ropes`), drawn behind the ship's structure, so a
@@ -55,14 +85,24 @@ function cables(): Layer {
   // Fittings sit on the hull's face, in front of the wall the cable goes behind.
   const fittings = new Graphics();
   for (const g of [lines, fittings]) lit(g);
+  // A machine short of power says so whatever is on, and glows: it is not lit.
+  const bolts = new Container();
+  const view = new Container();
+  view.addChild(fittings, bolts);
   const own = createCableRopes();
   ropes = own;
-  const sync = everyTick((sim) => own.sync(sim));
+  const sync = everyTick((sim) => {
+    own.sync(sim);
+    placeBolts(bolts, sim);
+  });
+  let time = 0;
   return {
-    view: fittings,
+    view,
     behind: lines,
     update: ({ game, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
+      time += elapsedMs / 1000;
+      blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
       lines.clear();
       fittings.clear();
@@ -90,13 +130,16 @@ function powerOverlay(): Layer {
   const dim = new Graphics();
   const lines = new Graphics();
   const plugs = new Container();
-  view.addChild(dim, lines, plugs);
+  const bolts = new Container();
+  view.addChild(dim, lines, plugs, bolts);
+  let time = 0;
   let byNode = new Map<number, PowerNetwork>();
   const redraw = everyTick((sim) => {
     const q = sim.query(grid);
     const wires = sim.query(power);
     byNode = new Map();
     for (const n of wires.networks()) for (const node of n.nodes) byNode.set(node, n);
+    placeBolts(bolts, sim);
     const { width, height } = q.size();
     dim
       .clear()
@@ -119,6 +162,8 @@ function powerOverlay(): Layer {
     update({ game, camera, elapsedMs }) {
       const { sim } = game.client;
       redraw(sim, elapsedMs);
+      time += elapsedMs / 1000;
+      blink(bolts, time);
       lines.clear();
       for (const { a, b, points } of ropes?.lines() ?? []) {
         const colour = stateColour(byNode.get(a) ?? byNode.get(b));

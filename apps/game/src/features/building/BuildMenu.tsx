@@ -119,7 +119,8 @@ export function BuildMenu({ game }: { readonly game: Game }) {
           </button>
         ))}
       </div>
-      <p className="mt-2 min-h-4 text-slate-400">
+      {/* Three lines held for it whatever it says: a menu growing under the pointer moves its buttons away. */}
+      <p className="mt-2 h-12 overflow-hidden text-slate-400">
         {hovered ? t(`tool.${hovered.id}.about`) : t('build.close')}
       </p>
     </div>
