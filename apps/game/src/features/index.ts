@@ -23,8 +23,9 @@ export const FEATURES: readonly Feature[] = [
   powerFeature,
   // Stacks lying on the floor, under the heroes walking over them.
   itemsFeature,
-  crewFeature,
+  // Fire in a furnace's mouth, under a hero standing before it.
   furnaceFeature,
+  crewFeature,
   // The dark over the ship and what it holds; what explains the ship stays above it.
   lightFeature,
   atmosphereFeature,

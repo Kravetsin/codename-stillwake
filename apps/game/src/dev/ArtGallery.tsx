@@ -4,6 +4,7 @@ import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import { createFigure } from '../features/crew/figure';
 import { SUITS } from '../features/crew/suits';
+import { FIRE_AT, fireTexture } from '../features/furnace/art';
 import { machineTexture } from '../features/grid/art';
 import { drawBack, drawConduit, drawStructure, type Cells } from '../features/grid/draw';
 import { CELL } from '../render/camera';
@@ -67,8 +68,8 @@ function cellsOf(rows: readonly string[]): Cells {
 }
 
 /**
- * Every tile and machine of the ship in pixel art, unlit, with a hero for scale, for judging the
- * art by eye (`?art` in development).
+ * Every tile and machine of the ship in pixel art, unlit, a furnace at work and a hero for scale,
+ * for judging the art by eye (`?art` in development).
  */
 export function ArtGallery() {
   const host = useRef<HTMLDivElement>(null);
@@ -98,12 +99,21 @@ export function ArtGallery() {
         machine.position.set(m.x * CELL, m.y * CELL);
         ship.addChild(machine);
       }
+      const furnace = MACHINES_SHOWN.find((m) => m.kind === 'furnace');
+      const fire = new Sprite(fireTexture(0));
+      if (furnace) {
+        fire.position.set(furnace.x * CELL + FIRE_AT.x, furnace.y * CELL + FIRE_AT.y);
+        ship.addChild(fire);
+      }
       const hero = createFigure(SUITS[0] ?? 0xffffff);
       hero.show({ x: 0, y: 0, vx: 0, vy: 0, climbing: false, facing: 1, look: 0 }, 'stand', 16);
       hero.view.position.set(17 * CELL, 8 * CELL);
       ship.addChild(hero.view);
       app.stage.addChild(ship);
-      app.ticker.add(() => {
+      let ms = 0;
+      app.ticker.add((ticker) => {
+        ms += ticker.deltaMS;
+        fire.texture = fireTexture(Math.floor(ms / 110));
         ship.scale.set(scale.current);
         ship.position.set(20, 40);
       });
