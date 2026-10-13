@@ -71,13 +71,12 @@ export const MACHINES = {
   furnace: {
     width: 2,
     height: 2,
-    ports: [{ x: 0, y: 1 }],
-    cost: { scrap: 10, iron: 4 },
+    ports: [],
+    cost: { scrapChunk: 4, hullPlate: 2 },
     buildTicks: 200,
-    draws: 4,
-    slots: 4,
-    inputs: 1,
-    plug: { x: 27, y: 12 },
+    // Its input, its fuel (`FURNACE.fuelSlot`), then three outputs.
+    slots: 5,
+    inputs: 2,
   },
 } as const satisfies Readonly<Record<string, MachineSpec>>;
 

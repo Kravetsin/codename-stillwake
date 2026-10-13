@@ -76,11 +76,8 @@ vents into space.
   (`atmosphere.noVent`, `notPiped`, `unpowered` — only unpowered generators behind it — or `dry`). One survey for all rooms, so the air overlay reads it
   four times a second, never every tick. It counts neither breathing nor other rooms on the same
   network.
-- **For machines that burn oxygen** (a furnace): the query `oxygenFor(id)` — what the networks on
-  machine `id`'s ports hold, each counted once; the operation `draw(id, amount)` — takes up to that
-  from them, network by network in id order, tank by tank as any draw.
-- **Operations:** `breathe(cell, amount)` — takes up to `amount` of air for a hero in `cell`, as
-  above, if that cell holds air; returns how much, none anywhere else.
+- **Operations:** `breathe(cell, amount)` — takes up to `amount` of air for a hero in `cell`, or
+  a furnace's fire there, as above, if that cell holds air; returns how much, none anywhere else.
   Emptied tanks leave the list at once.
 - **Commands:** `loadCanister { tank }`, refused with `atmosphere.noTank` (a generator too), `atmosphere.tankFull` or
   `items.notEnough`.

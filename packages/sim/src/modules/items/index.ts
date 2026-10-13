@@ -281,6 +281,12 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
         throw new Error('items.smelt: nothing to smelt; check canSmelt');
       setCrate(ctx.state, id, [...left.slots.slice(0, inputs), ...done.out]);
     },
+    /** Uses up one of what slot `slot` of holder `id` holds: fuel burnt. The caller checks it holds one. */
+    consume(ctx, id: number, slot: number): void {
+      const left = takenFrom(slotsOf(ctx.state, ctx.deps.grid.query, id), slot, 1);
+      if ('refused' in left) throw new Error('items.consume: nothing there');
+      setCrate(ctx.state, id, left.slots);
+    },
     /** Gives `peer` as much of `cost` as fits; the rest falls on cell `cell`, as if `peer` dropped it. */
     giveOrDrop(ctx, peer: number, cost: Cost, cell: number): void {
       if (isNothing(cost)) return;

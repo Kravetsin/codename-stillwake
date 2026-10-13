@@ -12,8 +12,8 @@ const EMBERS_PER_SECOND = 7;
 const FLICKER_MS = 110;
 
 /**
- * A furnace at work without a word: fire in its mouth and embers rising from it while it smelts,
- * neither while it waits for power, oxygen or room for what it yields. Its panel says why, on demand.
+ * A furnace at work without a word: fire in its mouth and embers rising from it while it burns,
+ * neither while it is out, for want of fuel, air or room. Its panel says why, on demand.
  */
 export const furnaceFeature: Feature = {
   id: 'furnace',
@@ -38,7 +38,7 @@ export const furnaceFeature: Feature = {
         for (const m of sim.query(grid).machines()) {
           if (m.kind !== 'furnace') continue;
           const at = sim.query(furnace).at(m.id);
-          if (!at || at.problem) {
+          if (!at.burning) {
             owed.delete(m.id);
             continue;
           }

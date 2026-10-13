@@ -1,99 +1,130 @@
-import { ITEMS, type ItemSpec } from '@stillwake/content';
-import { defineModule } from '../../core/module';
+import { FURNACE, ITEMS, type ItemSpec } from '@stillwake/content';
+import { defineModule, type QueryApi } from '../../core/module';
 import type { AtmosphereModule } from '../atmosphere';
-import type { GridModule } from '../grid';
+import type { GridModule, Machine } from '../grid';
 import type { Item, ItemsModule } from '../items';
-import type { PowerModule } from '../power';
 
-/** A furnace at work on one item of its input, paid for in oxygen as it began. */
-export interface Smelting {
+/** A furnace's fire, and the item it smelts, by machine id. */
+export interface Fire {
   readonly furnace: number;
-  readonly item: Item;
-  /** Work done on it, in thousandths of a tick at full power: `smeltTicks × 1000` finishes it. */
+  /** Ticks of fire left: lit while above 0. */
+  readonly fuel: number;
+  /** The item it is at work on, and its work done on it in ticks of fire. */
+  readonly item?: Item;
   readonly progress: number;
 }
 
 export interface FurnaceState {
-  /** The furnaces at work, by machine id, in id order. */
-  smelting: Smelting[];
+  /** Every furnace burning or part-way through an item, by machine id, in id order. */
+  fires: Fire[];
 }
 
 /** Why a furnace with salvage in its input is not at work, as an i18n key. */
-export type FurnaceProblem = 'furnace.full' | 'furnace.unpowered' | 'furnace.noOxygen';
+export type FurnaceProblem = 'furnace.full' | 'furnace.noFuel' | 'furnace.noAir';
 
-type Deps = [GridModule, ItemsModule, PowerModule, AtmosphereModule];
+type Deps = [GridModule, ItemsModule, AtmosphereModule];
 
-/** How long an item smelts and what oxygen it takes, if it is salvage that smelts at all. */
-function recipe(item: Item | undefined) {
-  const spec: ItemSpec | undefined = item === undefined ? undefined : ITEMS[item];
-  return spec?.smeltTicks === undefined || spec.oxygen === undefined
-    ? undefined
-    : { work: spec.smeltTicks * 1000, oxygen: spec.oxygen };
-}
+const spec = (item: Item | undefined): ItemSpec | undefined =>
+  item === undefined ? undefined : ITEMS[item];
 
 const furnaceModule = defineModule<Deps>()({
   id: 'furnace',
-  dependsOn: ['grid', 'items', 'power', 'atmosphere'],
-  init: (): FurnaceState => ({ smelting: [] }),
+  dependsOn: ['grid', 'items', 'atmosphere'],
+  init: (): FurnaceState => ({ fires: [] }),
 
   queries: {
     /**
-     * Furnace `id` as its panel shows it: what it smelts, how far, out of how much work, and why it
-     * stands still if it does; nothing smelting for an empty or unsmeltable input.
+     * Furnace `id` as its panel shows it: whether its fire burns; with salvage in its input, what it
+     * smelts, how far, out of how much work, and why it stands still if it does.
      */
     at(ctx, id: number) {
-      const { items, power, atmosphere } = ctx.deps;
-      const input = items.query.crate(id)[0]?.item;
-      const r = recipe(input);
-      if (!r || input === undefined) return undefined;
-      const at = ctx.state.smelting.find((s) => s.furnace === id && s.item === input);
+      const { grid, items, atmosphere } = ctx.deps;
+      const fire = ctx.state.fires.find((f) => f.furnace === id);
+      const burning = (fire?.fuel ?? 0) > 0;
+      const slots = items.query.crate(id);
+      const input = slots[0]?.item;
+      const work = spec(input)?.smeltTicks;
+      if (input === undefined || work === undefined) return { burning };
+      const machine = grid.query.machines().find((m) => m.id === id);
+      const aired = machine !== undefined && airedCell(grid.query, atmosphere.query, machine) >= 0;
+      const fuel = spec(slots[FURNACE.fuelSlot]?.item)?.burnTicks;
       const problem: FurnaceProblem | undefined = !items.query.canSmelt(id)
         ? 'furnace.full'
-        : power.query.satisfaction(id) === 0
-          ? 'furnace.unpowered'
-          : !at && atmosphere.query.oxygenFor(id) < r.oxygen
-            ? 'furnace.noOxygen'
+        : !burning && fuel === undefined
+          ? 'furnace.noFuel'
+          : !aired
+            ? 'furnace.noAir'
             : undefined;
-      return { item: input, progress: at?.progress ?? 0, work: r.work, problem };
+      const progress = fire?.item === input ? fire.progress : 0;
+      return { burning, item: input, progress, work, problem };
     },
   },
 
   systems: [
     {
-      // After atmosphere's: a unit a generator made this tick may pay for the next item.
       phase: 'simulation',
       run(ctx) {
-        const { grid, items, power, atmosphere } = ctx.deps;
-        const kept: Smelting[] = [];
+        const { grid, items, atmosphere } = ctx.deps;
+        const kept: Fire[] = [];
         for (const m of grid.query.machines()) {
           if (m.kind !== 'furnace') continue;
-          const input = items.query.crate(m.id)[0]?.item;
-          const r = recipe(input);
-          if (!r || input === undefined) continue;
-          const share = power.query.satisfaction(m.id);
-          let at = ctx.state.smelting.find((s) => s.furnace === m.id && s.item === input);
-          if (!at) {
-            // An item begins only when it can: power, room for its yields, and all its oxygen.
-            const ready =
-              share > 0 &&
-              items.query.canSmelt(m.id) &&
-              atmosphere.query.oxygenFor(m.id) >= r.oxygen;
-            if (!ready) continue;
-            atmosphere.op.draw(m.id, r.oxygen);
-            at = { furnace: m.id, item: input, progress: 0 };
+          const was = ctx.state.fires.find((f) => f.furnace === m.id);
+          let fuel = was?.fuel ?? 0;
+          const slots = items.query.crate(m.id);
+          const input = slots[0]?.item;
+          const work = spec(input)?.smeltTicks;
+          const smelts = work !== undefined && items.query.canSmelt(m.id);
+          // Work on another item, or none, begins again.
+          let item = was?.item === input ? was?.item : undefined;
+          let progress = item === undefined ? 0 : (was?.progress ?? 0);
+          const cell = airedCell(grid.query, atmosphere.query, m);
+          // Lit only with something to smelt, fuel and air, which a fuel is used up for.
+          const burns = spec(slots[FURNACE.fuelSlot]?.item)?.burnTicks;
+          if (fuel === 0 && smelts && burns !== undefined && cell >= 0) {
+            items.op.consume(m.id, FURNACE.fuelSlot);
+            fuel = burns;
           }
-          const progress = Math.min(r.work, at.progress + share);
-          if (progress >= r.work && items.query.canSmelt(m.id)) {
-            items.op.smelt(m.id);
-            continue;
+          if (fuel > 0) {
+            // It breathes as a hero does: given less, its fire goes out and the fuel left is lost.
+            const breathes = fuel % FURNACE.breathEvery === 0;
+            const had = !breathes
+              ? FURNACE.breath
+              : cell < 0
+                ? 0
+                : atmosphere.op.breathe(cell, FURNACE.breath);
+            if (had < FURNACE.breath) {
+              fuel = 0;
+            } else {
+              fuel -= 1;
+              if (smelts && input !== undefined) {
+                item = input;
+                progress += 1;
+                if (progress >= (work ?? 0)) {
+                  items.op.smelt(m.id);
+                  item = undefined;
+                  progress = 0;
+                }
+              }
+            }
           }
-          kept.push({ ...at, progress });
+          if (fuel > 0 || item !== undefined) {
+            kept.push({ furnace: m.id, fuel, ...(item === undefined ? {} : { item }), progress });
+          }
         }
-        ctx.state.smelting = kept;
+        ctx.state.fires = kept;
       },
     },
   ],
 });
+
+/** The first cell of machine `m` with air in it, or -1: where its fire breathes. */
+function airedCell(
+  grid: QueryApi<GridModule>,
+  air: QueryApi<AtmosphereModule>,
+  m: Readonly<Machine>,
+): number {
+  return (grid.footprint(m.kind, m.cell) ?? []).find((c) => air.airedAt(c)) ?? -1;
+}
 
 export type FurnaceModule = typeof furnaceModule;
 export const furnace = furnaceModule;

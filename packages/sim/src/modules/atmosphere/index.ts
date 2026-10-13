@@ -12,18 +12,7 @@ import type { PipesModule } from '../pipes';
 import type { RoomsModule } from '../rooms';
 import type { ItemsModule } from '../items';
 import type { PowerModule } from '../power';
-import {
-  breathe,
-  drawFor,
-  holds,
-  oxygenFor,
-  oxygenIn,
-  roomsAir,
-  statusOf,
-  stepAir,
-  strand,
-  type Air,
-} from './air';
+import { breathe, holds, oxygenIn, roomsAir, statusOf, stepAir, strand, type Air } from './air';
 import { fuzzAtmosphere } from './fuzz';
 import { changedRooms, orderRooms } from './order';
 
@@ -159,37 +148,13 @@ const atmosphereModule = defineModule<Deps>()({
     airedCells: (ctx) => ctx.state.aired,
     /** Whether `cell` holds air. */
     airedAt: (ctx, cell: number) => holds(ctx.state.aired, cell),
-    /** The oxygen machine `id` reaches through its pipes: what `draw` could take. */
-    oxygenFor: (ctx, id: number) =>
-      oxygenFor(
-        ctx.state,
-        {
-          grid: ctx.deps.grid.query,
-          rooms: ctx.deps.rooms.query,
-          pipes: ctx.deps.pipes.query,
-          power: ctx.deps.power.query,
-        },
-        id,
-      ),
   },
 
   operations: {
-    /** Takes up to `amount` of oxygen for machine `id` through its pipes; returns how much. */
-    draw: (ctx, id: number, amount: number) =>
-      drawFor(
-        ctx.state,
-        {
-          grid: ctx.deps.grid.query,
-          rooms: ctx.deps.rooms.query,
-          pipes: ctx.deps.pipes.query,
-          power: ctx.deps.power.query,
-        },
-        id,
-        amount,
-      ),
     /**
-     * Takes up to `amount` cells of air for a hero whose head is in `cell`, from the far edge of
-     * its room's air, if `cell` holds air; returns how many, none anywhere else.
+     * Takes up to `amount` cells of air for a hero whose head is in `cell`, or a furnace's fire
+     * there, from the far edge of its room's air, if `cell` holds air; returns how many, none
+     * anywhere else.
      */
     breathe: (ctx, cell: number, amount: number) =>
       breathe(

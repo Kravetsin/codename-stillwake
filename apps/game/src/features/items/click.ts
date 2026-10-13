@@ -1,3 +1,4 @@
+import { ITEMS, type ItemSpec } from '@stillwake/content';
 import { command, items, type Command, type Place, type Stack } from '@stillwake/sim';
 
 /** A stack picked up to be put elsewhere: only on screen, the items stay in their slot till then. */
@@ -13,6 +14,8 @@ export interface Click {
   readonly button: 'left' | 'right';
   readonly shift: boolean;
   readonly crate: number | undefined;
+  /** The slot the open crate burns fuel in, when it is a furnace. */
+  readonly fuelSlot?: number;
 }
 
 export interface Clicked {
@@ -27,14 +30,16 @@ const move = (src: Place, dst: Place | { crate?: number }, count: number) =>
 /**
  * Terraria's way: a left click picks a whole stack and puts it on the next slot clicked, which swaps
  * it with another item there; a right click picks half, rounded up, or with a stack picked puts one
- * of it; a shift-click sends a stack to the other side of an open crate. A click on the picked slot
- * puts it back.
+ * of it; a shift-click sends a stack to the other side of an open crate, a fuel into a furnace's
+ * fuel slot. A click on the picked slot puts it back.
  */
 export function clickOn(picked: Picked | undefined, click: Click): Clicked {
   const { place, stack } = click;
   if (click.shift && click.button === 'left') {
     if (!stack || click.crate === undefined) return { picked };
-    const other = place.crate === undefined ? { crate: click.crate } : {};
+    const burns = (ITEMS[stack.item] as ItemSpec).burnTicks !== undefined;
+    const slot = burns && click.fuelSlot !== undefined ? { slot: click.fuelSlot } : {};
+    const other = place.crate === undefined ? { crate: click.crate, ...slot } : {};
     return { picked: undefined, command: move(place, other, stack.count) };
   }
   if (click.button === 'right') {

@@ -58,8 +58,7 @@ export function cellsOf(sim: Sim, area: Area, timeMs: number, into?: Cells): Cel
       if (i !== undefined && shines > 0) give(cells.gives, i, LIGHT.lamp, shines);
       continue;
     }
-    const smelting = m.kind === 'furnace' ? sim.query(furnace).at(m.id) : undefined;
-    const fire = smelting !== undefined && !smelting.problem;
+    const fire = m.kind === 'furnace' && sim.query(furnace).at(m.id).burning;
     for (let dy = 0; dy < spec.height; dy++) {
       for (let dx = 0; dx < spec.width; dx++) {
         const i = local(mx + dx, my + dy);

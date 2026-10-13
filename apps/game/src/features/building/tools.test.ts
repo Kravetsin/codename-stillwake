@@ -114,14 +114,15 @@ describe('the hand', () => {
       const each = card(kind);
       return each && overlayFor(each);
     };
-    expect(['wall:iron', 'floor', 'door', 'crate'].map(shown)).toEqual([
+    expect(['wall:iron', 'floor', 'door', 'crate', 'furnace'].map(shown)).toEqual([
+      undefined,
       undefined,
       undefined,
       undefined,
       undefined,
     ]);
-    expect(['pipe', 'valve', 'vent', 'tank', 'generator', 'furnace'].map(shown)).toEqual(
-      Array(6).fill('pipes'),
+    expect(['pipe', 'valve', 'vent', 'tank', 'generator'].map(shown)).toEqual(
+      Array(5).fill('pipes'),
     );
     expect(['cable', 'lamp', 'solarPanel'].map(shown)).toEqual(Array(3).fill(POWER));
 

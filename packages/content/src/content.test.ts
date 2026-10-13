@@ -8,6 +8,7 @@ import { MACHINES, type MachineSpec } from './machines';
 import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
 import { DEBRIS, LOOT, type LootEntry } from './debris';
+import { FURNACE } from './furnace';
 import { FLOOR, INVENTORY, ITEMS, type ItemId, type ItemSpec } from './items';
 import { WRECK, WRECK_CABLES } from './wreck';
 
@@ -122,17 +123,41 @@ describe('the floor', () => {
   });
 });
 
+describe('fuel', () => {
+  it('burns for whole ticks, long enough to smelt something, and is no salvage', () => {
+    const fuels = Object.values(ITEMS).filter((spec: ItemSpec) => spec.burnTicks !== undefined);
+    expect(fuels.length).toBeGreaterThan(0);
+    for (const spec of fuels as ItemSpec[]) {
+      expect(Number.isSafeInteger(spec.burnTicks) && (spec.burnTicks ?? 0) > 0).toBe(true);
+      expect(spec.yields).toBeUndefined();
+    }
+    const fastest = Math.min(
+      ...Object.values(ITEMS).map((s: ItemSpec) => s.smeltTicks ?? Infinity),
+    );
+    expect(Math.max(...(fuels as ItemSpec[]).map((s) => s.burnTicks ?? 0))).toBeGreaterThan(
+      fastest,
+    );
+  });
+
+  it("breathes a furnace's fire in whole units on whole beats, its fuel a slot it puts things into", () => {
+    for (const value of Object.values(FURNACE)) expect(Number.isSafeInteger(value)).toBe(true);
+    expect(FURNACE.breath).toBeGreaterThan(0);
+    expect(FURNACE.breathEvery).toBeGreaterThan(0);
+    const spec: MachineSpec = MACHINES.furnace;
+    expect(FURNACE.fuelSlot).toBeGreaterThan(0);
+    expect(FURNACE.fuelSlot).toBeLessThan(spec.inputs ?? 0);
+  });
+});
+
 describe('salvage', () => {
   const specs: [string, ItemSpec][] = Object.entries(ITEMS);
 
-  it('smelts in whole ticks, for whole oxygen, into whole amounts of items that are not salvage', () => {
+  it('smelts in whole ticks into whole amounts of items that are not salvage', () => {
     for (const [id, spec] of specs) {
-      const given = [spec.yields, spec.smeltTicks, spec.oxygen].map((v) => v !== undefined);
+      const given = [spec.yields, spec.smeltTicks].map((v) => v !== undefined);
       expect({ [id]: given.every((v) => v === given[0]) }).toEqual({ [id]: true });
       if (!spec.yields) continue;
-      for (const value of [spec.smeltTicks, spec.oxygen]) {
-        expect(Number.isSafeInteger(value) && (value ?? 0) > 0).toBe(true);
-      }
+      expect(Number.isSafeInteger(spec.smeltTicks) && (spec.smeltTicks ?? 0) > 0).toBe(true);
       const yields = Object.entries(spec.yields);
       expect(yields.length).toBeGreaterThan(0);
       for (const [item, amount] of yields) {

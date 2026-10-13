@@ -61,7 +61,8 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.solarPanel.about': 'Makes power out in space, never in a room.',
   'tool.lamp.about':
     'Lights what it reaches, as bright as the power it gets. Walls stop its light.',
-  'tool.furnace.about': 'Smelts salvage into materials, on power and the oxygen in its pipe.',
+  'tool.furnace.about':
+    'Smelts salvage into materials, burning planks and breathing the air of its room.',
   'tool.crate.about': 'Holds items. Open it with E.',
   'tool.cable.about':
     'Drag from a machine, a wall or a peg to lay a cable; led too far, it is held on the walls on its way. Shift and drag moves a peg or a plug.',
@@ -78,8 +79,8 @@ export const EN: Readonly<Record<string, string>> = {
   'items.noCell': 'Nowhere to drop it',
   'items.takeOnly': 'Things only come out of here',
   'furnace.full': 'No room for what it makes',
-  'furnace.unpowered': 'No power',
-  'furnace.noOxygen': 'No oxygen in its pipe',
+  'furnace.noFuel': 'No fuel: planks burn',
+  'furnace.noAir': 'No air for its fire',
   'items.gone': 'Someone took it',
   'items.tooSoon': 'Just dropped',
   'items.empty': 'Nothing there',

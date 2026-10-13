@@ -1,3 +1,4 @@
+import { FURNACE } from '@stillwake/content';
 import {
   command,
   furnace,
@@ -39,7 +40,8 @@ function read(game: Game, crate: number | undefined) {
     inventory: copy(shown.inventory),
     crate: crate === undefined ? undefined : copy(shown.crates.get(crate) ?? q.crate(crate)),
     creative: q.creative(),
-    // A furnace shows its input, how far its work is, its outputs and why it stands still.
+    // A furnace shows its input and fuel, its fire, how far its work is, its outputs and why it
+    // stands still.
     furnace:
       crate !== undefined && kind === 'furnace'
         ? { at: game.client.sim.query(furnace).at(crate) }
@@ -232,7 +234,15 @@ export function Inventory({ game }: { readonly game: Game }) {
       if (place.crate === undefined && place.slot < ROW) setChosen(place.slot);
       return;
     }
-    const result = clickOn(held, { place, stack: slotAt(reading, place), button, shift, crate });
+    const fuelSlot = reading.furnace ? FURNACE.fuelSlot : undefined;
+    const result = clickOn(held, {
+      place,
+      stack: slotAt(reading, place),
+      button,
+      shift,
+      crate,
+      ...(fuelSlot === undefined ? {} : { fuelSlot }),
+    });
     setPicked(result.picked);
     if (!result.command) return;
     game.client.send(result.command);
@@ -283,21 +293,31 @@ export function Inventory({ game }: { readonly game: Game }) {
               className="rounded border border-orange-700/70 bg-slate-900/90 p-1"
             >
               <div className="flex items-center gap-2">
-                {box({ crate, slot: 0 })}
+                {/* Its input over its fuel, as Minecraft lays them, the fire between them. */}
+                <div className="flex flex-col items-center gap-1">
+                  {box({ crate, slot: 0 })}
+                  <span
+                    data-fire={reading.furnace.at.burning ? 'lit' : 'out'}
+                    className={`h-2.5 w-2.5 rounded-full ${reading.furnace.at.burning ? 'bg-orange-400 shadow-[0_0_6px_2px] shadow-orange-500' : 'bg-slate-700'}`}
+                  />
+                  {box({ crate, slot: FURNACE.fuelSlot })}
+                </div>
                 <div className="h-1.5 w-14 overflow-hidden rounded bg-slate-700">
                   <div
                     data-progress
                     className="h-full bg-orange-400"
                     style={{
-                      width: `${reading.furnace.at ? (100 * reading.furnace.at.progress) / reading.furnace.at.work : 0}%`,
+                      width: `${(100 * (reading.furnace.at.progress ?? 0)) / (reading.furnace.at.work ?? 1)}%`,
                     }}
                   />
                 </div>
                 <div className="flex gap-1">
-                  {range(1, reading.crate.length).map((slot) => box({ crate, slot }))}
+                  {range(FURNACE.fuelSlot + 1, reading.crate.length).map((slot) =>
+                    box({ crate, slot }),
+                  )}
                 </div>
               </div>
-              {reading.furnace.at?.problem && (
+              {reading.furnace.at.problem && (
                 <p className="mt-1 text-[10px] text-red-300">{t(reading.furnace.at.problem)}</p>
               )}
             </div>

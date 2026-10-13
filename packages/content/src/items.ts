@@ -8,10 +8,10 @@ export interface ItemSpec {
   readonly stack: number;
   /** A salvage item, caught as debris, is smelted in a furnace into these. */
   readonly yields?: Yields;
-  /** Ticks a furnace at full power takes to smelt one; given with `yields`. */
+  /** Ticks of a furnace's fire it takes to smelt one; given with `yields`. */
   readonly smeltTicks?: number;
-  /** Oxygen a furnace draws from its pipe as it starts on one; given with `yields`. */
-  readonly oxygen?: number;
+  /** Ticks a furnace's fire burns on one: a fuel. */
+  readonly burnTicks?: number;
 }
 
 /**
@@ -22,9 +22,9 @@ export const ITEMS = {
   scrap: { stack: 500 },
   iron: { stack: 500 },
   canister: { stack: 5 },
-  planks: { stack: 50 },
-  scrapChunk: { stack: 10, yields: { scrap: 12 }, smeltTicks: 100, oxygen: 2 },
-  hullPlate: { stack: 5, yields: { iron: 6, scrap: 4 }, smeltTicks: 200, oxygen: 4 },
+  planks: { stack: 50, burnTicks: 300 },
+  scrapChunk: { stack: 10, yields: { scrap: 12 }, smeltTicks: 100 },
+  hullPlate: { stack: 5, yields: { iron: 6, scrap: 4 }, smeltTicks: 200 },
   // Containers: caught, they open into their loot (`LOOT`), and are never carried.
   supplyPod: { stack: 1 },
   cargoCrate: { stack: 1 },

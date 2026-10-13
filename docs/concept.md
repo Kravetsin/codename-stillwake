@@ -14,9 +14,11 @@ A living document: what is decided about the game and what is still open. Techni
 ## Decided
 
 - **Start:** the hero is left alive in a wreck, a fragment of a ship, and has to make it livable to
-  survive: one small room a weak oxygen generator holds, a breached room beside it, a furnace and
-  an empty crate. Everything else is caught as debris and smelted in the furnace, which burns power
-  and oxygen ([0016](decisions/0016-breathe-where-the-air-is.md)).
+  survive: one small room a weak oxygen generator holds, a breached room beside it, and nothing
+  else. Everything is caught as debris: a furnace built of caught salvage burns planks from cargo
+  crates and breathes its room's air, and smelts the rest into materials; a crate comes after, of
+  planks and iron ([0016](decisions/0016-breathe-where-the-air-is.md),
+  [0023](decisions/0023-a-furnace-burns-fuel.md)).
 - **Spacewalks:** on a tether from the hull at first; a jetpack later frees the hero from it.
 - **Dangers:** yes — the game can hurt you. Which ones is open.
 - **Time runs only while the game runs.** Nothing happens offline and there is no offline progress,

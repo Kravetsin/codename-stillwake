@@ -1,125 +1,168 @@
-import { AIR, ITEMS } from '@stillwake/content';
+import { FURNACE, ITEMS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
 import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
-import { atmosphere, grid, items, MODULES, power } from '../index';
+import { atmosphere, grid, items, MODULES } from '../index';
 import { furnace } from './index';
 
 const world = defineSim([...MODULES, builder]);
 
 /**
- * Ten wide: a solar panel out in space cabled to a furnace in a sealed room, the furnace piped to a
- * tank holding a canister's worth of oxygen.
+ * Ten wide: a sealed room holding a furnace, and a tank of oxygen piped to a vent that airs the room.
+ * The furnace has no pipe and no cable: it burns planks and breathes the room's air.
  */
-const ROWS = ['PPP       ', '          ', '##########', '#FF.TT...#', '#FF.TT...#', '##########'];
+const ROWS = ['##########', '#FF.TT...#', '#FF.TTV..#', '##########'];
+const UNDER = ['', '    o', '    ---'];
 const at = (x: number, y: number) => y * 10 + x;
-const PANEL = at(0, 0);
-const FURNACE = at(1, 3);
-const CABLED = [
-  [
-    { x: 0, y: 0 },
-    { x: 1, y: 3 },
-  ],
-] as const;
-const FILLED = ['', '', '', '', ' ----o'];
+const FURNACE_AT = at(1, 1);
+const TANK = at(4, 1);
+const CHUNK = ITEMS.scrapChunk;
+const PLANK = ITEMS.planks;
 
-/** The world, a peer 0 with `chunks` scrap chunks, and the furnace's machine id. */
-function setUp(chunks = 2, under = FILLED) {
-  const w = giveItems(scenario(world, parseLayout(ROWS, under, CABLED)), 0, {
-    scrapChunk: chunks,
-  });
-  return { w, id: w.query(grid).machineAt(FURNACE)?.id ?? 0 };
+/** The world, its room aired, a peer 0 carrying `carry`, and the furnace's machine id. */
+function setUp(carry = { scrapChunk: 2, planks: 2 }) {
+  const w = giveItems(scenario(world, parseLayout(ROWS, UNDER)), 0, carry);
+  for (let i = 0; i < 2000 && !w.query(atmosphere).airedAt(FURNACE_AT); i++) w.run();
+  expect(w.query(atmosphere).airedAt(FURNACE_AT)).toBe(true);
+  return { w, id: w.query(grid).machineAt(FURNACE_AT)?.id ?? 0 };
 }
 const tankOxygen = (w: Scenario) =>
-  w.query(atmosphere).oxygenIn(w.query(grid).machineAt(at(4, 3))?.id ?? 0);
-const putIn = (w: Scenario, id: number, count = 1) =>
-  w.do(items, 'move', { src: { slot: 0 }, dst: { crate: id }, count }).run();
-const CHUNK = ITEMS.scrapChunk;
+  w.query(atmosphere).oxygenIn(w.query(grid).machineAt(TANK)?.id ?? 0);
+/** Moves `count` of the first stack peer 0 holds of `item` into slot `slot` of furnace `id`. */
+function put(w: Scenario, id: number, item: string, slot: number, count = 1) {
+  const from = w
+    .query(items)
+    .inventory(0)
+    .findIndex((s) => s?.item === item);
+  w.do(items, 'move', { src: { slot: from }, dst: { crate: id, slot }, count }).run();
+  return w;
+}
+const fuelOf = (w: Scenario, id: number) => w.query(items).crate(id)[FURNACE.fuelSlot]?.count ?? 0;
 
 describe('furnace', () => {
-  it('smelts an item into its yields in its ticks at full power, its oxygen paid as it begins', () => {
+  it('lights only with salvage to smelt, fuel and air, using one fuel up', () => {
     const { w, id } = setUp();
-    expect(w.query(power).networks()[0]?.demand).toBe(0);
-    putIn(w, id, 2);
-    // A move naming no slot of a furnace goes into its input.
-    expect(w.query(items).crate(id)[0]).toEqual({ item: 'scrapChunk', count: 2 });
-    expect(w.query(power).networks()[0]).toMatchObject({ demand: 4, satisfaction: 1000 });
-    expect(tankOxygen(w)).toBe(AIR.canister - CHUNK.oxygen);
-    w.run(CHUNK.smeltTicks - 2);
-    expect(w.query(items).crate(id)[1]).toBeNull();
+    put(w, id, 'planks', FURNACE.fuelSlot, 2);
+    w.run(5);
+    // Fuel alone: nothing to smelt, no fire.
+    expect(w.query(furnace).at(id)).toEqual({ burning: false });
+    expect(fuelOf(w, id)).toBe(2);
+    put(w, id, 'scrapChunk', 0);
+    expect(w.query(furnace).at(id)).toMatchObject({ burning: true, problem: undefined });
+    expect(fuelOf(w, id)).toBe(1);
+  });
+
+  it('says it has no fuel, and stands', () => {
+    const { w, id } = setUp();
+    put(w, id, 'scrapChunk', 0);
+    w.run(20);
     expect(w.query(furnace).at(id)).toMatchObject({
-      item: 'scrapChunk',
-      progress: (CHUNK.smeltTicks - 1) * 1000,
-      work: CHUNK.smeltTicks * 1000,
-      problem: undefined,
+      burning: false,
+      progress: 0,
+      problem: 'furnace.noFuel',
+    });
+  });
+
+  it('smelts an item in its smelting ticks of fire, and the next on the same fire', () => {
+    const { w, id } = setUp();
+    put(w, id, 'planks', FURNACE.fuelSlot);
+    put(w, id, 'scrapChunk', 0, 2);
+    // The tick of the move lit it and did its first tick of work.
+    w.run(CHUNK.smeltTicks - 2);
+    expect(w.query(items).crate(id)[2]).toBeNull();
+    expect(w.query(furnace).at(id)).toMatchObject({
+      progress: CHUNK.smeltTicks - 1,
+      work: CHUNK.smeltTicks,
     });
     w.run();
-    expect(w.query(items).crate(id).slice(0, 2)).toEqual([
-      { item: 'scrapChunk', count: 1 },
-      { item: 'scrap', count: CHUNK.yields.scrap },
-    ]);
-    // The next one begins on the next tick, paying again.
-    w.run();
-    expect(tankOxygen(w)).toBe(AIR.canister - 2 * CHUNK.oxygen);
-  });
-
-  it('stands still without power, saying so, and draws no oxygen until it has some', () => {
-    const { w, id } = setUp();
-    w.do(power, 'cut', { a: PANEL, b: FURNACE }).run();
-    putIn(w, id);
-    w.run(20);
-    expect(w.query(furnace).at(id)).toMatchObject({ progress: 0, problem: 'furnace.unpowered' });
-    expect(tankOxygen(w)).toBe(AIR.canister);
-  });
-
-  it('waits for its oxygen with a dry pipe', () => {
-    const { w, id } = setUp(1, ['', '', '', '', ' ----']);
-    putIn(w, id);
-    w.run(20);
-    expect(w.query(furnace).at(id)).toMatchObject({ progress: 0, problem: 'furnace.noOxygen' });
     expect(w.query(items).crate(id)[0]).toEqual({ item: 'scrapChunk', count: 1 });
+    expect(w.query(items).crate(id)[2]).toEqual({ item: 'scrap', count: CHUNK.yields.scrap });
+    w.run(CHUNK.smeltTicks);
+    expect(w.query(items).crate(id)[0]).toBeNull();
+    expect(w.query(items).crate(id)[2]).toEqual({ item: 'scrap', count: 2 * CHUNK.yields.scrap });
+    // One plank smelted both and burns on.
+    expect(fuelOf(w, id)).toBe(0);
+    expect(w.query(furnace).at(id)).toEqual({ burning: true });
   });
 
-  it('waits with no room for what it makes, drawing no power meanwhile', () => {
-    const { w, id } = setUp(1);
-    putIn(w, id);
+  it('burns its fuel down with nothing left to smelt, and lights no more', () => {
+    const { w, id } = setUp();
+    put(w, id, 'planks', FURNACE.fuelSlot, 2);
+    put(w, id, 'scrapChunk', 0);
+    w.run(PLANK.burnTicks - 1);
+    expect(w.query(furnace).at(id)).toEqual({ burning: false });
+    w.run(100);
+    expect(fuelOf(w, id)).toBe(1);
+  });
+
+  it("breathes its room's air while it burns, a breath every beat", () => {
+    // Beside a twin with no fire: the room leaks alike in both, and the tank pays for it alike.
+    const fired = setUp();
+    const cold = setUp();
+    for (const { w, id } of [fired, cold]) put(w, id, 'planks', FURNACE.fuelSlot).run(200);
+    expect(tankOxygen(fired.w)).toBe(tankOxygen(cold.w));
+    put(fired.w, fired.id, 'scrapChunk', 0);
+    cold.w.run();
+    // Lit on the tick of the move, it breathed then and on every beat after.
+    fired.w.run(4 * FURNACE.breathEvery - 1);
+    cold.w.run(4 * FURNACE.breathEvery - 1);
+    expect(tankOxygen(cold.w) - tankOxygen(fired.w)).toBe(4 * FURNACE.breath);
+  });
+
+  it('does not light without air, and goes out when the air goes, its fuel lost', () => {
+    const { w, id } = setUp();
+    put(w, id, 'planks', FURNACE.fuelSlot, 2);
+    put(w, id, 'scrapChunk', 0);
+    expect(w.query(furnace).at(id)?.burning).toBe(true);
+    // A hole in the hull: the room is space, and the fire's next breath finds none.
+    w.do(builder, 'clear', { cell: at(9, 1), layer: 'structure' }).run();
+    w.run(FURNACE.breathEvery);
+    expect(w.query(furnace).at(id)).toMatchObject({ burning: false, problem: 'furnace.noAir' });
+    w.run(100);
+    expect(fuelOf(w, id)).toBe(1);
+    expect(w.query(items).crate(id)[2]).toBeNull();
+  });
+
+  it('waits, unlit, with no room for what it makes', () => {
+    const { w, id } = setUp();
     const full = { item: 'iron' as const, count: ITEMS.iron.stack };
-    const slots = [...w.query(items).crate(id)];
     // Nothing puts items into a furnace's outputs but smelting: straight into the world instead.
     (w.sim.world.slices.items as { crates: unknown[] }).crates = [
-      { crate: id, slots: [slots[0] ?? null, full, full, full] },
+      { crate: id, slots: [{ item: 'scrapChunk', count: 1 }, null, full, full, full] },
     ];
-    w.run(CHUNK.smeltTicks + 10);
-    expect(w.query(furnace).at(id)).toMatchObject({
-      progress: CHUNK.smeltTicks * 1000,
-      problem: 'furnace.full',
-    });
-    expect(w.query(power).networks()[0]?.demand).toBe(0);
-    expect(w.query(items).crate(id)[0]).toEqual({ item: 'scrapChunk', count: 1 });
+    put(w, id, 'planks', FURNACE.fuelSlot);
+    w.run(20);
+    expect(w.query(furnace).at(id)).toMatchObject({ burning: false, problem: 'furnace.full' });
+    expect(fuelOf(w, id)).toBe(1);
   });
 
-  it('starts over on an item taken out and put back, the oxygen paid for it gone', () => {
-    const { w, id } = setUp(1);
-    putIn(w, id);
+  it('starts over on an item taken out and put back', () => {
+    const { w, id } = setUp();
+    put(w, id, 'planks', FURNACE.fuelSlot);
+    put(w, id, 'scrapChunk', 0);
     w.run(30);
     w.do(items, 'move', { src: { crate: id, slot: 0 }, dst: {}, count: 1 }).run();
-    expect(w.query(furnace).at(id)).toBeUndefined();
-    putIn(w, id);
-    expect(w.query(furnace).at(id)?.progress).toBe(1000);
-    expect(tankOxygen(w)).toBe(AIR.canister - 2 * CHUNK.oxygen);
+    expect(w.query(furnace).at(id)).toEqual({ burning: true });
+    put(w, id, 'scrapChunk', 0);
+    expect(w.query(furnace).at(id)?.progress).toBe(1);
   });
 
   it('takes nothing put into its outputs, and gives what they hold', () => {
-    const { w, id } = setUp(1);
-    w.do(items, 'move', { src: { slot: 0 }, dst: { crate: id, slot: 2 }, count: 1 }).run();
+    const { w, id } = setUp();
+    put(w, id, 'scrapChunk', 2);
     expect(w.refusals).toEqual(['items.takeOnly']);
-    putIn(w, id);
+    put(w, id, 'planks', FURNACE.fuelSlot);
+    put(w, id, 'scrapChunk', 0);
     w.run(CHUNK.smeltTicks);
-    w.do(items, 'move', { src: { crate: id, slot: 1 }, dst: {}, count: 999 }).run();
+    w.do(items, 'move', { src: { crate: id, slot: 2 }, dst: {}, count: 999 }).run();
     expect(w.refusals).toEqual(['items.takeOnly']);
-    expect(w.query(items).inventory(0)[0]).toEqual({ item: 'scrap', count: CHUNK.yields.scrap });
+    const got = w
+      .query(items)
+      .inventory(0)
+      .find((s) => s?.item === 'scrap');
+    expect(got).toEqual({ item: 'scrap', count: CHUNK.yields.scrap });
   });
 });

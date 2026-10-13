@@ -1,4 +1,4 @@
-import { HERO, ITEMS, WRECK } from '@stillwake/content';
+import { FURNACE, HERO, ITEMS, WRECK } from '@stillwake/content';
 import { expect, test, type Page } from '@playwright/test';
 import { CELL, START_ZOOM } from '../src/render/camera';
 
@@ -33,8 +33,9 @@ interface DevGame {
     sim: {
       world: {
         slices: {
-          debris: { pieces: { id: number; item: string }[] };
+          debris: { pieces: { id: number }[] };
           grid: { machines: { kind: string }[] };
+          items: { inventories: { peer: number; slots: unknown[] }[] };
         };
       };
     };
@@ -43,28 +44,27 @@ interface DevGame {
 }
 
 /**
- * Catches the first piece of debris of a kind in `of` to drift by into the hotbar's first slot, as a
- * hero out in space would: salvage is the only way to anything. Driven through the
+ * Catches the first piece of debris to drift by into the hotbar's first slot, as a hero out in space
+ * would: salvage is the only way to anything. Driven through the
  * dev handle, the hero stepped out for the one tick of the grab; its controller brings it back.
  */
-async function catchPiece(page: Page, of: readonly string[] = Object.keys(ITEMS)) {
+async function catchPiece(page: Page) {
   await page.waitForFunction(
-    (kinds) =>
-      (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.debris.pieces.some(
-        (p) => kinds.includes(p.item),
-      ),
-    of,
-    { timeout: 45_000 },
+    () =>
+      (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.debris.pieces
+        .length > 0,
+    null,
+    { timeout: 30_000 },
   );
   await page.evaluate(
-    ({ space, kinds }) => {
+    (space) => {
       const game = (window as unknown as { __game: DevGame }).__game;
-      const piece = game.client.sim.world.slices.debris.pieces.find((p) => kinds.includes(p.item));
+      const piece = game.client.sim.world.slices.debris.pieces[0];
       if (!piece) throw new Error('no piece');
       game.client.send({ module: 'crew', type: 'enter', payload: { cell: space } });
       game.client.send({ module: 'debris', type: 'grab', payload: { piece: piece.id } });
     },
-    { space: 10 * WRECK[0]!.length + 10, kinds: of },
+    10 * WRECK[0]!.length + 10,
   );
   await expect(page.locator('[data-slot="inv-0"]')).toHaveAttribute('data-item', /./);
 }
@@ -82,44 +82,61 @@ async function pointAt(page: Page, at: { x: number; y: number }) {
   );
 }
 
-/** Moves the pointer over the middle of the first cell drawn as `char`, and presses E there. */
-async function useAt(page: Page, char: string) {
-  await pointAt(page, find(char));
-  await page.keyboard.press('KeyE');
-}
-
 /** Where a crate is built: on the floor right of where the hero wakes, in reach. */
 const CRATE = { x: find('S').x + 1, y: find('S').y };
+/** Where a furnace is built: left of where the hero wakes, past the vent, in reach. */
+const FURNACE_AT = { x: find('S').x - 2, y: find('S').y - 1 };
 
 /**
- * Builds a crate beside the hero, as a player would, in creative mode so it costs nothing: its plan
- * sent, then worked with the left button held on it. Opens it with E.
+ * Builds a machine of `kind` at `at`, as a player would, in creative mode so it costs nothing: its
+ * plan sent, then worked with the left button held on it. Opens it with E.
  */
-async function buildCrate(page: Page) {
+async function build(page: Page, kind: string, at: { x: number; y: number }) {
   await page.evaluate(
-    (cell) => {
+    ({ cell, kind }) => {
       const game = (window as unknown as { __game: DevGame }).__game;
       game.client.send({ module: 'items', type: 'setCreative', payload: { on: true } });
-      const placement = { layer: 'machine', kind: 'crate' };
+      const placement = { layer: 'machine', kind };
       game.client.send({ module: 'building', type: 'placePlan', payload: { cell, placement } });
     },
-    CRATE.y * WRECK[0]!.length + CRATE.x,
+    { cell: at.y * WRECK[0]!.length + at.x, kind },
   );
-  await pointAt(page, CRATE);
+  await pointAt(page, at);
   await page.mouse.down();
-  await page.waitForFunction(() =>
-    (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.grid.machines.some(
-      (m) => m.kind === 'crate',
-    ),
+  await page.waitForFunction(
+    (kind) =>
+      (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.grid.machines.some(
+        (m) => m.kind === kind,
+      ),
+    kind,
   );
   await page.mouse.up();
   await page.keyboard.press('KeyE');
 }
 
+/**
+ * For this test only: puts `stacks` into the hero's first slots straight into the world, as the
+ * sim's tests do: no command makes items out of nothing, and waiting for a cargo crate to drift by
+ * would take minutes. Peer 0's world is the only one: the host keeps none.
+ */
+async function gift(page: Page, stacks: readonly { item: string; count: number }[]) {
+  await page.evaluate((stacks) => {
+    const items = (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.items;
+    let own = items.inventories.find((inv) => inv.peer === 0);
+    if (!own) {
+      own = { peer: 0, slots: Array(36).fill(null) };
+      items.inventories.unshift(own);
+    }
+    stacks.forEach((stack, i) => {
+      if (own) own.slots[i] = stack;
+    });
+  }, stacks);
+}
+
 test('puts a caught piece into a crate and takes it back into the hotbar', async ({ page }) => {
   await start(page);
   await catchPiece(page);
-  await buildCrate(page);
+  await build(page, 'crate', CRATE);
   await page.locator('[data-slot="inv-0"]').click();
   await page.locator('[data-slot="crate-4"]').click();
   await expect(page.locator('[data-slot="crate-4"]')).toHaveAttribute('data-item', /./);
@@ -132,7 +149,7 @@ test('puts a caught piece into a crate and takes it back into the hotbar', async
 test('drags a stack into the crate and back, and along the closed hotbar', async ({ page }) => {
   await start(page);
   await catchPiece(page);
-  await buildCrate(page);
+  await build(page, 'crate', CRATE);
   await drag(page, 'inv-0', 'crate-2');
   await expect(page.locator('[data-slot="crate-2"]')).toHaveAttribute('data-item', /./);
   await drag(page, 'crate-2', 'inv-2');
@@ -146,37 +163,29 @@ test('drags a stack into the crate and back, and along the closed hotbar', async
   await expect(page.locator('[data-slot="inv-2"]')).not.toHaveAttribute('data-item');
 });
 
-test('smelts a caught piece in the furnace into what it yields', async ({ page }) => {
-  test.setTimeout(120_000);
+test('builds a furnace, lights it with a plank and smelts a chunk into what it yields', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
   await start(page);
-  await catchPiece(
-    page,
-    Object.keys(ITEMS).filter((id) => 'yields' in ITEMS[id as keyof typeof ITEMS]),
+  await gift(page, [
+    { item: 'scrapChunk', count: 1 },
+    { item: 'planks', count: 1 },
+  ]);
+  await build(page, 'furnace', FURNACE_AT);
+  // A shift-click sends a plank into its fuel slot, a chunk into its input.
+  await page.locator('[data-slot="inv-1"]').click({ modifiers: ['Shift'] });
+  await expect(page.locator(`[data-slot="crate-${FURNACE.fuelSlot}"]`)).toHaveAttribute(
+    'data-item',
+    'planks',
   );
-  // Once room A is aired the generator's store fills: smelting, which slows the generator, would
-  // otherwise starve the room and the furnace alike while the hero breathes there.
-  await page.waitForFunction(
-    () =>
-      (
-        window as unknown as {
-          __game: {
-            client: { sim: { world: { slices: { atmosphere: { tanks: { oxygen: number }[] } } } } };
-          };
-        }
-      ).__game.client.sim.world.slices.atmosphere.tanks.some((t) => t.oxygen >= 10),
-    null,
-    { timeout: 30_000 },
-  );
-  await useAt(page, 'F');
-  // A shift-click sends it into the furnace's input.
   await page.locator('[data-slot="inv-0"]').click({ modifiers: ['Shift'] });
-  await expect(page.locator('[data-slot="crate-0"]')).toHaveAttribute('data-item', /./);
-  // At 5/8 power, with the furnace drawing, the slowest salvage, a supply pod, smelts in 24 s.
-  const longest = Math.max(
-    ...Object.values(ITEMS).map((i) => ('smeltTicks' in i ? i.smeltTicks : 0)),
-  );
-  await expect(page.locator('[data-slot="crate-1"]')).toHaveAttribute('data-item', /./, {
-    timeout: ((longest * 8) / 5 / 20) * 1000 + 10_000,
+  // It lights once room A holds air: the plank is burnt, the fire shows.
+  await expect(page.locator('[data-fire]')).toHaveAttribute('data-fire', 'lit', {
+    timeout: 30_000,
+  });
+  await expect(page.locator('[data-slot="crate-2"]')).toHaveAttribute('data-item', 'scrap', {
+    timeout: (ITEMS.scrapChunk.smeltTicks / 20) * 1000 + 10_000,
   });
   await expect(page.locator('[data-slot="crate-0"]')).not.toHaveAttribute('data-item');
 });

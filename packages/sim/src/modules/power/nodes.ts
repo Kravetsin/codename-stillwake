@@ -77,8 +77,7 @@ function outside(grid: Grid, rooms: Rooms, m: Machine): boolean {
 
 /**
  * The networks the cables join, in id order, with each user's satisfaction by machine id. Supply is
- * what the makers out in space make; demand what the users would draw, each only while `drawing`
- * says it works. Satisfaction is
+ * what the makers out in space make; demand what the users draw. Satisfaction is
  * `floor(1000 × supply / demand)`, at most 1000, and 1000 with nothing drawn. A powered machine with no
  * cable is on no network: it makes nothing and gets nothing.
  */
@@ -86,7 +85,6 @@ export function findNetworks(
   grid: Grid,
   rooms: Rooms,
   cables: readonly Cable[],
-  drawing: (m: Machine) => boolean,
 ): { networks: PowerNetwork[]; satisfaction: Map<number, number> } {
   const parent = new Map<number, number>();
   const root = (n: number): number => {
@@ -120,7 +118,7 @@ export function findNetworks(
       supply.set(network, (supply.get(network) ?? 0) + s.makes);
     }
     if (s.draws !== undefined) {
-      if (drawing(m)) demand.set(network, (demand.get(network) ?? 0) + s.draws);
+      demand.set(network, (demand.get(network) ?? 0) + s.draws);
       users.push({ id: m.id, network });
     }
   }

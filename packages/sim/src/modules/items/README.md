@@ -61,7 +61,8 @@ crate, a furnace) holds, by its machine id; and creative mode, the world setting
   floor, live and read-only; `pickUpProblem(peer, id)` — the refusal that peer's `pickUp` would get; `pickUpAmount(peer, id)` —
   how much of it would fit.
 - **Furnaces:** `canSmelt(id)` — whether its input holds salvage whose `yields` fit its outputs;
-  the operation `smelt(id)` turns one of it into them, the caller checking `canSmelt` first.
+  the operation `smelt(id)` turns one of it into them, the caller checking `canSmelt` first;
+  `consume(id, slot)` uses up one of what a slot holds, a fuel as a fire is lit.
 - **Operations:** `take(peer, cost)` — the caller checks `shortOf` first, and taking past what is there
   throws; it returns what it took, nothing in creative mode, so a caller refunds exactly that.
   `give(peer, cost)` — the caller checks `fullFor` first, and giving past the room throws.

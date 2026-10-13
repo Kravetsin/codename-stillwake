@@ -228,24 +228,6 @@ function use(s: Survey, orders: Orders, room: number, amount: number, edits: Edi
   return had + takeFar(s, orders, room, amount - had, edits);
 }
 
-/** The oxygen on the networks machine `id`'s ports are on, each network counted once. */
-export function oxygenFor(air: Seen, world: World, id: number): number {
-  const s = survey(air, world);
-  return world.pipes.networksOf(id).reduce((sum, n) => sum + oxygenOn(s, n), 0);
-}
-
-/**
- * Takes up to `amount` from the networks machine `id`'s ports are on, in network id order, tank by
- * tank as any draw; returns what it took. A machine that burns oxygen, such as a furnace.
- */
-export function drawFor(air: Air, world: World, id: number, amount: number): number {
-  const s = survey(air, world);
-  let had = 0;
-  for (const network of world.pipes.networksOf(id)) had += draw(s, network, amount - had);
-  if (air.tanks.some((t) => t.oxygen === 0)) air.tanks = air.tanks.filter((t) => t.oxygen > 0);
-  return had;
-}
-
 /** Takes the air out of cells no longer in a room: a wall built on them, a room open wide. */
 export function strand(air: Air, world: World): void {
   const roomOf = world.rooms.roomOfCells();

@@ -50,6 +50,17 @@ describe('clicks on slots', () => {
     expect(clickOn(undefined, click(inv(3), null))).toEqual({ picked: undefined });
   });
 
+  it("send a fuel with shift into an open furnace's fuel slot, and salvage into its input", () => {
+    const planks = { item: 'planks' as const, count: 3 };
+    expect(clickOn(undefined, click(inv(1), planks, { shift: true, fuelSlot: 1 })).command).toEqual(
+      command(items, 'move', { src: inv(1), dst: { crate: 7, slot: 1 }, count: 3 }),
+    );
+    const chunk = { item: 'scrapChunk' as const, count: 2 };
+    expect(clickOn(undefined, click(inv(1), chunk, { shift: true, fuelSlot: 1 })).command).toEqual(
+      command(items, 'move', { src: inv(1), dst: { crate: 7 }, count: 2 }),
+    );
+  });
+
   it('send a stack to the other side of an open crate with shift, and nowhere without one', () => {
     expect(clickOn(undefined, click(inv(1), scrap(6), { shift: true }))).toEqual({
       picked: undefined,
