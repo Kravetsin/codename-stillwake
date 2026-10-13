@@ -5,7 +5,7 @@ import { CostRow, costLines } from '../../render/CostRow';
 import type { Game } from '../../session/game';
 import { overlayOn } from '../../session/ui';
 import { thumbOf } from './blueprint';
-import { costOf, menuOpen, putPlanAway, selected, tabFor, TABS, type Tool } from './tools';
+import { costOf, planOut, putPlanAway, selected, tabFor, TABS, type Tool } from './tools';
 
 /** The inventory's counts are read this often while the menu is open: a panel reads on a timer. */
 const REFRESH_MS = 250;
@@ -24,22 +24,22 @@ function Thumb({ tool, size }: { readonly tool: Tool; readonly size: string }) {
 }
 
 /**
- * The plan in hand (0022), taken out with B: the build menu's tabs of what can be built, each card a
- * picture of what it builds, dim while the player carries too little for it, its name, cost and use
- * in a tooltip over it. Opened while an overlay is on, it opens on that overlay's tab. Picking a card
- * puts it in hand and closes the menu; B opens and closes it, Esc puts the plan away. Closed with a
- * card in hand, the card and its buttons stay at the bottom; with nothing, the key that opens it.
+ * The plan in hand (0022), taken out with B and shown the whole while it is out: the build menu's
+ * tabs of what can be built, each card a picture of what it builds, dim while the player carries too
+ * little for it, its name, cost and use in a tooltip over it, so a card is swapped for another at a
+ * click. Taken out while an overlay is on, it opens on that overlay's tab. Under the cards, the card
+ * in hand and its buttons. B or Esc puts the plan away; with it away, the key that takes it out.
  */
 export function BuildMenu({ game }: { readonly game: Game }) {
   const tool = useSyncExternalStore(selected.subscribe, selected.get);
-  const open = useSyncExternalStore(menuOpen.subscribe, menuOpen.get);
+  const open = useSyncExternalStore(planOut.subscribe, planOut.get);
   const [tab, setTab] = useState(TABS[0]?.id ?? '');
   const [hovered, setHovered] = useState<Tool>();
   const [carried, setCarried] = useState<Cost>({});
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyB' && !e.repeat) menuOpen.set(!menuOpen.get());
+      if (e.code === 'KeyB' && !e.repeat) planOut.set(!planOut.get());
       if (e.code === 'Escape') putPlanAway();
     };
     window.addEventListener('keydown', onKey);
@@ -56,28 +56,13 @@ export function BuildMenu({ game }: { readonly game: Game }) {
     return () => clearInterval(timer);
   }, [game, open]);
 
-  const pick = (each: Tool) => {
-    selected.set(each === tool ? undefined : each);
-    menuOpen.set(false);
-  };
+  const pick = (each: Tool) => selected.set(each === tool ? undefined : each);
   const costFor = game.client.sim.query(building).costFor;
 
   if (!open) {
     return (
-      <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded border border-slate-700 bg-slate-900/90 px-2 py-1 font-mono text-xs text-slate-300">
-        {tool ? (
-          <>
-            <Thumb tool={tool} size="h-6 w-6" />
-            <span data-tool={tool.id} className="text-slate-100">
-              {tool.label}
-            </span>
-            <span className="text-slate-500">
-              {t(tool.kind === 'cable' ? 'hand.cable' : 'hand.card')}
-            </span>
-          </>
-        ) : (
-          <span className="text-slate-400">{t('build.open')}</span>
-        )}
+      <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded border border-slate-700 bg-slate-900/90 px-2 py-1 font-mono text-xs text-slate-400">
+        {t('build.open')}
       </div>
     );
   }
@@ -130,7 +115,21 @@ export function BuildMenu({ game }: { readonly game: Game }) {
           );
         })}
       </div>
-      <p className="mt-2 text-slate-500">{t('build.close')}</p>
+      <p className="mt-2 flex h-5 items-center gap-2 whitespace-nowrap text-slate-500">
+        {tool ? (
+          <>
+            <Thumb tool={tool} size="h-5 w-5" />
+            <span data-tool={tool.id} className="text-slate-100">
+              {tool.label}
+            </span>
+            <span className="truncate">
+              {t(tool.kind === 'cable' ? 'hand.cable' : 'hand.card')}
+            </span>
+          </>
+        ) : (
+          t('build.close')
+        )}
+      </p>
     </div>
   );
 }

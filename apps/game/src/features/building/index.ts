@@ -19,7 +19,7 @@ import { createSprites, joins, linksOf, piecesOf } from './blueprint';
 import { judge, lineOf, onGrid, spotAt, type Act, type Spot, type Verdict } from './drag';
 import { nearGrid } from './near-grid';
 import { BuildMenu } from './BuildMenu';
-import { cardAt, layersFor, menuOpen, POWER, putPlanAway, selected } from './tools';
+import { cardAt, layersFor, POWER, putPlanAway, selected } from './tools';
 
 /** A plan's tint: its own picture, blue, not built yet. */
 const PLAN = 0x5fd0ff;
@@ -143,7 +143,6 @@ export const buildingFeature: Feature = {
           const card = cardAt(cellAt(at), overlay, { ...q, power: sim.query(power) });
           if (!card) continue;
           selected.set(card);
-          menuOpen.set(false);
         }
 
         ghost.clear();

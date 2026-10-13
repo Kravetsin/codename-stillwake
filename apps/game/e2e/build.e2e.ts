@@ -4,7 +4,7 @@ interface DevGame {
   client: { sim: { world: { slices: { building: { plans: readonly object[] } } } } };
 }
 
-test('takes the plan out with B, picks a card, reopens the menu with B and puts it away', async ({
+test('takes the plan out with B, swaps cards with the menu shown, and puts it all away with B', async ({
   page,
 }) => {
   await page.goto('/');
@@ -21,16 +21,14 @@ test('takes the plan out with B, picks a card, reopens the menu with B and puts 
   await menu.getByRole('button', { name: 'Air' }).click();
   await expect(menu.locator('[data-card="vent"]')).toBeVisible();
   await menu.locator('[data-card="vent"]').click();
-  await expect(menu).toHaveCount(0);
-  // Closed with a card in hand, the card stays at the bottom; B brings the menu back with it.
-  await expect(page.locator('[data-tool="vent"]')).toBeVisible();
+  // The menu stays while the plan is out: the card in hand under the cards, another a click away.
+  await expect(menu.locator('[data-tool="vent"]')).toBeVisible();
+  await menu.locator('[data-card="tank"]').click();
+  await expect(menu.locator('[data-tool="tank"]')).toBeVisible();
+  // B puts the plan away, card and all.
   await page.keyboard.press('KeyB');
-  await expect(menu).toBeVisible();
-  await expect(menu.locator('[data-card="vent"]')).toBeVisible();
-  // Esc puts the plan away, card and all.
-  await page.keyboard.press('Escape');
   await expect(menu).toHaveCount(0);
-  await expect(page.locator('[data-tool="vent"]')).toHaveCount(0);
+  await expect(page.locator('[data-tool]')).toHaveCount(0);
 });
 
 test('picks the card of what is under the pointer with the middle button, and removes with the right', async ({

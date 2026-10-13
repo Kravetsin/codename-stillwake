@@ -83,25 +83,31 @@ export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cos
  */
 export const selected = createStore<Tool | undefined>(undefined);
 
-/** Whether the build menu is open: B opens and closes it. */
-export const menuOpen = createStore(false);
+/**
+ * Whether the plan is out, its menu shown the while: B takes it out and puts it away, a card keeps
+ * it out, and a card picked by the middle button takes it out.
+ */
+export const planOut = createStore(false);
 
-/** Puts the plan away: the menu closes and the card goes with it. */
+/** Puts the plan away: the menu goes and the card with it. */
 export function putPlanAway(): void {
-  menuOpen.set(false);
-  selected.set(undefined);
+  planOut.set(false);
 }
 
-// The hand holds the cable, the plan while the menu is open or a card is out, or neither; freed
-// from elsewhere — a hotbar slot picked — it puts the plan away.
+// A card in hand is the plan out; the plan put away takes the card with it.
+selected.subscribe(() => {
+  if (selected.get()) planOut.set(true);
+});
+planOut.subscribe(() => {
+  if (!planOut.get()) selected.set(undefined);
+});
+
+// The hand holds the cable, the plan while it is out, or neither; freed from elsewhere — a hotbar
+// slot picked — it puts the plan away.
 const holding = () =>
-  selected.get()?.kind === 'cable'
-    ? 'cable'
-    : menuOpen.get() || selected.get() !== undefined
-      ? 'plan'
-      : 'free';
+  selected.get()?.kind === 'cable' ? 'cable' : planOut.get() ? 'plan' : 'free';
 selected.subscribe(() => hand.set(holding()));
-menuOpen.subscribe(() => hand.set(holding()));
+planOut.subscribe(() => hand.set(holding()));
 hand.subscribe(() => {
   if (hand.get() === 'free' && holding() !== 'free') putPlanAway();
 });

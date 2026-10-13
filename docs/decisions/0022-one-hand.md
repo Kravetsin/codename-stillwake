@@ -20,10 +20,9 @@ mouse.
 
 ## Decision
 
-- **The hand holds one thing:** nothing or a hotbar item (`free`), the plan — the menu open or a
-  build card held (`plan`) — or the cable card (`cable`, even with the menu open). One store,
-  `hand`, replaces `buildMode` and `cableInHand`. The wheel or 1–9 picks a hotbar slot and puts a
-  card away; B opens the menu again.
+- **The hand holds one thing:** nothing or a hotbar item (`free`), the plan — out with a build card
+  or none (`plan`) — or the cable card (`cable`). One store, `hand`, replaces `buildMode` and
+  `cableInHand`. The wheel or 1–9 picks a hotbar slot and puts the plan away.
 - **Overlays show and filter.** P, L and O change no button; they choose what removal and the
   pipette take: with none or O, machines, structure and back walls; with P, pipes and valves; with
   L, cables. A drag begun on a plan cancels plans whatever the overlay. The cable card turns L on
@@ -39,11 +38,13 @@ mouse.
     one hand, and a stray right click marks no door;
   - middle: the pipette — the card of what is under the pointer, in the overlay's layer, into the
     hand; in L, the cable card on a node a cable ends at;
-  - B opens and closes the menu, Esc puts the plan away. The menu no longer opens on the right
-    button, and the Remove card goes.
-- **The menu is thumbnails,** a grid per tab drawn from the ship's own pixel art, one per material;
-  a tooltip says the name, cost (have / need) and what it does; a card short of materials is dim.
-  The bar at the bottom shows what is in hand, its thumbnail, name and buttons.
+  - B takes the plan out and puts it away, Esc puts it away too. The Remove card goes.
+- **The menu is shown the whole while the plan is out,** so a card is swapped for another at a
+  click: picking one keeps it open, and a card picked by the middle button takes the plan out. It is
+  thumbnails, a grid per tab drawn from the ship's own pixel art, one per material; a tooltip says
+  the name, cost (have / need) and what it does; a card short of materials is dim. Under the cards,
+  what is in hand, its thumbnail, name and buttons. A menu folded away with a card still in hand was
+  tried first: leaving the plan then took two presses.
 - **Plans are drawn as blueprints:** each its own picture under a blue tint, so its outline says
   what it is and the tint that it is not built yet; pipes and doors join to the plans beside them.
   The ghost of a card is drawn the same way, green where it fits and red where it does not. Marks

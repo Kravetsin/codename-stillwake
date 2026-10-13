@@ -8,7 +8,7 @@ import {
   cardAt,
   costOf,
   layersFor,
-  menuOpen,
+  planOut,
   POWER,
   putPlanAway,
   selected,
@@ -80,26 +80,32 @@ describe('the build menu', () => {
 });
 
 describe('the hand', () => {
-  it('holds the plan while the menu is open or a card is out, the cable as the cable', () => {
+  it('holds the plan while it is out, a card or none, the cable as the cable', () => {
     putPlanAway();
     expect(hand.get()).toBe('free');
-    menuOpen.set(true);
+    planOut.set(true);
     expect(hand.get()).toBe('plan');
     selected.set(card('floor'));
-    menuOpen.set(false);
     expect(hand.get()).toBe('plan');
+    selected.set(undefined);
+    expect([hand.get(), planOut.get()]).toEqual(['plan', true]);
     selected.set(card('cable'));
-    menuOpen.set(true);
     expect(hand.get()).toBe('cable');
     putPlanAway();
-    expect([hand.get(), menuOpen.get(), selected.get()]).toEqual(['free', false, undefined]);
+    expect([hand.get(), planOut.get(), selected.get()]).toEqual(['free', false, undefined]);
+  });
+
+  it('takes the plan out with a card picked while it is away, as the middle button does', () => {
+    putPlanAway();
+    selected.set(card('lamp'));
+    expect([hand.get(), planOut.get()]).toEqual(['plan', true]);
+    putPlanAway();
   });
 
   it('puts the plan away when freed from elsewhere: a hotbar slot picked', () => {
     selected.set(card('floor'));
-    menuOpen.set(true);
     hand.set('free');
-    expect([hand.get(), menuOpen.get(), selected.get()]).toEqual(['free', false, undefined]);
+    expect([hand.get(), planOut.get(), selected.get()]).toEqual(['free', false, undefined]);
   });
 
   it('turns on the overlay a card lays in, and gives back the one before once put away', () => {
@@ -120,12 +126,13 @@ describe('the hand', () => {
     expect(what(selected.get())).toBe('lamp');
     selected.set(card('cable'));
     expect(overlayOn.get()).toBe(POWER);
-    // Another overlay, or none, puts the cable away and stays.
+    // Another overlay, or none, puts the cable away and stays; the plan stays out.
     overlayOn.set('pipes');
-    expect([selected.get(), overlayOn.get(), hand.get()]).toEqual([undefined, 'pipes', 'free']);
+    expect([selected.get(), overlayOn.get(), hand.get()]).toEqual([undefined, 'pipes', 'plan']);
     selected.set(card('cable'));
     overlayOn.set(undefined);
     expect([selected.get(), overlayOn.get()]).toEqual([undefined, undefined]);
+    putPlanAway();
   });
 });
 

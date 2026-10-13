@@ -408,8 +408,8 @@ The plan and the power mode stacked and a button did what the other said. The ha
 filter what the right button removes and the middle picks: none or O — machines, structure, back
 walls; P — pipes and valves; L — cables. Left does what the card does, Shift + left with the cable
 moves a peg or a plug, right removes with the plan or the cable in hand (a drag cancels or marks; in
-L a press cuts), middle picks the card of what is under the pointer. B opens the menu, on the
-overlay's tab; no Remove card, no right button for the menu. The menu is a grid of thumbnails from
+L a press cuts), middle picks the card of what is under the pointer. B takes the plan out and away; its menu, on the
+overlay's tab, stays shown while it is out; no Remove card, no right button for the menu. The menu is a grid of thumbnails from
 the ship's art, a tooltip with name, cost and description, dim when short; a bar shows what is in
 hand. Plans and the ghost are drawn as their own pictures under a blue tint (green or red for the
 ghost). The art building draws moves to `render/`; `building.clearAt` takes the layers to look in.
