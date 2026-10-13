@@ -230,6 +230,12 @@ export interface Tuning {
   readonly emit: number;
   /** The curve from light to brightness. */
   readonly exposure: number;
+  /**
+   * The finest cascade's probes, this many light pixels apart, each with `rays` × `rays` rays; its
+   * stretch of distance as long as its spacing, and each above four times as long.
+   */
+  readonly spacing: number;
+  readonly rays: number;
   /** Light everywhere, so the darkest is never black. */
   readonly ambient: readonly [number, number, number];
 }
@@ -254,12 +260,6 @@ interface Field {
   readonly distance: Target;
   readonly cascades: readonly Cascade[];
 }
-
-/** Probe spacing of the finest cascade, in light pixels, and its rays across one side. */
-const SPACING = 2;
-const D0 = 2;
-/** The finest cascade's stretch of distance, in light pixels; each above reaches four times as far. */
-const INTERVAL = 2;
 
 /**
  * The cascades on `gl`, the context the game draws with. Its state is the caller's to give back
@@ -331,17 +331,17 @@ export function createCascades(gl: WebGL2RenderingContext) {
     gl.deleteFramebuffer(t.fbo);
   };
 
-  const field = (width: number, height: number): Field => {
+  const field = (width: number, height: number, finest: Tuning): Field => {
     // Enough cascades for the last to reach across the whole light.
     const across = Math.hypot(width, height);
     let count = 1;
-    while ((INTERVAL * (4 ** count - 1)) / 3 < across) count++;
+    while ((finest.spacing * (4 ** count - 1)) / 3 < across) count++;
     return {
       seeds: [target(width, height), target(width, height)],
       distance: target(width, height),
       cascades: Array.from({ length: count }, (_, c) => {
-        const spacing = SPACING * 2 ** c;
-        const d = D0 * 2 ** c;
+        const spacing = finest.spacing * 2 ** c;
+        const d = finest.rays * 2 ** c;
         const probes: [number, number] = [Math.ceil(width / spacing), Math.ceil(height / spacing)];
         return { target: target(probes[0] * d, probes[1] * d), spacing, d, probes };
       }),
@@ -351,7 +351,7 @@ export function createCascades(gl: WebGL2RenderingContext) {
     for (const t of [...f.seeds, f.distance, ...f.cascades.map((c) => c.target)]) free(t);
   };
 
-  let size = { width: 0, height: 0 };
+  let size = { width: 0, height: 0, spacing: 0, rays: 0 };
   let fields: { open: Field; things: Field } | undefined;
   /** Framebuffers drawing into the textures light is shown from, by texture. */
   const outputs = new Map<WebGLTexture, WebGLFramebuffer>();
@@ -412,8 +412,8 @@ export function createCascades(gl: WebGL2RenderingContext) {
         gl.uniform2f(u('uLight'), width, height);
         gl.uniform1f(u('uSpacing'), at.spacing);
         gl.uniform1i(u('uD'), at.d);
-        gl.uniform1f(u('uStart'), (INTERVAL * (4 ** c - 1)) / 3);
-        gl.uniform1f(u('uEnd'), (INTERVAL * (4 ** (c + 1) - 1)) / 3);
+        gl.uniform1f(u('uStart'), (tuning.spacing * (4 ** c - 1)) / 3);
+        gl.uniform1f(u('uEnd'), (tuning.spacing * (4 ** (c + 1) - 1)) / 3);
         gl.uniform1i(u('uHasUpper'), above ? 1 : 0);
         gl.uniform2i(u('uUpperProbes'), above?.probes[0] ?? 1, above?.probes[1] ?? 1);
         gl.uniform1f(u('uEmit'), tuning.emit);
@@ -471,15 +471,20 @@ export function createCascades(gl: WebGL2RenderingContext) {
       tuning: Tuning,
       cell: number,
     ) {
-      if (width !== size.width || height !== size.height || !fields) {
+      const made =
+        width === size.width &&
+        height === size.height &&
+        tuning.spacing === size.spacing &&
+        tuning.rays === size.rays;
+      if (!made || !fields) {
         if (fields) {
           freeField(fields.open);
           freeField(fields.things);
         }
         for (const fbo of outputs.values()) gl.deleteFramebuffer(fbo);
         outputs.clear();
-        size = { width, height };
-        fields = { open: field(width, height), things: field(width, height) };
+        size = { width, height, spacing: tuning.spacing, rays: tuning.rays };
+        fields = { open: field(width, height, tuning), things: field(width, height, tuning) };
       }
       gl.bindVertexArray(vao);
       gl.disable(gl.BLEND);

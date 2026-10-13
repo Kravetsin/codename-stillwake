@@ -40,8 +40,8 @@ export function createReadout(gl: WebGL2RenderingContext) {
       query = timing;
       timing = null;
     },
-    /** Reads the GPU's answer once it has one, and shows it with the light's size. */
-    show(width: number, height: number, elapsedMs: number) {
+    /** Reads the GPU's answer once it has one, and shows it after `what`. */
+    show(what: string, elapsedMs: number) {
       if (timer && query && gl.getQueryParameter(query, gl.QUERY_RESULT_AVAILABLE)) {
         if (!gl.getParameter(timer.GPU_DISJOINT_EXT)) {
           gpuMs = (gl.getQueryParameter(query, gl.QUERY_RESULT) as number) / 1e6;
@@ -53,7 +53,7 @@ export function createReadout(gl: WebGL2RenderingContext) {
       if (sinceMs < EVERY_MS) return;
       sinceMs = 0;
       const gpu = gpuMs === undefined ? 'n/a' : `${gpuMs.toFixed(2)} ms`;
-      line.textContent = `light ${width}×${height} · gpu ${gpu}`;
+      line.textContent = `light ${what} · gpu ${gpu} · F8`;
     },
     destroy() {
       line.remove();

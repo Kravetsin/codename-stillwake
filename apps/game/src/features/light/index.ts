@@ -10,6 +10,14 @@ import { createCascades, type Tuning } from './cascades';
 import { createMask } from './mask';
 import { createReadout } from './readout';
 
+/** How finely light can be worked out, stepped through with F8 in development: the first is `LIGHT`'s. */
+const QUALITY = [
+  { name: 'default', perCell: LIGHT.perCell, spacing: LIGHT.spacing, rays: LIGHT.rays },
+  { name: 'fine', perCell: 16, spacing: 2, rays: 2 },
+  { name: 'finer', perCell: 16, spacing: 1, rays: 2 },
+  { name: 'finest', perCell: 16, spacing: 1, rays: 4 },
+] as const;
+
 /** A lit lamp's warm glow, and how far across it reaches, in cells. */
 const LAMP_GLOW = { colour: 0xffd9a0, cells: 3 };
 
@@ -43,12 +51,23 @@ export const lightFeature: Feature = {
     const glow = glowTexture();
     const mask = createMask();
     const shape = silhouette();
-    const tuning: { -readonly [K in keyof Tuning]: Tuning[K] } = {
+    const tuning: { -readonly [K in keyof Tuning]: Tuning[K] } & { perCell: number } = {
+      perCell: LIGHT.perCell,
+      spacing: LIGHT.spacing,
+      rays: LIGHT.rays,
       emit: LIGHT.emit,
       exposure: LIGHT.exposure,
       ambient: [...LIGHT.ambient] as [number, number, number],
     };
     if (import.meta.env.DEV) Object.assign(window, { __light: tuning });
+    // In development, F8 steps through how finely light is worked out, to weigh looks against cost.
+    let preset = 0;
+    const onKey = (e: KeyboardEvent) => {
+      if (!import.meta.env.DEV || e.code !== 'F8') return;
+      preset = (preset + 1) % QUALITY.length;
+      Object.assign(tuning, QUALITY[preset]);
+    };
+    window.addEventListener('keydown', onKey);
     let cascades: ReturnType<typeof createCascades> | null | undefined;
     let readout: ReturnType<typeof createReadout> | undefined;
     let textures: Textures | undefined;
@@ -67,7 +86,7 @@ export const lightFeature: Feature = {
         if (!cascades || !gl) return;
         const { sim } = game.client;
 
-        const area = areaOf(camera.view(screen));
+        const area = areaOf(camera.view(screen), tuning.perCell);
         const width = area.width * area.perCell;
         const height = area.height * area.perCell;
         if (!textures || textures.mask.width !== width || textures.mask.height !== height) {
@@ -128,7 +147,10 @@ export const lightFeature: Feature = {
         );
         readout?.end();
         renderer.resetState();
-        readout?.show(width, height, elapsedMs);
+        readout?.show(
+          `${QUALITY[preset]?.name ?? ''} ${area.perCell}px/cell · probes ${tuning.spacing}px · ${tuning.rays ** 2} rays · ${width}×${height}`,
+          elapsedMs,
+        );
 
         const lamps = sim
           .query(grid)
@@ -155,6 +177,7 @@ export const lightFeature: Feature = {
         }
       },
       destroy() {
+        window.removeEventListener('keydown', onKey);
         unlit();
         readout?.destroy();
         glow.destroy(true);

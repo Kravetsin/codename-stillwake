@@ -20,24 +20,27 @@ export const MOST_PIXELS = 2048;
 /**
  * The cells light is worked out over for `view`, the cells on screen: the screen and up to
  * `LIGHT.margin` around it, half the screen at most, so what lights the edge of the screen is in
- * it; its corner on a multiple of `ALIGN`. At `LIGHT.perCell` pixels a cell, halved while that
- * would pass `MOST_PIXELS`.
+ * it; its corner on a multiple of `ALIGN`. At `perCell` pixels a cell, halved while that would
+ * pass `MOST_PIXELS`.
  */
-export function areaOf(view: {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}): Area {
+export function areaOf(
+  view: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  },
+  perCell: number = LIGHT.perCell,
+): Area {
   const across = Math.min(LIGHT.margin, Math.ceil(view.width / 2));
   const down = Math.min(LIGHT.margin, Math.ceil(view.height / 2));
   const x = Math.floor((view.x - across) / ALIGN) * ALIGN;
   const y = Math.floor((view.y - down) / ALIGN) * ALIGN;
   const width = Math.ceil((view.x + view.width + across) / ALIGN) * ALIGN - x;
   const height = Math.ceil((view.y + view.height + down) / ALIGN) * ALIGN - y;
-  let perCell: number = LIGHT.perCell;
-  while (perCell > 1 && Math.max(width, height) * perCell > MOST_PIXELS) perCell /= 2;
-  return { x, y, width, height, perCell };
+  let shown = perCell;
+  while (shown > 1 && Math.max(width, height) * shown > MOST_PIXELS) shown /= 2;
+  return { x, y, width, height, perCell: shown };
 }
 
 /** Runs of cells side by side in each row for which `is` holds: one rectangle each, not one a cell. */
