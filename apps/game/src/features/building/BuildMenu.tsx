@@ -25,9 +25,9 @@ function Thumb({ tool, size }: { readonly tool: Tool; readonly size: string }) {
 
 /**
  * The plan in hand (0022), taken out with B and shown the whole while it is out: the build menu's
- * tabs of what can be built, each card a picture of what it builds, dim while the player carries too
- * little for it, its name, cost and use in a tooltip over it, so a card is swapped for another at a
- * click. Taken out while an overlay is on, it opens on that overlay's tab. Under the cards, the card
+ * tabs of what can be built, each card a picture of what it builds, its name, cost and use in a
+ * tooltip over it, so a card is swapped for another at a click. A plan costs nothing until it is
+ * delivered to, so a card the player carries too little for is as bright as any. Taken out while an overlay is on, it opens on that overlay's tab. Under the cards, the card
  * in hand and its buttons. B or Esc puts the plan away; with it away, the key that takes it out.
  */
 export function BuildMenu({ game }: { readonly game: Game }) {
@@ -88,7 +88,6 @@ export function BuildMenu({ game }: { readonly game: Game }) {
       <div className="flex flex-wrap gap-1">
         {tools.map((each) => {
           const lines = costLines(costOf(each, costFor), carried);
-          const short = lines.some((l) => l.have < l.need);
           return (
             <button
               key={each.id}
@@ -99,9 +98,7 @@ export function BuildMenu({ game }: { readonly game: Game }) {
               onMouseEnter={() => setHovered(each)}
               onMouseLeave={() => setHovered(undefined)}
             >
-              <span className={short ? 'opacity-40' : undefined}>
-                <Thumb tool={each} size="h-9 w-9" />
-              </span>
+              <Thumb tool={each} size="h-9 w-9" />
               {hovered === each && (
                 <span
                   data-tooltip

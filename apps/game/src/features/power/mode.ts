@@ -168,16 +168,14 @@ export function createPowerMode() {
               )
               .filter((l) => l.a === grip?.node || l.b === grip?.node)
               .map((l) => (l.a === grip?.node ? l.b : l.a));
+      // Where it would go, it runs to where it would end: a machine's socket, an anchor's middle.
+      const node = why ? undefined : wires.nodeAt(target);
+      const to = node === undefined ? pointer : endOf(q, node);
       for (const end of ends) {
         const p = endOf(q, end);
-        ghost.moveTo(p.x * CELL, p.y * CELL).lineTo(pointer.x * CELL, pointer.y * CELL);
+        ghost.moveTo(p.x * CELL, p.y * CELL).lineTo(to.x * CELL, to.y * CELL);
       }
       ghost.stroke({ width: 1.5, color: colour, alpha: 0.9 });
-      if (target >= 0) {
-        ghost
-          .rect((target % width) * CELL, Math.floor(target / width) * CELL, CELL, CELL)
-          .stroke({ width: 1, color: colour });
-      }
       if (why && why !== 'power.sameNode') {
         reason.text = t(why);
         reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);

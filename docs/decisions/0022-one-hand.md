@@ -45,7 +45,8 @@ mouse.
 - **The menu is shown the whole while the plan is out,** so a card is swapped for another at a
   click: picking one keeps it open, and a card picked by the middle button takes the plan out. It is
   thumbnails, a grid per tab drawn from the ship's own pixel art, one per material; a tooltip says
-  the name, cost (have / need) and what it does; a card short of materials is dim. Under the cards,
+  the name, cost (have / need) and what it does. A card short of materials is as bright as any: a
+  plan costs nothing until it is delivered to, and a dim card read as one that cannot be picked. Under the cards,
   what is in hand, its thumbnail, name and buttons. A menu folded away with a card still in hand was
   tried first: leaving the plan then took two presses.
 - **Plans are drawn as blueprints:** each its own picture under a blue tint, so its outline says
