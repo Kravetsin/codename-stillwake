@@ -4,6 +4,7 @@ import { CELL } from '../../render/camera';
 import { alphaOf, particles } from '../../render/particles';
 import type { Area } from './area';
 import { KIND, type Cells } from './cells';
+import { brightnessOf } from './flicker';
 
 /** Adds `share` of `colour` to what cell `i` gives off, red, green and blue. */
 function give(gives: Float32Array, i: number, colour: readonly number[], share: number) {
@@ -13,10 +14,10 @@ function give(gives: Float32Array, i: number, colour: readonly number[], share: 
 /**
  * The cells of `area` as light sees `sim`'s ship now: walls and closed doors as walls, machines'
  * cells as machines; what gives off light — the stars through every open cell with no back wall
- * and everywhere past the grid's edge, a lamp by the power it gets, a working furnace's fire along
- * its bottom, glowing particles.
+ * and everywhere past the grid's edge, a lamp by the power it gets, flickering `timeMs` in when
+ * short, a working furnace's fire along its bottom, glowing particles.
  */
-export function cellsOf(sim: Sim, area: Area, into?: Cells): Cells {
+export function cellsOf(sim: Sim, area: Area, timeMs: number, into?: Cells): Cells {
   const { width, height } = area;
   const size = width * height;
   const cells =
@@ -53,8 +54,8 @@ export function cellsOf(sim: Sim, area: Area, into?: Cells): Cells {
     const spec = MACHINES[m.kind];
     if (m.kind === 'lamp') {
       const i = local(mx, my);
-      const share = sim.query(power).satisfaction(m.id) / 1000;
-      if (i !== undefined && share > 0) give(cells.gives, i, LIGHT.lamp, share);
+      const shines = brightnessOf(sim.query(power).satisfaction(m.id) / 1000, timeMs, m.id);
+      if (i !== undefined && shines > 0) give(cells.gives, i, LIGHT.lamp, shines);
       continue;
     }
     const smelting = m.kind === 'furnace' ? sim.query(furnace).at(m.id) : undefined;

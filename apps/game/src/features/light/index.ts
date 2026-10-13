@@ -6,6 +6,7 @@ import { lighting } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { areaOf } from './area';
 import { bytesOf, lightOf, type Cells } from './cells';
+import { brightnessOf } from './flicker';
 import { createReadout } from './readout';
 import { cellsOf } from './scene';
 
@@ -17,7 +18,8 @@ const LAMP_GLOW = { colour: 0xffd9a0, cells: 3 };
  * furnaces' fire, glowing sparks and embers, and the stars through holes in its back walls; walls
  * lit where light falls on them and letting next to none through. Worked out every frame over the
  * screen and around it (`cells`), and laid on what it lights by the filter of `render/lighting`,
- * smoothed between cells. Gauges, plans, overlays and particles are not lit. A lit lamp also glows.
+ * smoothed between cells. Gauges, plans, overlays and particles are not lit. A lit lamp also glows,
+ * and short of power it flickers (`flicker`).
  */
 export const lightFeature: Feature = {
   id: 'light',
@@ -31,14 +33,17 @@ export const lightFeature: Feature = {
     let shown: { bytes: Uint8Array; source: BufferImageSource; texture: Texture } | undefined;
     let cells: Cells | undefined;
     let lampsKey = '';
+    let halos: { id: number; share: number; sprite: Sprite }[] = [];
+    let time = 0;
 
     return {
       view,
       update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
         const started = performance.now();
+        time += elapsedMs;
         const area = areaOf(camera.view(screen));
-        cells = cellsOf(sim, area, cells);
+        cells = cellsOf(sim, area, time, cells);
         const light = lightOf(cells);
         if (!shown || shown.source.width !== cells.width || shown.source.height !== cells.height) {
           const old = shown;
@@ -67,25 +72,32 @@ export const lightFeature: Feature = {
           .query(grid)
           .machines()
           .filter((m) => m.kind === 'lamp')
-          .map((m) => ({ cell: m.cell, share: sim.query(power).satisfaction(m.id) / 1000 }));
+          .map((m) => ({
+            id: m.id,
+            cell: m.cell,
+            share: sim.query(power).satisfaction(m.id) / 1000,
+          }));
         const key = lamps.map((l) => `${l.cell}:${l.share}`).join(',');
-        if (key === lampsKey) return;
-        lampsKey = key;
-        const across = sim.query(grid).size().width;
-        for (const child of glows.removeChildren()) child.destroy();
-        for (const lamp of lamps) {
-          if (lamp.share === 0) continue;
-          const halo = new Sprite(glow);
-          halo.anchor.set(0.5);
-          halo.tint = LAMP_GLOW.colour;
-          halo.alpha = lamp.share;
-          halo.scale.set((LAMP_GLOW.cells * CELL) / GLOW);
-          halo.position.set(
-            ((lamp.cell % across) + 0.5) * CELL,
-            (Math.floor(lamp.cell / across) + 0.5) * CELL,
-          );
-          glows.addChild(halo);
+        if (key !== lampsKey) {
+          lampsKey = key;
+          const across = sim.query(grid).size().width;
+          for (const child of glows.removeChildren()) child.destroy();
+          halos = [];
+          for (const lamp of lamps) {
+            if (lamp.share === 0) continue;
+            const halo = new Sprite(glow);
+            halo.anchor.set(0.5);
+            halo.tint = LAMP_GLOW.colour;
+            halo.scale.set((LAMP_GLOW.cells * CELL) / GLOW);
+            halo.position.set(
+              ((lamp.cell % across) + 0.5) * CELL,
+              (Math.floor(lamp.cell / across) + 0.5) * CELL,
+            );
+            glows.addChild(halo);
+            halos.push({ id: lamp.id, share: lamp.share, sprite: halo });
+          }
         }
+        for (const halo of halos) halo.sprite.alpha = brightnessOf(halo.share, time, halo.id);
       },
       destroy() {
         lighting.show(Texture.WHITE);
