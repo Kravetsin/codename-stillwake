@@ -9,6 +9,8 @@ import { buildingFeature } from './building';
 import { gridFeature } from './grid';
 import { pipesFeature } from './pipes';
 import { powerFeature } from './power';
+import { furnaceFeature } from './furnace';
+import { effectsFeature } from './effects';
 
 /** Every client feature. Layers stack in this order; panels render in this order. */
 export const FEATURES: readonly Feature[] = [
@@ -22,6 +24,9 @@ export const FEATURES: readonly Feature[] = [
   // Stacks lying on the floor, under the heroes walking over them.
   itemsFeature,
   crewFeature,
+  furnaceFeature,
   buildingFeature,
+  // Dust, sparks, embers and air over everything in the world, plans included.
+  effectsFeature,
   devPanel,
 ];

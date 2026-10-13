@@ -5,6 +5,7 @@ import { createFigure } from '../features/crew/figure';
 import { STEP_MS, type Hero } from '../features/crew/hero';
 import type { Pose } from '../features/crew/pose';
 import { SUITS } from '../features/crew/suits';
+import { particles } from '../render/particles';
 
 /** One loop of the gallery: what the hero does `ms` into it, moving as the controller would. */
 interface Scene {
@@ -114,6 +115,8 @@ export function PoseGallery() {
             dress(SUITS[picked] ?? SUITS[0]);
           }
           const elapsed = ticker.deltaMS * rate;
+          // Figures here stand apart from where they say they are: their dust is not drawn.
+          particles.clear();
           ms += elapsed;
           stage.position.set(20, 50);
           SCENES.forEach((scene, i) => {

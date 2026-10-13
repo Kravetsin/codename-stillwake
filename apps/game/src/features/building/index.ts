@@ -12,6 +12,7 @@ import {
 } from '../../render/cable';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import { costLines } from '../../render/CostRow';
+import { EFFECTS, particles } from '../../render/particles';
 import { overlayOn, pointerTip } from '../../session/ui';
 import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
@@ -28,6 +29,8 @@ const BAR = 0xf2f5fa;
 const DELIVERED = 0xe8b04a;
 const BAR_BACK = 0x0b0f17;
 const GRID_LINE = 0x9fb4c8;
+/** Sparks per tick of work done on a plan: a hand at work throws one now and then. */
+const SPARKS_PER_TICK = 0.3;
 /** How near a Remove click must be to a cable, in cells, to cut it. */
 const CUT_REACH = 0.35;
 
@@ -57,6 +60,9 @@ export const buildingFeature: Feature = {
     view.addChild(near, plansView, ghost, reason);
 
     let drawn = '';
+    /** Each plan's work done when last seen, and the sparks owed to it. */
+    let worked = new Map<number, number>();
+    let owedSparks = 0;
     let pressed: Spot | undefined;
     /** The node a cable is being laid from, while the button is held. */
     let cableFrom: number | undefined;
@@ -78,6 +84,13 @@ export const buildingFeature: Feature = {
         if (key.join() !== drawn) {
           drawn = key.join();
           drawPlans(plansView, plans, size.width, q);
+          sparkWork(plans, worked, size.width, q, sim.query(rooms), (n) => {
+            owedSparks += n * SPARKS_PER_TICK;
+            const count = Math.floor(owedSparks);
+            owedSparks -= count;
+            return count;
+          });
+          worked = new Map(plans.map((p) => [p.id, p.progress]));
         }
 
         const tool = selected.get();
@@ -222,6 +235,34 @@ function showTray(
   const lines = plan && 'place' in plan && cost ? costLines(cost, plan.delivered) : undefined;
   if (JSON.stringify(lines) !== JSON.stringify(pointerTip.get().cost)) {
     pointerTip.set({ ...pointerTip.get(), cost: lines });
+  }
+}
+
+/**
+ * Sparks off every plan whose work went on since `worked` was taken, from its middle: falling aboard,
+ * drifting off in space. `sparks` turns ticks of work into how many fly.
+ */
+function sparkWork(
+  plans: readonly Plan[],
+  worked: ReadonlyMap<number, number>,
+  width: number,
+  q: { readonly grid: QueryApi<typeof grid> },
+  where: QueryApi<typeof rooms>,
+  sparks: (ticks: number) => number,
+) {
+  for (const p of plans) {
+    const was = worked.get(p.id);
+    if (was === undefined || p.progress <= was) continue;
+    const count = sparks(p.progress - was);
+    if (count === 0) continue;
+    const machine =
+      'place' in p
+        ? p.place.layer === 'machine' && { kind: p.place.kind, cell: p.cell }
+        : p.clear === 'machine' && q.grid.machineAt(p.cell);
+    const cells = machine ? (q.grid.footprint(machine.kind, machine.cell) ?? [p.cell]) : [p.cell];
+    const box = boxOf(cells, width);
+    const at = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+    particles.emit(EFFECTS.spark, at, count, -Math.PI / 2, where.roomAt(p.cell) === 'space');
   }
 }
 

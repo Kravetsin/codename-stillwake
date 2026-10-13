@@ -360,6 +360,19 @@ turn, speed, zoom and suit set by eye.
 Done when: unit tests for the reach, the walk's knees, the landing's feet on the floor, the climb's
 hands, the stroke and the plan in hand; the gallery shows every pose.
 
+**P2-16 · Particles** · M · client `effects` (new), `furnace` (new), `crew`, `building`,
+`atmosphere` · after P2-15
+Plain motions made atmospheric. One pool of at most `LIMIT` particles in `render/particles.ts`,
+drawn by the `effects` layer: a square of colour fading over its life, and for embers and sparks a
+soft additive glow. Effects are data there (colour, size, life, speed, spread, gravity, drag);
+gravity pulls aboard and never in space. Features emit what they see, so every peer draws its own
+and the sim never hears of it: dust from each boot coming down and a puff to either side of a
+landing, as hard as the fall; sparks off a plan while its work goes on; embers rising from a furnace
+at work; air streaming out of each opening of a venting room while it holds air or its vents pour
+some in, thinner the more openings.
+Done when: unit tests for flight, life, the limit, gravity aboard and in space, rising embers,
+fading and drag, and for which rooms stream where; each effect seen in the running game.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says

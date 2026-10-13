@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
+import { EFFECTS, particles } from '../../render/particles';
 import { UNIT, type Hero } from './hero';
 import {
   headTurn,
@@ -8,6 +9,7 @@ import {
   limbsOf,
   SHEET as SHEET_SIZE,
   sheetTurn,
+  STRIDE,
   type Limbs,
   type Pose,
 } from './pose';
@@ -29,6 +31,8 @@ const EDGE = 0.45;
 const SETTLE_MS = 30;
 /** Slower for the head, so it follows the pointer rather than snapping to it. */
 const HEAD_SETTLE_MS = 90;
+/** Specks of dust a boot kicks up stepping, and a landing at most to either side, by its fall. */
+const DUST = { step: 4, land: { least: 4, most: 12, perSpeed: 1 / 40 } };
 
 /** The collar between helmet and body, so the arms hang from shoulders below it, not the neck. */
 const COLLAR = H * 0.045;
@@ -197,6 +201,10 @@ export function createFigure(colour: number) {
   let head = 0;
   /** Milliseconds of a landing still to spring back from. */
   let landingMs = 0;
+  /** The step the walk is on, counted from where it began; a new one puts a foot down. */
+  let step: number | undefined;
+  /** How fast the hero last fell, thousandths of a cell a step: how hard it lands. */
+  let fall = 0;
 
   return {
     view,
@@ -210,7 +218,26 @@ export function createFigure(colour: number) {
       if (last) travelled += ((hero.x - last.x) * hero.facing + Math.abs(hero.y - last.y)) / UNIT;
       last = { x: hero.x, y: hero.y };
       if (pose !== wasPose) strideFrom = travelled;
-      if (wasPose === 'air' && (pose === 'stand' || pose === 'walk')) landingMs = LAND.ms;
+      // Where the feet are, in pixels of the world.
+      const feet = { x: (hero.x / UNIT) * CELL, y: (hero.y / UNIT) * CELL };
+      if (pose === 'air') fall = Math.max(0, hero.vy);
+      if (wasPose === 'air' && (pose === 'stand' || pose === 'walk')) {
+        landingMs = LAND.ms;
+        const { least, most, perSpeed } = DUST.land;
+        const puff = Math.min(most, Math.max(least, Math.round(fall * perSpeed)));
+        particles.emit(EFFECTS.dust, feet, puff, -0.35);
+        particles.emit(EFFECTS.dust, feet, puff, Math.PI + 0.35);
+      }
+      // A foot comes down at the end of each half stride, a quarter stride in.
+      const stepping =
+        pose === 'walk'
+          ? Math.floor((travelled - strideFrom - STRIDE.walk / 4) / (STRIDE.walk / 2))
+          : undefined;
+      if (stepping !== undefined && step !== undefined && stepping !== step) {
+        const toe = { x: feet.x + hero.facing * W * 0.3, y: feet.y };
+        particles.emit(EFFECTS.dust, toe, DUST.step);
+      }
+      step = stepping;
       landingMs = Math.max(0, landingMs - elapsedMs);
       wasPose = pose;
       const holding = hero.holds === 'plan' && holdsIn(pose);
