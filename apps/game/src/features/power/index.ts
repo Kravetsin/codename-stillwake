@@ -8,7 +8,7 @@ import { traceRope } from '../../render/rope';
 import { heroBodies, overlayOn, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
-import { boltTexture, pegTexture, plugTexture, unpluggedTexture } from './art';
+import { boltTexture, pegTexture, plugTexture, unpluggedTexture } from '../../render/power-art';
 import { createPowerMode } from './mode';
 import { createCableRopes, type CableRopes } from './ropes';
 
@@ -32,7 +32,7 @@ const stateColour = (n: PowerNetwork | undefined) =>
 
 /** The cables as ropes, shared by the layer that draws them and the overlay that colours them. */
 let ropes: CableRopes | undefined;
-/** The power mode's hands, let go by the cables' layer while the mode is off. */
+/** The hands at work on cables, let go by the cables' layer while the power overlay is off. */
 let mode: ReturnType<typeof createPowerMode> | undefined;
 
 /** Calls `draw` again only when the world has run a tick since, at most every `REFRESH_MS`. */
@@ -104,13 +104,10 @@ function cables(): Layer {
   return {
     view,
     behind: lines,
-    update: ({ game, camera, elapsedMs }) => {
+    update: ({ game, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
-      // Out of the power mode the right button is no one's, and nothing is held.
-      if (overlayOn.get() !== 'power') {
-        camera.takeRight();
-        mode?.release();
-      }
+      // Out of the power overlay, nothing is held.
+      if (overlayOn.get() !== 'power') mode?.release();
       time += elapsedMs / 1000;
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
@@ -149,11 +146,11 @@ function placeFittings(into: Container, sim: Sim, cables: CableRopes): void {
 }
 
 /**
- * The power mode (0021): power brought out of the ship, the ship dimmed, and every cable over it in its network's state,
+ * The power overlay: power brought out of the ship, the ship dimmed, and every cable over it in its network's state,
  * the very ropes the cables hang as, glowing, a dot where each is plugged in; a plug hanging loose
  * over each machine that makes or draws power with no cable to it. Beside the pointer on a node,
- * what its network makes against what it would draw. Cables are laid, moved and cut here by hand
- * (`./mode`).
+ * what its network makes against what it would draw. Cables are laid, moved and cut here, with the
+ * cable or the plan in hand (`./mode`, 0022).
  */
 function powerOverlay(): Layer {
   const view = new Container();

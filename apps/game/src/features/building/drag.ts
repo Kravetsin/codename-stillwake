@@ -1,5 +1,12 @@
-import { building, command, type Command, type grid, type QueryApi } from '@stillwake/sim';
-import type { LeftButton } from '../../render/camera';
+import {
+  building,
+  command,
+  type Command,
+  type grid,
+  type Layer,
+  type QueryApi,
+} from '@stillwake/sim';
+import type { Button } from '../../render/camera';
 import type { Tool } from './tools';
 
 /** A cell by its column and row. */
@@ -7,6 +14,9 @@ export interface Spot {
   readonly x: number;
   readonly y: number;
 }
+
+/** What a drag does: a card's work, or the right button's removal from `layers` (0022). */
+export type Act = Tool | { readonly kind: 'remove'; readonly layers: readonly Layer[] };
 
 /** One cell of a drag: why the tool cannot work there, if it cannot, and what it sends if it can. */
 export interface Verdict {
@@ -43,7 +53,7 @@ export function onGrid(size: Size, p: { x: number; y: number }): boolean {
  */
 export function onButton(
   pressed: Spot | undefined,
-  button: LeftButton,
+  button: Pick<Button, 'down' | 'at'>,
   size: Size,
 ): { pressed: Spot | undefined; line?: readonly [Spot, Spot] } {
   if (button.down)
@@ -56,7 +66,7 @@ export function onButton(
  * The cells a drag from `from` to `to` covers: a straight line along the longer axis, horizontal on a
  * tie. A machine goes only where the drag began.
  */
-export function lineOf(width: number, tool: Tool, from: Spot, to: Spot): number[] {
+export function lineOf(width: number, tool: Act, from: Spot, to: Spot): number[] {
   if (tool.kind === 'place' && tool.placement.layer === 'machine') return [from.y * width + from.x];
   const across = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y);
   const length = across ? Math.abs(to.x - from.x) : Math.abs(to.y - from.y);
@@ -72,9 +82,9 @@ export function lineOf(width: number, tool: Tool, from: Spot, to: Spot): number[
 
 /**
  * What `tool` would do in each of `cells`, as the sim judges it now. Removing cancels plans if the
- * drag begins on one, a mark included, and marks what is built otherwise.
+ * drag begins on one, a mark included, and marks what is built in its layers otherwise.
  */
-export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict[] {
+export function judge(tool: Act, cells: readonly number[], q: Queries): Verdict[] {
   // A machine spans several cells of a line, yet takes one mark and is cancelled once.
   const cancelled = new Set<number>();
   const marked = new Set<string>();
@@ -101,7 +111,7 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
             commands: ids.map((id) => command(building, 'cancelPlan', { id })),
           };
         }
-        const next = q.building.clearAt(cell);
+        const next = q.building.clearAt(cell, tool.layers);
         if (!next) return { cell, problem: 'building.nothingThere', commands: [] };
         const problem = q.building.problem(cell, { clear: next.layer });
         const target = `${next.layer}:${next.cell}`;
@@ -114,7 +124,7 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
         };
       }
       case 'cable':
-        // A cable is laid by the power mode, from press to release, not along a line of cells.
+        // A cable is laid by the power feature, from press to release, not along a line of cells.
         return { cell, problem: undefined, commands: [] };
     }
   });

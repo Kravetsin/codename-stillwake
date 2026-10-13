@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createFigure } from '../features/crew/figure';
 import { SUITS } from '../features/crew/suits';
 import { FIRE_AT, fireTexture } from '../features/furnace/art';
-import { machineTexture } from '../features/grid/art';
+import { machineTexture } from '../render/ship-art';
 import { drawBack, drawConduit, drawStructure, type Cells } from '../features/grid/draw';
 import { CELL } from '../render/camera';
 

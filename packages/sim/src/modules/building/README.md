@@ -44,8 +44,8 @@ and refunded to the inventories in `items`.
 ## API
 
 - **Queries:** `plans()`; `plansAt(cell)` — every plan covering the cell; `problem(cell, action)` — the
-  refusal a `placePlan` or `deconstruct` would get, for the client's ghost; `clearAt(cell)` — what a
-  Remove tool takes from a cell next (a machine, then a conduit, then the structure, then the back
+  refusal a `placePlan` or `deconstruct` would get, for the client's ghost; `clearAt(cell, layers?)` — what a
+  removal takes from a cell next, of the layers given or all (a machine, then a conduit, then the structure, then the back
   wall, passing over what is marked already) and where its mark is kept; `workProblem(planId, peer)` —
   the refusal that peer's `work` would get; `lacking(planId)` — what a blueprint still lacks before
   work may begin; `ticksFor(planId)` — the ticks a plan takes in all; `costOf(planId)` — what a

@@ -271,6 +271,23 @@ describe('building', () => {
       expect(next(cell(5, 1))).toBeUndefined();
     });
 
+    it('looks only in the layers asked for, in the same order', () => {
+      const w = scenario(withBuilder, ROOM)
+        .do(builder, 'place', { cell: cell(0, 1), placement: pipe })
+        .run();
+      const next = (c: number, layers: readonly Layer[]) => w.query(building).clearAt(c, layers);
+      // A pipe in a wall, with the wall behind.
+      expect(next(cell(0, 1), ['structure', 'back'])).toEqual({
+        layer: 'structure',
+        cell: cell(0, 1),
+      });
+      expect(next(cell(0, 1), ['back', 'conduit'])).toEqual({ layer: 'conduit', cell: cell(0, 1) });
+      // A machine's cell, asked for its conduit only, has none.
+      expect(next(cell(2, 2), ['conduit'])).toBeUndefined();
+      w.do(building, 'deconstruct', { cell: cell(0, 1), layer: 'structure' }).run();
+      expect(next(cell(0, 1), ['structure', 'back'])).toEqual({ layer: 'back', cell: cell(0, 1) });
+    });
+
     it('leaves the grid refusing a plan in a marked slot until the thing is gone', () => {
       const w = scenario(world, ROOM)
         .do(building, 'deconstruct', { cell: cell(3, 2), layer: 'structure' })

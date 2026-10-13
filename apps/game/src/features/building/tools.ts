@@ -1,10 +1,10 @@
 import { CABLE_COST, MATERIALS, type MaterialId } from '@stillwake/content';
-import type { Cost, Placement } from '@stillwake/sim';
+import type { building, Cost, grid, Layer, Placement, power, QueryApi } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
-import { buildMode, cableInHand, overlayOn } from '../../session/ui';
+import { hand, overlayOn } from '../../session/ui';
 
-/** What the left button does in the world while a tool is selected; `id` names its text. */
+/** A card in hand: what the left button does in the world with it; `id` names its text. */
 export type Tool =
   | {
       readonly kind: 'place';
@@ -13,7 +13,7 @@ export type Tool =
       readonly label: string;
     }
   | {
-      readonly kind: 'cable' | 'remove';
+      readonly kind: 'cable';
       readonly id: string;
       readonly label: string;
     };
@@ -69,75 +69,137 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
   { id: 'storage', tools: [place('crate', { layer: 'machine', kind: 'crate' })] },
 ];
 
-/** Cancelling plans and marking things to take apart, in the menu's header on every tab. */
-export const REMOVE: Tool = { kind: 'remove', id: 'remove', label: t('tool.remove') };
+/** Every card, tab by tab. */
+export const TOOLS: readonly Tool[] = TABS.flatMap((tab) => tab.tools);
 
-/** Every tool, tab by tab, then the header's. */
-export const TOOLS: readonly Tool[] = [...TABS.flatMap((tab) => tab.tools), REMOVE];
-
-/** What a tool costs, by `costFor` (the sim's own rule) for what it places; a cable its own. */
+/** What a card costs, by `costFor` (the sim's own rule) for what it places; a cable its own. */
 export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cost {
-  if (tool.kind === 'place') return costFor(tool.placement);
-  return tool.kind === 'cable' ? CABLE_COST : {};
+  return tool.kind === 'place' ? costFor(tool.placement) : CABLE_COST;
 }
 
 /**
- * The selected tool, shared by the menu that sets it and the layer that uses it. One per page:
- * there is one game and one player at this keyboard.
+ * The card in hand, shared by the menu that sets it and the layer that uses it. One per page: there
+ * is one game and one player at this keyboard.
  */
 export const selected = createStore<Tool | undefined>(undefined);
 
-/** Whether the build menu is open: with B, and again with the right button while a tool is out. */
+/** Whether the build menu is open: B opens and closes it. */
 export const menuOpen = createStore(false);
 
-// The plan is in hand while the menu is open or a tool is out: the hands do nothing else.
-const inHand = () => buildMode.set(menuOpen.get() || selected.get() !== undefined);
-selected.subscribe(inHand);
-menuOpen.subscribe(inHand);
-
-/** Puts the plan away: the menu closes and the tool goes with it. */
+/** Puts the plan away: the menu closes and the card goes with it. */
 export function putPlanAway(): void {
   menuOpen.set(false);
   selected.set(undefined);
 }
 
-/** The overlay a tool is used in, where what it lays is in sight: by the overlay's feature id. */
+// The hand holds the cable, the plan while the menu is open or a card is out, or neither; freed
+// from elsewhere — a hotbar slot picked — it puts the plan away.
+const holding = () =>
+  selected.get()?.kind === 'cable'
+    ? 'cable'
+    : menuOpen.get() || selected.get() !== undefined
+      ? 'plan'
+      : 'free';
+selected.subscribe(() => hand.set(holding()));
+menuOpen.subscribe(() => hand.set(holding()));
+hand.subscribe(() => {
+  if (hand.get() === 'free' && holding() !== 'free') putPlanAway();
+});
+
+/** The overlays by their features' ids. */
+export const POWER = 'power';
+const PIPES = 'pipes';
+const AIR = 'atmosphere';
+
+/** The overlay a card is used in, where what it lays is in sight: by the overlay's feature id. */
 export function overlayFor(tool: Tool | undefined): string | undefined {
-  if (tool?.kind === 'cable') return POWER_MODE;
-  if (tool?.kind === 'place' && tool.placement.layer === 'conduit') return 'pipes';
+  if (tool?.kind === 'cable') return POWER;
+  if (tool?.kind === 'place' && tool.placement.layer === 'conduit') return PIPES;
   return undefined;
 }
 
-/**
- * The power mode: the power overlay, where cables are laid, moved and cut by hand (0021). It has the
- * hands, as the plan does: taking one out puts the other away, but for a cable, which is laid in it.
- */
-export const POWER_MODE = 'power';
-
-// A tool that needs an overlay turns it on; put away, the overlay that was on before comes back,
-// unless it was the power mode, which the plan put away.
+// A card that needs an overlay turns it on; put away, the overlay that was on before comes back.
 let before: string | undefined;
 let forced: string | undefined;
 selected.subscribe(() => {
   const wanted = overlayFor(selected.get());
   if (wanted === forced) return;
-  const now = overlayOn.get();
-  const was = forced;
-  if (was === undefined) before = now === POWER_MODE ? undefined : now;
+  if (forced === undefined) before = overlayOn.get();
   forced = wanted;
-  // Put away for the power mode turned on by hand: the mode stays. A cable put away takes it along.
-  const byHand = now === POWER_MODE && was !== POWER_MODE;
-  if (!selected.get() && byHand) return;
-  overlayOn.set(wanted ?? (byHand ? undefined : before));
+  overlayOn.set(wanted ?? before);
 });
-const holdsCable = () => selected.get()?.kind === 'cable';
-selected.subscribe(() => cableInHand.set(holdsCable()));
-// The plan taken out, from the menu or a tool other than a cable, leaves the power mode.
-const leavePowerMode = () => {
-  if (buildMode.get() && !holdsCable() && overlayOn.get() === POWER_MODE) overlayOn.set(forced);
-};
-buildMode.subscribe(leavePowerMode);
-// The power mode turned on puts the plan away, unless a cable is in hand.
+// The cable is laid in the power overlay: another overlay, or none, puts it away and stays.
 overlayOn.subscribe(() => {
-  if (overlayOn.get() === POWER_MODE && buildMode.get() && !holdsCable()) putPlanAway();
+  if (selected.get()?.kind !== 'cable' || overlayOn.get() === POWER) return;
+  forced = undefined;
+  selected.set(undefined);
 });
+
+/** The menu's tab an overlay opens it on: what is built in what it shows. */
+export function tabFor(overlay: string | undefined): string | undefined {
+  if (overlay === POWER) return 'power';
+  if (overlay === PIPES || overlay === AIR) return 'air';
+  return undefined;
+}
+
+/**
+ * The layers the right button removes from and the middle one picks in, under `overlay`, in the
+ * order they are taken: pipes and valves under the pipes overlay, else what the ship is built of.
+ * Cables, under the power overlay, are the power feature's.
+ */
+export function layersFor(overlay: string | undefined): readonly Layer[] {
+  return overlay === PIPES ? ['conduit'] : ['machine', 'structure', 'back'];
+}
+
+interface Queries {
+  readonly grid: QueryApi<typeof grid>;
+  readonly building: QueryApi<typeof building>;
+  readonly power: QueryApi<typeof power>;
+}
+
+/** What is placed at `cell` in `layers`: a plan first, then what is built, in their order. */
+function placementAt(cell: number, layers: readonly Layer[], q: Queries): Placement | undefined {
+  for (const plan of q.building.plansAt(cell)) {
+    if ('place' in plan && layers.includes(plan.place.layer)) return plan.place;
+  }
+  for (const layer of layers) {
+    if (layer === 'machine') {
+      const m = q.grid.machineAt(cell);
+      if (m) return { layer, kind: m.kind };
+    } else if (layer === 'conduit') {
+      const c = q.grid.conduitAt(cell);
+      if (c.kind !== 'none') return { layer, kind: c.kind };
+    } else if (layer === 'structure') {
+      const s = q.grid.structureAt(cell);
+      if (s.kind === 'wall') return { layer, kind: 'wall', material: s.material };
+      if (s.kind !== 'empty') return { layer, kind: s.kind };
+    } else {
+      const material = q.grid.backAt(cell);
+      if (material) return { layer, kind: 'backWall', material };
+    }
+  }
+  return undefined;
+}
+
+const materialOf = (p: Placement) => ('material' in p ? p.material : undefined);
+
+/**
+ * The pipette's card for `cell` under `overlay`: under the power overlay the cable, on a node a
+ * cable ends at; else the card that places what is there, planned or built, in `layersFor`.
+ */
+export function cardAt(cell: number, overlay: string | undefined, q: Queries): Tool | undefined {
+  if (overlay === POWER) {
+    const node = q.power.nodeAt(cell);
+    const cabled = node !== undefined && q.power.cabled(node);
+    return cabled ? TOOLS.find((each) => each.kind === 'cable') : undefined;
+  }
+  const placed = placementAt(cell, layersFor(overlay), q);
+  if (!placed) return undefined;
+  return TOOLS.find(
+    (each) =>
+      each.kind === 'place' &&
+      each.placement.layer === placed.layer &&
+      each.placement.kind === placed.kind &&
+      materialOf(each.placement) === materialOf(placed),
+  );
+}

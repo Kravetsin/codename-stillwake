@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MACHINE_ART } from '../features/grid/art';
+import { MACHINE_ART } from '../render/ship-art';
 import { FIRE, FIRE_AT } from '../features/furnace/art';
 
 describe('furnace fire', () => {

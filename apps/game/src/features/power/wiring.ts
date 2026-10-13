@@ -21,7 +21,7 @@ export interface Line {
   readonly points: readonly Point[];
 }
 
-/** What a press in the power mode takes hold of. */
+/** What a press with the cable in hand takes hold of. */
 export type Grip =
   /** A cable's end at a machine: that cable alone moves from the machine. */
   | { readonly kind: 'end'; readonly node: number; readonly cable: { a: number; b: number } }

@@ -17,10 +17,13 @@ export const aimedPiece = createStore<
 >(undefined);
 
 /**
- * Whether a build tool is out: `building` sets it with the tool, `crew` then leaves the pointer to
- * the building layer, outlining nothing and offering no prompt.
+ * What the hand holds (0022), one thing at a time: `free` — nothing or a hotbar item; `plan` — the
+ * build menu open or a build card; `cable` — the cable card, even with the menu open. `building`
+ * sets it with the card; `items` frees it when a hotbar slot is picked or the inventory opens, and
+ * `building` then puts the plan away. With anything but a free hand, `crew` leaves the pointer and
+ * the left button to the card.
  */
-export const buildMode = createStore(false);
+export const hand = createStore<'free' | 'plan' | 'cable'>('free');
 
 /**
  * Where this player's hero is, its cell and the way it faces, as `crew` last moved it: where `items`
@@ -37,14 +40,9 @@ export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1
 export const heroBodies = createStore<readonly Body[]>([]);
 
 /**
- * Whether a cable is in hand: `building` sets it with the tool, and the power mode then lays cables
- * from whatever a press takes hold of, where without one it moves them and cuts them.
- */
-export const cableInHand = createStore(false);
-
-/**
  * Which overlay is on, by its feature's id, or none: switched by its key (`overlays/switch`), and
- * by `building` while a tool that needs one is out.
+ * by `building` while a card that needs one is out. It only shows, and says what the right button
+ * removes and the middle one picks (0022).
  */
 export const overlayOn = createStore<string | undefined>(undefined);
 

@@ -25,7 +25,7 @@ A living document: what is decided about the game and what is still open. Techni
   customization ([0003](decisions/0003-character-rig.md)).
 - **Pixel art,** a pixel of art a pixel of the world, sixteen to a cell, on trial until the team
   settles the style: doors, pipes and machines are tiles and pictures drawn as text in
-  `features/grid/art.ts`; a wall is cut from its material's one picture where it stands, so walls
+  `render/ship-art.ts`; a wall is cut from its material's one picture where it stands, so walls
   side by side make one surface; the hero's parts are pictures too, moved and turned smoothly by
   its rig. `?art` in development shows them all.
 - **Look: simple textures carried by light.** Light also tells the ship's state: an unpowered room is

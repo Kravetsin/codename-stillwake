@@ -1,21 +1,35 @@
 import { BUILDS, CABLE_COST, MACHINES, MATERIALS } from '@stillwake/content';
-import { building, stillwake } from '@stillwake/sim';
+import { building, command, grid, parseLayout, power, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { EN } from '../../i18n/en';
 import { costLines } from '../../render/CostRow';
-import { buildMode, cableInHand, overlayOn } from '../../session/ui';
-import { costOf, menuOpen, POWER_MODE, putPlanAway, selected, TABS, TOOLS } from './tools';
+import { hand, overlayOn } from '../../session/ui';
+import {
+  cardAt,
+  costOf,
+  layersFor,
+  menuOpen,
+  POWER,
+  putPlanAway,
+  selected,
+  tabFor,
+  TABS,
+  TOOLS,
+} from './tools';
 
 /** What a tool puts in the world, by the name the grid gives it, a wall by its material. */
-const what = (tool: (typeof TOOLS)[number]) =>
-  tool.kind !== 'place'
-    ? tool.kind
-    : tool.placement.kind === 'wall' || tool.placement.kind === 'backWall'
-      ? `${tool.placement.kind}:${tool.placement.material}`
-      : tool.placement.kind;
+const what = (tool: (typeof TOOLS)[number] | undefined) =>
+  tool === undefined
+    ? undefined
+    : tool.kind !== 'place'
+      ? tool.kind
+      : tool.placement.kind === 'wall' || tool.placement.kind === 'backWall'
+        ? `${tool.placement.kind}:${tool.placement.material}`
+        : tool.placement.kind;
+const card = (kind: string) => TOOLS.find((each) => what(each) === kind);
 
 describe('the build menu', () => {
-  it('has a card for everything the ship is built of, each on one tab, removing aside', () => {
+  it('has a card for everything the ship is built of, each on one tab', () => {
     const carded = TABS.flatMap((tab) => tab.tools.map(what));
     expect(new Set(carded).size).toBe(carded.length);
     expect(TABS.every((tab) => tab.tools.length > 0)).toBe(true);
@@ -27,7 +41,6 @@ describe('the build menu', () => {
         'cable',
       ].sort(),
     );
-    expect(TOOLS.slice(-1).map(what)).toEqual(['remove']);
   });
 
   it('names every tab and tool, and says what each tool is for, in words, not keys', () => {
@@ -40,14 +53,11 @@ describe('the build menu', () => {
 
   it('prices each card as the sim does, a cable at its own cost', () => {
     const q = stillwake.create(1).query(building);
-    const door = TOOLS.find((tool) => tool.id === 'door');
-    const cable = TOOLS.find((tool) => tool.id === 'cable');
+    const door = card('door');
+    const cable = card('cable');
     if (!door || !cable) throw new Error('no tool');
     expect(costOf(door, q.costFor)).toEqual(BUILDS.door.cost);
     expect(costOf(cable, q.costFor)).toEqual(CABLE_COST);
-    for (const tool of TOOLS.filter((each) => each.kind === 'remove')) {
-      expect(costOf(tool, q.costFor)).toEqual({});
-    }
   });
 
   it('lays what is needed against what there is, item by item, short ones counted short', () => {
@@ -58,51 +68,103 @@ describe('the build menu', () => {
     expect(costLines({}, { scrap: 5 })).toEqual([]);
   });
 
-  it('turns on the overlay a tool lays in, and gives back the one before once put away', () => {
-    const tool = (kind: string) => TOOLS.find((each) => what(each) === kind);
-    overlayOn.set('air');
-    selected.set(tool('pipe'));
-    expect(overlayOn.get()).toBe('pipes');
-    selected.set(tool('floor'));
-    expect(overlayOn.get()).toBe('air');
-    selected.set(tool('valve'));
-    selected.set(undefined);
-    expect(overlayOn.get()).toBe('air');
-  });
-
-  it('keeps the power mode and the plan apart: either puts the other away', () => {
-    putPlanAway();
-    overlayOn.set(POWER_MODE);
-    menuOpen.set(true);
-    expect(overlayOn.get()).toBeUndefined();
-    selected.set(TOOLS.find((each) => what(each) === 'floor'));
-    menuOpen.set(false);
-    overlayOn.set(POWER_MODE);
-    expect([overlayOn.get(), buildMode.get(), selected.get()]).toEqual([
-      POWER_MODE,
-      false,
+  it('opens on the tab of the overlay that is on', () => {
+    expect([tabFor(POWER), tabFor('pipes'), tabFor('atmosphere'), tabFor(undefined)]).toEqual([
+      'power',
+      'air',
+      'air',
       undefined,
     ]);
+    expect(TABS.map((tab) => tab.id)).toEqual(expect.arrayContaining(['power', 'air']));
+  });
+});
+
+describe('the hand', () => {
+  it('holds the plan while the menu is open or a card is out, the cable as the cable', () => {
+    putPlanAway();
+    expect(hand.get()).toBe('free');
+    menuOpen.set(true);
+    expect(hand.get()).toBe('plan');
+    selected.set(card('floor'));
+    menuOpen.set(false);
+    expect(hand.get()).toBe('plan');
+    selected.set(card('cable'));
+    menuOpen.set(true);
+    expect(hand.get()).toBe('cable');
+    putPlanAway();
+    expect([hand.get(), menuOpen.get(), selected.get()]).toEqual(['free', false, undefined]);
+  });
+
+  it('puts the plan away when freed from elsewhere: a hotbar slot picked', () => {
+    selected.set(card('floor'));
+    menuOpen.set(true);
+    hand.set('free');
+    expect([hand.get(), menuOpen.get(), selected.get()]).toEqual(['free', false, undefined]);
+  });
+
+  it('turns on the overlay a card lays in, and gives back the one before once put away', () => {
+    overlayOn.set('atmosphere');
+    selected.set(card('pipe'));
+    expect(overlayOn.get()).toBe('pipes');
+    selected.set(card('floor'));
+    expect(overlayOn.get()).toBe('atmosphere');
+    selected.set(card('valve'));
+    selected.set(undefined);
+    expect(overlayOn.get()).toBe('atmosphere');
     overlayOn.set(undefined);
   });
 
-  it('lays a cable in the power mode: one in hand turns it on and keeps the plan', () => {
-    putPlanAway();
-    selected.set(TOOLS.find((each) => each.id === 'cable'));
-    expect([overlayOn.get(), buildMode.get(), cableInHand.get()]).toEqual([POWER_MODE, true, true]);
-    putPlanAway();
-    expect([overlayOn.get(), cableInHand.get()]).toEqual([undefined, false]);
+  it('keeps any card but the cable under any overlay; the cable goes with the power overlay', () => {
+    selected.set(card('lamp'));
+    overlayOn.set(POWER);
+    expect(what(selected.get())).toBe('lamp');
+    selected.set(card('cable'));
+    expect(overlayOn.get()).toBe(POWER);
+    // Another overlay, or none, puts the cable away and stays.
+    overlayOn.set('pipes');
+    expect([selected.get(), overlayOn.get(), hand.get()]).toEqual([undefined, 'pipes', 'free']);
+    selected.set(card('cable'));
+    overlayOn.set(undefined);
+    expect([selected.get(), overlayOn.get()]).toEqual([undefined, undefined]);
+  });
+});
+
+describe('the overlay as a filter', () => {
+  it('removes and picks pipes under the pipes overlay, and what the ship is built of elsewhere', () => {
+    expect(layersFor('pipes')).toEqual(['conduit']);
+    expect(layersFor(undefined)).toEqual(['machine', 'structure', 'back']);
+    expect(layersFor('atmosphere')).toEqual(layersFor(undefined));
   });
 
-  it('holds the plan in hand while the menu is open or a tool is out, until put away', () => {
-    putPlanAway();
-    expect(buildMode.get()).toBe(false);
-    menuOpen.set(true);
-    expect(buildMode.get()).toBe(true);
-    selected.set(TOOLS[0]);
-    menuOpen.set(false);
-    expect(buildMode.get()).toBe(true);
-    putPlanAway();
-    expect([buildMode.get(), menuOpen.get(), selected.get()]).toEqual([false, false, undefined]);
+  it("picks the card of what is under the pointer: a plan first, then what is built, in the overlay's layers", () => {
+    // Seven cells wide: cell (x, y) is y * 7 + x. A tank at 8; a pipe at 11; open cells behind
+    // walls; a cable along the top, from the hull's corner at 0 to 6.
+    const rows = ['#######', '#TT -.#', '#TT...#', '#######'];
+    const top = [
+      [
+        { x: 0, y: 0 },
+        { x: 6, y: 0 },
+      ],
+    ] as const;
+    const sim = stillwake.create(1, parseLayout(rows, undefined, top));
+    const q = () => ({
+      grid: sim.query(grid),
+      building: sim.query(building),
+      power: sim.query(power),
+    });
+    const pick = (cell: number, overlay?: string) => what(cardAt(cell, overlay, q()));
+    const hull = sim.query(grid).structureAt(0);
+    expect(pick(0)).toBe(`wall:${hull.kind === 'wall' ? hull.material : ''}`);
+    expect(pick(9)).toBe('tank');
+    expect(pick(11)).toBe('backWall:scrap');
+    expect(pick(11, 'pipes')).toBe('pipe');
+    expect(pick(10, 'pipes')).toBeUndefined();
+    sim.step([
+      command(building, 'placePlan', { cell: 12, placement: { layer: 'structure', kind: 'door' } }),
+    ]);
+    expect(pick(12)).toBe('door');
+    // Under the power overlay, the cable on a node a cable ends at; nothing on one with none.
+    expect(pick(0, POWER)).toBe('cable');
+    expect(pick(14, POWER)).toBeUndefined();
   });
 });

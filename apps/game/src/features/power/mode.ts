@@ -6,7 +6,7 @@ import { distanceTo, endOf, middleOf, type Point } from '../../render/cable';
 import type { Camera } from '../../render/camera';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import type { Game } from '../../session/game';
-import { cableInHand } from '../../session/ui';
+import { hand } from '../../session/ui';
 import { gripAt, lightOf, supportOnWay, type Grip, type Line } from './wiring';
 
 const FITS = 0x7fe08a;
@@ -17,12 +17,12 @@ const OUT_OF_REACH = 0x9aa3ad;
 const CUT_REACH = 0.35;
 
 /**
- * The power mode's hands (0021): with a cable in hand, a press on a node lays a cable from it, led on
- * past its reach through supports at the anchors on its way; without one, a press on a support, or
- * on a cable's end at a machine, carries it, and a right press cuts the cable under it. A release
- * lays or moves there. While
- * dragging, each powered machine's socket is lit by whether the cable reaches it, and the ghost runs to the
- * pointer in the colour of what the sim would say, its reason beside it.
+ * The hands at work on cables in the power overlay (0021, 0022): with the cable in hand, a press on a
+ * node lays a cable from it, led on past its reach through supports at the anchors on its way, and a
+ * press with Shift on a support, or on a cable's end at a machine, carries it; a release lays or
+ * moves there. With the cable or the plan in hand, a right press cuts the cable under it. While
+ * dragging, each powered machine's socket is lit by whether the cable reaches it, and the ghost runs
+ * to the pointer in the colour of what the sim would say, its reason beside it.
  */
 export function createPowerMode() {
   const ghost = new Graphics();
@@ -55,10 +55,10 @@ export function createPowerMode() {
       const isMachine = (node: number) => q.machineAt(node)?.cell === node;
       const lay = (a: number, b: number) => game.client.send(command(power, 'lay', { a, b }));
 
-      const laying = cableInHand.get();
-      // With a cable in hand the right button is the plan's, as for any tool: it cuts nothing.
-      for (const at of camera.takeRight()) {
-        if (laying) continue;
+      const holds = hand.get();
+      // The right button cuts with something in hand; an empty hand takes nothing apart.
+      for (const { down, at } of camera.takeRight()) {
+        if (!down || holds === 'free') continue;
         let best: { line: Line; d: number } | undefined;
         for (const line of lines) {
           const d = distanceTo(line.points, at);
@@ -67,14 +67,19 @@ export function createPowerMode() {
         if (best) game.client.send(command(power, 'cut', { a: best.line.a, b: best.line.b }));
       }
 
-      for (const button of camera.takeLeft()) {
+      // The left button is the cable's: any other card's, or an empty hand's, is the building's.
+      if (holds !== 'cable') {
+        grip = undefined;
+        from = undefined;
+      }
+      for (const button of holds === 'cable' ? camera.takeLeft() : []) {
         const cell = cellAt(button.at);
         if (button.down) {
           const node = cell < 0 ? undefined : wires.nodeAt(cell);
-          // A cable in hand is laid from whatever node is pressed, a peg too; without one, pegs and
-          // plugs are carried and nothing is laid.
+          // Laid from whatever node is pressed, a peg too; with Shift held at the press, a peg or a
+          // plug is carried and nothing is laid.
           const held = gripAt(button.at, lines, node, isMachine);
-          grip = laying
+          grip = !button.shift
             ? node === undefined
               ? undefined
               : { kind: 'lay', node }

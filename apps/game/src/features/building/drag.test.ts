@@ -1,6 +1,6 @@
 import { building, command, grid, parseLayout, stillwake, type Placement } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { judge, lineOf, onButton } from './drag';
+import { judge, lineOf, onButton, type Act } from './drag';
 import type { Tool } from './tools';
 
 const wall = {
@@ -15,7 +15,7 @@ const tank = {
   placement: { layer: 'machine', kind: 'tank' },
   label: 'tank',
 } as const satisfies Tool;
-const remove: Tool = { kind: 'remove', id: 'remove', label: 'remove' };
+const remove: Act = { kind: 'remove', layers: ['machine', 'conduit', 'structure', 'back'] };
 
 describe('a drag', () => {
   const W = 10;
@@ -90,6 +90,19 @@ describe('judging a drag', () => {
       command(building, 'deconstruct', { cell: 0, layer: 'structure' }),
     ]);
     expect(judge(remove, [10], q())[0]?.problem).toBe('building.nothingThere');
+  });
+
+  it('takes only from the layers it removes from', () => {
+    const { q } = start();
+    const ship: Act = { kind: 'remove', layers: ['machine', 'structure', 'back'] };
+    const pipes: Act = { kind: 'remove', layers: ['conduit'] };
+    expect(judge(ship, [11], q()).flatMap((v) => v.commands)).toEqual([
+      command(building, 'deconstruct', { cell: 11, layer: 'back' }),
+    ]);
+    expect(judge(pipes, [11, 0], q()).map((v) => [v.problem, v.commands])).toEqual([
+      [undefined, [command(building, 'deconstruct', { cell: 11, layer: 'conduit' })]],
+      ['building.nothingThere', []],
+    ]);
   });
 
   it('sends nothing where the sim would refuse a mark', () => {

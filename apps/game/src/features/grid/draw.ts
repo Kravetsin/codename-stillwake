@@ -11,7 +11,7 @@ import {
   valveTexture,
   wallEdgeTexture,
   wallTexture,
-} from './art';
+} from '../../render/ship-art';
 
 /** The raw codes of the grid, as the `layers` query hands them out. */
 export interface Cells {

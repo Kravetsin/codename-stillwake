@@ -17,7 +17,7 @@ const LINES: readonly Line[] = [
 ];
 const isMachine = (n: number) => n === MACHINE;
 
-describe('the power mode', () => {
+describe('the hands on cables', () => {
   it("takes a cable's end at a machine, pressed near it, rather than the machine", () => {
     expect(gripAt({ x: 1.9, y: 1.6 }, LINES, MACHINE, isMachine)).toEqual({
       kind: 'end',

@@ -1,7 +1,7 @@
 import { MATERIALS, type MachineKind, type MaterialId } from '@stillwake/content';
 import { Rectangle, Texture } from 'pixi.js';
-import { CELL } from '../../render/camera';
-import { pixelTexture, shade, type Palette } from '../../render/pixel-art';
+import { CELL } from './camera';
+import { pixelTexture, shade, type Palette } from './pixel-art';
 
 /**
  * The ship drawn as pixel art, a pixel of art a pixel of the world, a cell sixteen pixels across.

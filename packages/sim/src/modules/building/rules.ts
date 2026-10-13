@@ -44,18 +44,23 @@ function isMarked(plans: readonly Plan[], layer: Layer, cell: number): boolean {
   return plans.some((p) => 'clear' in p && p.clear === layer && p.cell === cell);
 }
 
+/** The layers deconstruction looks in, in the order it takes them. */
+const CLEAR_ORDER: readonly Layer[] = ['machine', 'conduit', 'structure', 'back'];
+
 /**
- * What deconstruction takes from a cell next: a machine, then a conduit, then the structure, then
- * the back wall, passing over what is marked already, so a second pass over a pipe in a wall marks
- * the wall. When everything there is marked, the top one, which a mark would refuse.
+ * What deconstruction takes from a cell next, of `layers`: a machine, then a conduit, then the
+ * structure, then the back wall, passing over what is marked already, so a second pass over a pipe
+ * in a wall marks the wall. When everything there is marked, the top one, which a mark would refuse.
  */
 export function clearAt(
   grid: Grid,
   plans: readonly Plan[],
   cell: number,
+  layers: readonly Layer[] = CLEAR_ORDER,
 ): { layer: Layer; cell: number } | undefined {
   let top: { layer: Layer; cell: number } | undefined;
-  for (const layer of ['machine', 'conduit', 'structure', 'back'] as const) {
+  for (const layer of CLEAR_ORDER) {
+    if (!layers.includes(layer)) continue;
     const at = markedCell(grid, cell, layer);
     if (at === undefined) continue;
     if (!isMarked(plans, layer, at)) return { layer, cell: at };

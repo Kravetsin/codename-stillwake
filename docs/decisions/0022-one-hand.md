@@ -73,6 +73,10 @@ mouse.
 
 - Pipes are removed only with P on; with no overlay, removal leaves them, as wiring is left
   without L.
-- A wheel turned with a card in hand drops the card.
+- A wheel turned, 1–9 or the inventory opened with a card in hand drops the card; Q drops nothing
+  then, as no hotbar slot is shown chosen.
+- A drag ends with the hand that began it: a card swapped or put away mid-drag sends nothing. The
+  first button down has the drag; Shift counts as it was at the press. A pick on nothing picks
+  nothing.
 - 0021 stands for `move`, pegs, sockets and laying on through supports; its power mode, "the mode
   and the plan put each other away" and "Remove no longer cuts cables" are replaced here.

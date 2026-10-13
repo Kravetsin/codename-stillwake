@@ -13,7 +13,7 @@ import { t } from '../../i18n/en';
 import { ICON_AUTHORS } from '../../render/item-icons';
 import { ItemIcon } from '../../render/ItemIcon';
 import type { Game } from '../../session/game';
-import { heroSpot, openCrate, pointerTip } from '../../session/ui';
+import { hand, heroSpot, openCrate, pointerTip } from '../../session/ui';
 import { clickOn, type Picked } from './click';
 import { ROW, wheelSlot } from './hotbar';
 
@@ -101,6 +101,7 @@ export function Inventory({ game }: { readonly game: Game }) {
   const crate = useSyncExternalStore(openCrate.subscribe, openCrate.get);
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState(0);
+  const handFree = useSyncExternalStore(hand.subscribe, hand.get) === 'free';
   const [picked, setPicked] = useState<Picked>();
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState<Place>();
@@ -123,17 +124,24 @@ export function Inventory({ game }: { readonly game: Game }) {
       if (e.code === 'Tab') {
         e.preventDefault();
         if (open || openCrate.get() !== undefined) close();
-        else setOpen(true);
+        else {
+          // One hand (0022): the inventory, a stack carried from it, takes it.
+          hand.set('free');
+          setOpen(true);
+        }
       } else if (e.code === 'Escape') {
         close();
       } else if (/^Digit[1-9]$/.test(e.code)) {
+        hand.set('free');
         setChosen(Number(e.code.slice(5)) - 1);
       }
     };
     const onMove = (e: globalThis.MouseEvent) => setMouse({ x: e.clientX, y: e.clientY });
     // Over the world only: a panel under the pointer may want its own scrolling.
     const onWheel = (e: WheelEvent) => {
-      if (e.target instanceof HTMLCanvasElement) setChosen((slot) => wheelSlot(slot, e.deltaY));
+      if (!(e.target instanceof HTMLCanvasElement)) return;
+      hand.set('free');
+      setChosen((slot) => wheelSlot(slot, e.deltaY));
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousemove', onMove);
@@ -187,7 +195,8 @@ export function Inventory({ game }: { readonly game: Game }) {
       setPicked(undefined);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyQ' || e.repeat) return;
+      // A card in hand, not the chosen slot: Q drops nothing it does not show.
+      if (e.code !== 'KeyQ' || e.repeat || hand.get() !== 'free') return;
       const { chosen: slot, reading: now, dropFrom: drop } = latest.current;
       const stack = now.inventory[slot];
       if (stack) drop({ slot }, stack.count);
@@ -237,7 +246,7 @@ export function Inventory({ game }: { readonly game: Game }) {
       key={`${place.crate ?? 'inv'}-${place.slot}`}
       id={`${place.crate === undefined ? 'inv' : 'crate'}-${place.slot}`}
       slot={slotAt(reading, place)}
-      chosen={place.crate === undefined && place.slot === chosen}
+      chosen={handFree && place.crate === undefined && place.slot === chosen}
       picked={
         held !== undefined && held.place.crate === place.crate && held.place.slot === place.slot
       }

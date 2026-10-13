@@ -38,9 +38,9 @@ function setup() {
   const press = (code: string, key = '') =>
     keys.dispatchEvent(Object.assign(new Event('keydown'), { code, key }));
   /** A pointer event with `buttons` held afterwards, at (x, y) on the canvas. */
-  const pointer = (type: string, buttons: number, x: number, y: number) =>
+  const pointer = (type: string, buttons: number, x: number, y: number, shiftKey = false) =>
     canvas.dispatchEvent(
-      Object.assign(new Event(type), { buttons, clientX: x, clientY: y, pointerId: 1 }),
+      Object.assign(new Event(type), { buttons, clientX: x, clientY: y, pointerId: 1, shiftKey }),
     );
   return { world, camera, pointer, captured, press };
 }
@@ -82,10 +82,24 @@ describe('camera', () => {
     pointer('pointerdown', 1, 0, CELL);
     pointer('pointerup', 0, CELL, CELL);
     expect(camera.takeLeft()).toEqual([
-      { down: true, at: { x: 1, y: 1 } },
-      { down: false, at: { x: 2, y: 1 } },
+      { down: true, at: { x: 1, y: 1 }, shift: false },
+      { down: false, at: { x: 2, y: 1 }, shift: false },
     ]);
     expect(camera.takeLeft()).toEqual([]);
+  });
+
+  it('reads right presses and releases, middle presses, and Shift held at each', () => {
+    const { camera, pointer } = setup();
+    pointer('pointerdown', 2, 0, 0, true);
+    pointer('pointermove', 6, CELL, 0);
+    pointer('pointermove', 2, CELL, 0);
+    pointer('pointerup', 0, 2 * CELL, 0);
+    expect(camera.takeRight()).toEqual([
+      { down: true, at: { x: 0, y: 0 }, shift: true },
+      { down: false, at: { x: 2, y: 0 }, shift: false },
+    ]);
+    expect(camera.takeMiddle()).toEqual([{ x: 1, y: 0 }]);
+    expect([camera.takeRight(), camera.takeMiddle(), camera.takeLeft()]).toEqual([[], [], []]);
   });
 
   it('reports a left release that comes as a move, while the right button is held', () => {

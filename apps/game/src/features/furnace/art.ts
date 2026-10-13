@@ -50,7 +50,7 @@ export const FIRE = [
 
 /**
  * Where the fire goes in the furnace's picture, in pixels from its top left: the inside of its mouth,
- * as `features/grid/art.ts` draws it; `dev/furnace-fire.test.ts` keeps the two in step.
+ * as `render/ship-art.ts` draws it; `dev/furnace-fire.test.ts` keeps the two in step.
  */
 export const FIRE_AT = { x: 14, y: 17 } as const;
 

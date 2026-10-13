@@ -5,14 +5,7 @@ import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
-import {
-  aimedPiece,
-  buildMode,
-  heroBodies,
-  heroSpot,
-  openCrate,
-  overlayOn,
-} from '../../session/ui';
+import { aimedPiece, hand, heroBodies, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -200,7 +193,7 @@ export const crewFeature: Feature = {
         const current = {
           ...hero.current,
           look: out ? 0 : lookOf(hero.current, pointed),
-          ...(buildMode.get() && !out ? { holds: 'plan' as const } : {}),
+          ...(hand.get() !== 'free' && !out ? { holds: 'plan' as const } : {}),
         };
 
         // Where a stack let go over the world is thrown from, and which way; and what the hero walks
@@ -261,7 +254,7 @@ export const crewFeature: Feature = {
         const aim =
           pointer && aimAt(sim, game.client.id, current, pointer, grabbing(game.client), served);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
-        const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim, shown);
+        const prompt = out || hand.get() !== 'free' ? undefined : promptOf(sim, aim, shown);
         drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);
         if (!samePrompt(prompt, shownPrompt.get())) shownPrompt.set(prompt);
         const piece =
@@ -277,13 +270,11 @@ export const crewFeature: Feature = {
         const pressed = keys.takeUse();
         // The left button grabs debris too: out in space, with WASD held and the mouse aiming, E is
         // a stretch. Held on a plan, it works it.
-        // In the power mode the left button is the cables': it grabs and works nothing.
-        const wiring = overlayOn.get() === 'power';
-        const grab = keys.takeClick() && aim?.piece !== undefined && !wiring;
+        const grab = keys.takeClick() && aim?.piece !== undefined;
         const e =
-          out || buildMode.get()
+          out || hand.get() !== 'free'
             ? { pressed: false, held: false }
-            : { pressed: pressed || grab, held: keys.holdsLeft() && !wiring };
+            : { pressed: pressed || grab, held: keys.holdsLeft() };
         const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
         workedOnTick = uses.workedOnTick;
         if (uses.served !== undefined) served.add(uses.served);

@@ -6,7 +6,7 @@ import { predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
-import { machineTexture, socketTexture } from './art';
+import { machineTexture, socketTexture } from '../../render/ship-art';
 import { drawBack, drawConduit, drawStructure, type Cells } from './draw';
 
 /**

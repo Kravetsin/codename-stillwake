@@ -46,3 +46,45 @@ export function pixelTexture(key: string, rows: readonly string[], palette: Pale
   made.set(key, texture);
   return texture;
 }
+
+/** A picture laid at a point, in pixels: one of several drawn together. */
+export interface Piece {
+  readonly texture: Texture;
+  readonly x: number;
+  readonly y: number;
+}
+
+const thumbnails = new Map<string, string>();
+
+/**
+ * `pieces` drawn together into one small picture, as a data URL for a page to show, under `key` and
+ * kept: a build menu card's picture of what it builds.
+ */
+export function thumbnailOf(key: string, pieces: readonly Piece[]): string {
+  const kept = thumbnails.get(key);
+  if (kept !== undefined) return kept;
+  const width = Math.max(1, ...pieces.map((p) => p.x + p.texture.frame.width));
+  const height = Math.max(1, ...pieces.map((p) => p.y + p.texture.frame.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const g = canvas.getContext('2d');
+  for (const { texture, x, y } of pieces) {
+    const { frame } = texture;
+    const from = texture.source.resource as CanvasImageSource;
+    g?.drawImage(
+      from,
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      x,
+      y,
+      frame.width,
+      frame.height,
+    );
+  }
+  const url = canvas.toDataURL();
+  thumbnails.set(key, url);
+  return url;
+}

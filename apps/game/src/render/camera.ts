@@ -30,15 +30,19 @@ export interface Camera {
   /** The part of the world on `screen`, in cells, and the zoom it is drawn at. */
   view(screen: Size): { x: number; y: number; width: number; height: number; zoom: number };
   /** Left-button presses and releases since the last call, in order, at their world points. */
-  takeLeft(): readonly LeftButton[];
-  /** Right-button presses since the last call, in order, at their world points. */
-  takeRight(): readonly { readonly x: number; readonly y: number }[];
+  takeLeft(): readonly Button[];
+  /** Right-button presses and releases since the last call, as the left's. */
+  takeRight(): readonly Button[];
+  /** Middle-button presses since the last call, in order, at their world points. */
+  takeMiddle(): readonly { readonly x: number; readonly y: number }[];
   destroy(): void;
 }
 
-export interface LeftButton {
+/** A button pressed or let go, where, and whether Shift was held then. */
+export interface Button {
   readonly down: boolean;
   readonly at: { readonly x: number; readonly y: number };
+  readonly shift: boolean;
 }
 
 interface Size {
@@ -53,8 +57,8 @@ export function zoomStep(zoom: number, direction: -1 | 1): number {
 
 /**
  * Moves and scales `world`: it follows the hero and is never dragged, and `-` and `=` on `keys`
- * zoom it in steps. The mouse buttons and the wheel are left to the game, which reads the left
- * button with `takeLeft`.
+ * zoom it in steps. The mouse buttons and the wheel are left to the game, which reads the buttons
+ * with `takeLeft`, `takeRight` and `takeMiddle`.
  */
 export function createCamera(
   world: Container,
@@ -62,10 +66,12 @@ export function createCamera(
   keys: EventTarget,
 ): Camera {
   let mouse: { x: number; y: number } | undefined;
-  let left: LeftButton[] = [];
+  let left: Button[] = [];
   let leftDown = false;
-  let right: { x: number; y: number }[] = [];
+  let right: Button[] = [];
   let rightDown = false;
+  let middle: { x: number; y: number }[] = [];
+  let middleDown = false;
   // Whether the buttons held were pressed on the canvas: a drag begun on a panel, a stack carried
   // from a crate to the hotbar, crosses the world without being the world's.
   let ours = false;
@@ -85,14 +91,20 @@ export function createCamera(
     mouse = onCanvas(e);
     if (e.type === 'pointerdown') ours = true;
     if (!ours) return;
+    const at = toWorld(mouse.x, mouse.y);
     const leftHeld = (e.buttons & 1) !== 0;
     if (leftHeld !== leftDown) {
       leftDown = leftHeld;
-      left.push({ down: leftHeld, at: toWorld(mouse.x, mouse.y) });
+      left.push({ down: leftHeld, at, shift: e.shiftKey === true });
     }
     const rightHeld = (e.buttons & 2) !== 0;
-    if (rightHeld && !rightDown) right.push(toWorld(mouse.x, mouse.y));
-    rightDown = rightHeld;
+    if (rightHeld !== rightDown) {
+      rightDown = rightHeld;
+      right.push({ down: rightHeld, at, shift: e.shiftKey === true });
+    }
+    const middleHeld = (e.buttons & 4) !== 0;
+    if (middleHeld && !middleDown) middle.push(at);
+    middleDown = middleHeld;
     // Captured while any button is held, so a release outside the canvas still arrives.
     const captured = canvas.hasPointerCapture(e.pointerId);
     if (e.buttons !== 0 && !captured) canvas.setPointerCapture(e.pointerId);
@@ -157,6 +169,11 @@ export function createCamera(
     takeRight() {
       const taken = right;
       right = [];
+      return taken;
+    },
+    takeMiddle() {
+      const taken = middle;
+      middle = [];
       return taken;
     },
     destroy() {

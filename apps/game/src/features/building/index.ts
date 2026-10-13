@@ -1,17 +1,27 @@
-import { building, grid, rooms, type Plan, type QueryApi } from '@stillwake/sim';
+import {
+  building,
+  grid,
+  power,
+  rooms,
+  type Placement,
+  type Plan,
+  type QueryApi,
+} from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
 import type { Point } from '../../render/cable';
-import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
+import { CELL, WORLD_TEXT_RESOLUTION, type Button } from '../../render/camera';
 import { costLines } from '../../render/CostRow';
 import { EFFECTS, particles } from '../../render/particles';
-import { overlayOn, pointerTip } from '../../session/ui';
+import { hand, overlayOn, pointerTip } from '../../session/ui';
 import type { Feature } from '../feature';
-import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
+import { createSprites, joins, linksOf, piecesOf } from './blueprint';
+import { judge, lineOf, onGrid, spotAt, type Act, type Spot, type Verdict } from './drag';
 import { nearGrid } from './near-grid';
 import { BuildMenu } from './BuildMenu';
-import { POWER_MODE, putPlanAway, selected } from './tools';
+import { cardAt, layersFor, menuOpen, POWER, putPlanAway, selected } from './tools';
 
+/** A plan's tint: its own picture, blue, not built yet. */
 const PLAN = 0x5fd0ff;
 const MARK = 0xe05555;
 const FITS = 0x7fe08a;
@@ -25,16 +35,19 @@ const GRID_LINE = 0x9fb4c8;
 const SPARKS_PER_TICK = 0.3;
 
 /**
- * Plans and marks drawn over the ship, and the selected tool at work: the grid around the pointer,
- * fading out, and a ghost along the drag, coloured by what the sim would say, with its reason by the
- * pointer. A release sends the commands. With no tool out, no grid: space stays space.
+ * Plans drawn over the ship as their own pictures in blue, marks as red crosses, and the hand at work
+ * (0022): a card's ghost along a left drag, a removal's along a right one in the overlay's layers,
+ * coloured by what the sim would say, with its reason by the pointer; a release sends the commands.
+ * The middle button picks a card. With no card out, no grid: space stays space.
  */
 export const buildingFeature: Feature = {
   id: 'building',
   Panel: BuildMenu,
   layer() {
+    const planSprites = new Container();
     const plansView = new Graphics();
     const near = new Graphics();
+    const ghostSprites = new Container();
     const ghost = new Graphics();
     const reason = new Text({
       text: '',
@@ -47,13 +60,16 @@ export const buildingFeature: Feature = {
       resolution: WORLD_TEXT_RESOLUTION,
     });
     const view = new Container();
-    view.addChild(near, plansView, ghost, reason);
+    view.addChild(near, planSprites, plansView, ghostSprites, ghost, reason);
+    const blueprints = createSprites(planSprites);
+    const ghosts = createSprites(ghostSprites);
 
     let drawn = '';
     /** Each plan's work done when last seen, and the sparks owed to it. */
     let worked = new Map<number, number>();
     let owedSparks = 0;
-    let pressed: Spot | undefined;
+    /** The drag under way: what it does, the button that began it and the cell it began on. */
+    let drag: { act: Act; button: 'left' | 'right'; from: Spot } | undefined;
     return {
       view,
       update({ game, camera }) {
@@ -71,7 +87,7 @@ export const buildingFeature: Feature = {
         );
         if (key.join() !== drawn) {
           drawn = key.join();
-          drawPlans(plansView, plans, size.width, q);
+          drawPlans(blueprints, plansView, plans, size.width, q);
           sparkWork(plans, worked, size.width, q, sim.query(rooms), (n) => {
             owedSparks += n * SPARKS_PER_TICK;
             const count = Math.floor(owedSparks);
@@ -82,30 +98,61 @@ export const buildingFeature: Feature = {
         }
 
         const tool = selected.get();
+        const holds = hand.get();
+        const overlay = overlayOn.get();
         const cellAt = (p: Point) => {
           const s = spotAt(size, p);
           return s.y * size.width + s.x;
         };
-        // In the power mode the left button is the cables': left for the power layer to take.
-        const wiring = (!tool || tool.kind === 'cable') && overlayOn.get() === POWER_MODE;
-        const buttons = wiring ? [] : camera.takeLeft();
-        for (const button of buttons) {
-          if (!tool || tool.kind === 'cable') continue;
-          const next = onButton(pressed, button, size);
-          pressed = next.pressed;
-          if (!next.line) continue;
-          for (const verdict of judge(tool, lineOf(size.width, tool, ...next.line), q)) {
+        const send = (act: Act, from: Spot, to: Spot) => {
+          for (const verdict of judge(act, lineOf(size.width, act, from, to), q)) {
             for (const c of verdict.commands) game.client.send(c);
           }
+        };
+        // A drag ends with the hand that began it: a card swapped or put away mid-drag sends nothing.
+        if (drag && (drag.act.kind === 'remove' ? holds === 'free' : drag.act !== tool)) {
+          drag = undefined;
         }
-        if (!tool) pressed = undefined;
+
+        const dragWith = (button: Button, act: Act, which: 'left' | 'right') => {
+          if (button.down) {
+            // The first button down has the drag; another pressed meanwhile is let be.
+            if (!drag && onGrid(size, button.at)) {
+              drag = { act, button: which, from: spotAt(size, button.at) };
+            }
+            return;
+          }
+          if (drag?.button !== which) return;
+          send(drag.act, drag.from, spotAt(size, button.at));
+          drag = undefined;
+        };
+        // The left button is the card's, but for the cable, which the power feature lays.
+        for (const button of holds === 'cable' ? [] : camera.takeLeft()) {
+          if (tool?.kind !== 'place') continue;
+          dragWith(button, tool, 'left');
+        }
+        // The right button removes with the plan in hand; under the power overlay it cuts cables,
+        // the power feature's.
+        for (const button of overlay === POWER ? [] : camera.takeRight()) {
+          if (holds === 'free') continue;
+          dragWith(button, { kind: 'remove', layers: layersFor(overlay) }, 'right');
+        }
+        // The middle button picks the card of what is under it.
+        for (const at of camera.takeMiddle()) {
+          if (!onGrid(size, at)) continue;
+          const card = cardAt(cellAt(at), overlay, { ...q, power: sim.query(power) });
+          if (!card) continue;
+          selected.set(card);
+          menuOpen.set(false);
+        }
 
         ghost.clear();
+        ghosts.begin();
         near.clear();
         reason.text = '';
         const pointer = camera.pointer();
         showTray(pointer && onGrid(size, pointer) ? cellAt(pointer) : undefined, q);
-        if (tool && pointer) {
+        if (tool?.kind === 'place' && pointer) {
           for (const e of nearGrid(pointer, size)) {
             near
               .moveTo(e.x1 * CELL, e.y1 * CELL)
@@ -113,20 +160,21 @@ export const buildingFeature: Feature = {
               .stroke({ width: 1, color: GRID_LINE, alpha: e.alpha });
           }
         }
-        if (!tool || !pointer || (!pressed && !onGrid(size, pointer))) return;
+        const act: Act | undefined = drag?.act ?? (tool?.kind === 'place' ? tool : undefined);
+        if (!act || !pointer || (!drag && !onGrid(size, pointer))) return;
         const end = spotAt(size, pointer);
-        const verdicts = judge(tool, lineOf(size.width, tool, pressed ?? end, end), q);
-        for (const v of verdicts) {
-          const colour = v.problem ? REFUSED : FITS;
-          const cells =
-            tool.kind === 'place' && tool.placement.layer === 'machine'
-              ? (q.grid.footprint(tool.placement.kind, v.cell) ?? [v.cell])
-              : [v.cell];
-          const box = boxOf(cells, size.width);
-          ghost
-            .rect(box.x, box.y, box.w, box.h)
-            .fill({ color: colour, alpha: 0.3 })
-            .stroke({ width: 1, color: colour });
+        const verdicts = judge(act, lineOf(size.width, act, drag?.from ?? end, end), q);
+        if (act.kind === 'place') {
+          drawGhost(ghosts, act.placement, verdicts, size.width);
+        } else {
+          for (const v of verdicts) {
+            const colour = v.problem ? REFUSED : FITS;
+            const box = boxOf([v.cell], size.width);
+            ghost
+              .rect(box.x, box.y, box.w, box.h)
+              .fill({ color: colour, alpha: 0.3 })
+              .stroke({ width: 1, color: colour });
+          }
         }
         const refused = verdicts.find((v) => v.problem);
         if (refused?.problem) {
@@ -142,6 +190,26 @@ export const buildingFeature: Feature = {
     };
   },
 };
+
+/**
+ * The ghost of `placement` along a drag: its own pictures, as a plan of it would be drawn, green
+ * where the sim would take it and red where not, pipes reaching along the line.
+ */
+function drawGhost(
+  ghosts: ReturnType<typeof createSprites>,
+  placement: Placement,
+  verdicts: readonly Verdict[],
+  width: number,
+) {
+  const cells = new Set(verdicts.map((v) => v.cell));
+  const together = joins(placement, placement);
+  for (const v of verdicts) {
+    const linked = together ? linksOf(v.cell, width, (c) => cells.has(c)) : 0;
+    for (const piece of piecesOf(placement, v.cell, width, linked)) {
+      ghosts.lay(piece, v.problem ? REFUSED : FITS, 0.75);
+    }
+  }
+}
 
 /**
  * Beside the pointer (`pointerTip.cost`), what the blueprint at `cell` has against what it costs,
@@ -207,17 +275,38 @@ function boxOf(cells: readonly number[], width: number) {
 }
 
 /**
- * Plans as translucent shapes by layer, marks as red crosses over what they take out, and a bar
- * along the bottom of each plan: a blueprint's share delivered while it lacks something, in amber,
- * then the work done, in white.
+ * Plans as their own pictures in blue (`blueprints`), pipes and doors joined to the plans beside them,
+ * back walls fainter; marks as red crosses over what they take out; and a bar along the bottom of each
+ * plan: a blueprint's share delivered while it lacks something, in amber, then the work done, in white.
  */
 function drawPlans(
+  blueprints: ReturnType<typeof createSprites>,
   g: Graphics,
   plans: readonly Plan[],
   width: number,
   q: { readonly grid: QueryApi<typeof grid>; readonly building: QueryApi<typeof building> },
 ) {
   g.clear();
+  blueprints.begin();
+  const placed = new Map<number, Placement[]>();
+  for (const p of plans)
+    if ('place' in p) placed.set(p.cell, [...(placed.get(p.cell) ?? []), p.place]);
+  // Back walls first: behind whatever else is planned in their cells.
+  const order = [...plans].sort(
+    (a, b) =>
+      Number('place' in b && b.place.layer === 'back') -
+      Number('place' in a && a.place.layer === 'back'),
+  );
+  for (const p of order) {
+    if (!('place' in p)) continue;
+    const place = p.place;
+    const linked = linksOf(p.cell, width, (c) =>
+      (placed.get(c) ?? []).some((o) => joins(place, o)),
+    );
+    for (const piece of piecesOf(place, p.cell, width, linked)) {
+      blueprints.lay(piece, PLAN, place.layer === 'back' ? 0.35 : 0.75);
+    }
+  }
   for (const p of plans) {
     const machine =
       'place' in p
@@ -231,15 +320,6 @@ function drawPlans(
         .moveTo(x + w - 4, y + 4)
         .lineTo(x + 4, y + h - 4)
         .stroke({ width: 2, color: MARK });
-    } else if (p.place.layer === 'conduit') {
-      g.rect(x, y + h / 2 - 2, w, 4).fill({ color: PLAN, alpha: 0.7 });
-    } else if (p.place.layer === 'back') {
-      // Faint and edgeless: behind whatever else is planned in the cell.
-      g.rect(x, y, w, h).fill({ color: PLAN, alpha: 0.12 });
-    } else {
-      g.rect(x + 2, y + 2, w - 4, h - 4)
-        .fill({ color: PLAN, alpha: p.place.layer === 'machine' ? 0.15 : 0.25 })
-        .stroke({ width: p.place.layer === 'machine' ? 2 : 1, color: PLAN });
     }
     // A blueprint still lacking something shows the share delivered; then, as any plan, the work
     // done.

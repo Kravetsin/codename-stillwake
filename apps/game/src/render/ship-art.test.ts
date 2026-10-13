@@ -1,7 +1,7 @@
 import { MACHINES, type MachineKind, type MaterialId } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
-import { CELL } from '../../render/camera';
-import { GEAR, MACHINE_ART, WALL } from './art';
+import { CELL } from './camera';
+import { GEAR, MACHINE_ART, WALL } from './ship-art';
 
 describe('machine art', () => {
   it.each(Object.keys(MACHINES) as MachineKind[])(

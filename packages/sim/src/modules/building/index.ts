@@ -42,7 +42,8 @@ const buildingModule = defineModule<Deps>()({
     plansAt: (ctx, cell: number) =>
       ctx.state.plans.filter((p) => covers(ctx.deps.grid.query, p).includes(cell)),
     /** The layer a deconstruct tool takes from `cell`, and the cell its mark is kept at. */
-    clearAt: (ctx, cell: number) => clearAt(ctx.deps.grid.query, ctx.state.plans, cell),
+    clearAt: (ctx, cell: number, layers?: readonly Layer[]) =>
+      clearAt(ctx.deps.grid.query, ctx.state.plans, cell, layers),
     /** Why `action` cannot be planned at `cell`: what a ghost shows before the command is sent. */
     problem: (ctx, cell: number, action: Action) =>
       planProblem(
