@@ -93,7 +93,6 @@ export const EN: Readonly<Record<string, string>> = {
   'atmosphere.noTank': 'There is no tank here',
   'atmosphere.tankFull': 'The tank is full',
   'items.creative': 'creative',
-  'items.iconCredit': 'Icons: game-icons.net, CC BY 3.0 · {authors}',
   'use.deliver': '[LMB] Bring what it needs',
   'use.build': '[Hold LMB] Build',
   'use.takeApart': '[Hold LMB] Take apart',

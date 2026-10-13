@@ -1,10 +1,11 @@
-import { MATERIALS, type MachineKind } from '@stillwake/content';
+import { ITEMS, MATERIALS, type ItemId, type MachineKind } from '@stillwake/content';
 import { BACK, CONDUIT, STRUCTURE } from '@stillwake/sim';
 import { Application, Container, Graphics, Sprite } from 'pixi.js';
 import { useEffect, useRef, useState } from 'react';
 import { createFigure } from '../features/crew/figure';
 import { SUITS } from '../features/crew/suits';
 import { FIRE_AT, fireTexture } from '../features/furnace/art';
+import { itemPicture } from '../render/item-art';
 import { machineTexture } from '../render/ship-art';
 import { drawBack, drawConduit, drawStructure, type Cells } from '../features/grid/draw';
 import { CELL } from '../render/camera';
@@ -154,6 +155,18 @@ export function ArtGallery() {
           />
           ×{zoom}
         </label>
+      </div>
+      <div className="fixed bottom-2 left-2 flex gap-2 rounded bg-slate-900/90 p-2">
+        {(Object.keys(ITEMS) as ItemId[]).map((item) => (
+          <img
+            key={item}
+            src={itemPicture(item)}
+            alt={item}
+            title={item}
+            className="h-16 w-16"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        ))}
       </div>
     </>
   );

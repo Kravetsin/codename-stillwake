@@ -1,18 +1,13 @@
 import type { ItemId } from '@stillwake/content';
 
-/**
- * Each item at a glance, until there is art: a colour, and round for what is not a material. Shared
- * by the inventory's icons and the debris drawn in space, so a caught piece looks the same in both.
- */
-export const ITEM_LOOK: Readonly<
-  Record<ItemId, { readonly colour: number; readonly round: boolean }>
-> = {
-  scrap: { colour: 0xb0703c, round: false },
-  iron: { colour: 0xa9bccf, round: false },
-  canister: { colour: 0x5fd0ff, round: true },
-  scrapChunk: { colour: 0x8c5a3a, round: false },
-  hullPlate: { colour: 0x74889c, round: false },
-  supplyPod: { colour: 0xe0b84a, round: true },
+/** Each item's outline when aimed at adrift: round for what is not a material. */
+export const ITEM_LOOK: Readonly<Record<ItemId, { readonly round: boolean }>> = {
+  scrap: { round: false },
+  iron: { round: false },
+  canister: { round: true },
+  scrapChunk: { round: false },
+  hullPlate: { round: false },
+  supplyPod: { round: true },
 };
 
 /** The colour as CSS writes it. */

@@ -1,8 +1,8 @@
 import { debris } from '@stillwake/sim';
-import { Container, Graphics, Texture, TilingSprite } from 'pixi.js';
+import { Container, Graphics, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
-import { ITEM_ICON } from '../../render/item-icons';
-import { css, ITEM_LOOK } from '../../render/item-look';
+import { ITEM_PIXELS, itemTexture } from '../../render/item-art';
+import { ITEM_LOOK } from '../../render/item-look';
 import { grabbing } from '../../session/predicted';
 import { aimedPiece } from '../../session/ui';
 import type { Feature } from '../feature';
@@ -59,12 +59,10 @@ function shape(g: Graphics, round: boolean, grow: number): Graphics {
 /** A piece of debris, and its outline, hidden until E would grab it. */
 function pieceView(item: keyof typeof ITEM_LOOK): { view: Container; rim: Graphics } {
   const look = ITEM_LOOK[item];
-  // Its picture, as in the inventory: a 512 grid scaled to the piece, centred on it.
-  const body = new Graphics().svg(
-    `<svg viewBox="0 0 512 512"><path d="${ITEM_ICON[item]}" fill="${css(look.colour)}"/></svg>`,
-  );
-  body.pivot.set(256, 256);
-  body.scale.set((PIECE * CELL) / 512);
+  // Its picture, as in the inventory, scaled to the piece and centred on it.
+  const body = new Sprite(itemTexture(item));
+  body.anchor.set(0.5);
+  body.scale.set((PIECE * CELL) / ITEM_PIXELS);
   // Drawn white and tinted, so one shape serves both colours.
   const rim = shape(new Graphics(), look.round, 1.5).stroke({ width: 2, color: 0xffffff });
   rim.visible = false;

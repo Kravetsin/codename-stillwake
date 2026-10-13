@@ -1,10 +1,9 @@
 import { FLOOR } from '@stillwake/content';
 import { items, rooms, type FloorStack, type Item } from '@stillwake/sim';
-import { Container, Graphics } from 'pixi.js';
+import { Container, Sprite } from 'pixi.js';
 import { lit } from '../../render/lighting';
 import { CELL } from '../../render/camera';
-import { ITEM_ICON } from '../../render/item-icons';
-import { css, ITEM_LOOK } from '../../render/item-look';
+import { ITEM_PIXELS, itemSilhouette, itemTexture } from '../../render/item-art';
 import { pickingUp } from '../../session/predicted';
 import type { Layer } from '../feature';
 
@@ -85,15 +84,13 @@ const resting = (s: FloorStack) => s.vx === 0 && s.vy === 0;
 
 /** An item's picture with a pale rim behind it, centred half its size above the origin. */
 function pictureOf(item: Item): Shown {
-  const svg = (fill: string) =>
-    `<svg viewBox="0 0 512 512"><path d="${ITEM_ICON[item]}" fill="${fill}"/></svg>`;
-  const rim = new Graphics().svg(svg('#ffffff'));
+  const rim = new Sprite(itemSilhouette(item));
   rim.alpha = 0.35;
-  rim.pivot.set(256, 256);
-  rim.scale.set((SIZE * 1.18 * CELL) / 512);
-  const body = new Graphics().svg(svg(css(ITEM_LOOK[item].colour)));
-  body.pivot.set(256, 256);
-  body.scale.set((SIZE * CELL) / 512);
+  rim.anchor.set(0.5);
+  rim.scale.set((SIZE * 1.18 * CELL) / ITEM_PIXELS);
+  const body = new Sprite(itemTexture(item));
+  body.anchor.set(0.5);
+  body.scale.set((SIZE * CELL) / ITEM_PIXELS);
   const picture = new Container();
   picture.addChild(rim, body);
   // Turned about its middle, which sits half its size above the point it rests on.

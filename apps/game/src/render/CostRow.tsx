@@ -1,6 +1,5 @@
 import type { ItemId } from '@stillwake/content';
-import { ITEM_ICON } from './item-icons';
-import { css, ITEM_LOOK } from './item-look';
+import { itemPicture } from './item-art';
 
 /** One item of a cost: how much there is of it, toward how much is needed. */
 export interface CostLine {
@@ -28,9 +27,12 @@ export function CostRow({ lines }: { readonly lines: readonly CostLine[] }) {
     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
       {lines.map(({ item, have, need }) => (
         <span key={item} className="flex items-center gap-0.5" data-cost={item}>
-          <svg viewBox="0 0 512 512" className="h-4 w-4" aria-hidden>
-            <path d={ITEM_ICON[item]} fill={css(ITEM_LOOK[item].colour)} />
-          </svg>
+          <img
+            src={itemPicture(item)}
+            alt=""
+            className="h-4 w-4"
+            style={{ imageRendering: 'pixelated' }}
+          />
           <span
             className={`font-mono text-[10px] ${have < need ? 'text-red-400' : 'text-slate-300'}`}
           >

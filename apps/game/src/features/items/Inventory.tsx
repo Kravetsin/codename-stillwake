@@ -10,7 +10,6 @@ import {
 } from '@stillwake/sim';
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
-import { ICON_AUTHORS } from '../../render/item-icons';
 import { ItemIcon } from '../../render/ItemIcon';
 import type { Game } from '../../session/game';
 import { hand, heroSpot, openCrate, pointerTip } from '../../session/ui';
@@ -277,9 +276,6 @@ export function Inventory({ game }: { readonly game: Game }) {
             className="rounded border border-slate-700 bg-slate-900/90 p-1"
           >
             {grid(range(ROW, reading.inventory.length).map((slot) => ({ slot })))}
-            <p className="mt-1 text-[9px] text-slate-500">
-              {t('items.iconCredit', { authors: ICON_AUTHORS.join(', ') })}
-            </p>
           </div>
           {crate !== undefined && reading.crate && reading.furnace && (
             <div
