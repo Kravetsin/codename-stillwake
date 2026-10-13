@@ -74,7 +74,14 @@ class LitFilter extends Filter {
   }
 }
 
-const filter = new LitFilter();
+/**
+ * How light falls on what it lights: `smooth`, blended between cells, on what stands in front of
+ * the back walls and on them; `cell`, a whole cell alike, on walls, floors, ladders and doors, so
+ * each block keeps its edges.
+ */
+export type Falls = 'smooth' | 'cell';
+
+const filters: Record<Falls, LitFilter> = { smooth: new LitFilter(), cell: new LitFilter() };
 
 /**
  * The light, shared as the particles are: one per page. The `light` feature works it out into a
@@ -83,15 +90,17 @@ const filter = new LitFilter();
  */
 export const lighting = {
   sprite: Object.assign(new Sprite(Texture.WHITE), { renderable: false }),
-  /** Lights with `texture`, laid where `sprite` lies. */
-  show(texture: Texture) {
-    lighting.sprite.texture = texture;
-    filter.resources.uLightTexture = texture.source;
-    filter.resources.uLightSampler = texture.source.style;
+  /** Lights with the same light read two ways, laid where `sprite` lies. */
+  show(textures: Record<Falls, Texture>) {
+    lighting.sprite.texture = textures.smooth;
+    for (const falls of ['smooth', 'cell'] as const) {
+      filters[falls].resources.uLightTexture = textures[falls].source;
+      filters[falls].resources.uLightSampler = textures[falls].source.style;
+    }
   },
 };
 
-/** Lights `view` from now on: back walls, walls, pipes, cables, machines, heroes, items. */
-export function lit(view: Container): void {
-  view.filters = [filter];
+/** Lights `view` from now on, light falling on it as `falls`. */
+export function lit(view: Container, falls: Falls = 'smooth'): void {
+  view.filters = [filters[falls]];
 }

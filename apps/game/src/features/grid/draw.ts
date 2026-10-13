@@ -18,8 +18,8 @@ const COLOUR_BY_CODE = new Map<number, number>(
   (Object.keys(MATERIALS) as MaterialId[]).map((id) => [MATERIALS[id].code, MATERIAL_COLOUR[id]]),
 );
 
-/** The wall behind a cell: a mid grey, so the light, not the paint, says how dark a room is. */
-const BACK_PANEL = 0x535d72;
+/** The wall behind a cell: darker than any wall, so walls stand out from it in any light. */
+const BACK_PANEL = 0x2f3646;
 const FLOOR = 0x9aa3b5;
 const LADDER = 0xb08d57;
 const DOOR = 0xc97a3a;
