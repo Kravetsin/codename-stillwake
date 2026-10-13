@@ -11,11 +11,12 @@ import {
   type Point,
 } from '../../render/cable';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
-import { overlayOn } from '../../session/ui';
+import { costLines } from '../../render/CostRow';
+import { overlayOn, pointerTip } from '../../session/ui';
 import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
 import { nearGrid } from './near-grid';
-import { Toolbar } from './Toolbar';
+import { BuildMenu } from './BuildMenu';
 import { selected } from './tools';
 
 const PLAN = 0x5fd0ff;
@@ -37,7 +38,7 @@ const CUT_REACH = 0.35;
  */
 export const buildingFeature: Feature = {
   id: 'building',
-  Panel: Toolbar,
+  Panel: BuildMenu,
   layer() {
     const plansView = new Graphics();
     const near = new Graphics();
@@ -138,6 +139,7 @@ export const buildingFeature: Feature = {
         near.clear();
         reason.text = '';
         const pointer = camera.pointer();
+        showTray(pointer && onGrid(size, pointer) ? cellAt(pointer) : undefined, q);
         if (tool?.kind === 'cable') {
           // The power overlay, on with the tool, rings the nodes and says how each network stands.
           if (!pointer || cableFrom === undefined) return;
@@ -200,12 +202,34 @@ export const buildingFeature: Feature = {
       },
       destroy() {
         window.removeEventListener('keydown', onKey);
+        pointerTip.set({ ...pointerTip.get(), cost: undefined });
         // The tool belongs to this game's world; a new one starts with none.
         selected.set(undefined);
       },
     };
   },
 };
+
+/**
+ * Beside the pointer (`pointerTip.cost`), what the blueprint at `cell` has against what it costs,
+ * while it still lacks something; nothing anywhere else. Told only when it changes.
+ */
+function showTray(
+  cell: number | undefined,
+  q: { readonly building: QueryApi<typeof building> },
+): void {
+  const plan =
+    cell === undefined
+      ? undefined
+      : q.building
+          .plansAt(cell)
+          .find((p) => 'place' in p && Object.keys(q.building.lacking(p.id)).length > 0);
+  const cost = plan && 'place' in plan ? q.building.costOf(plan.id) : undefined;
+  const lines = plan && 'place' in plan && cost ? costLines(cost, plan.delivered) : undefined;
+  if (JSON.stringify(lines) !== JSON.stringify(pointerTip.get().cost)) {
+    pointerTip.set({ ...pointerTip.get(), cost: lines });
+  }
+}
 
 /** A cable's points as a line in pixels of the world. */
 function drawLine(g: Graphics, points: readonly Point[], colour: number) {

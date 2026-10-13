@@ -73,6 +73,8 @@ const buildingModule = defineModule<Deps>()({
       const plan = ctx.state.plans.find((p) => p.id === id);
       return plan && ticksFor(ctx.deps.grid.query, plan);
     },
+    /** What placing `placement` costs: a build menu card's price. */
+    costFor: (_ctx, placement: Placement) => buildOf(placement).cost,
     /** What blueprint `id` costs in all, for its tray and bar; nothing for a mark or no plan. */
     costOf: (ctx, id: number) => {
       const plan = ctx.state.plans.find((p) => p.id === id);

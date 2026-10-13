@@ -49,7 +49,7 @@ and refunded to the inventories in `items`.
   wall, passing over what is marked already) and where its mark is kept; `workProblem(planId, peer)` —
   the refusal that peer's `work` would get; `lacking(planId)` — what a blueprint still lacks before
   work may begin; `ticksFor(planId)` — the ticks a plan takes in all; `costOf(planId)` — what a
-  blueprint costs in all.
+  blueprint costs in all; `costFor(placement)` — what placing it costs, for the build menu.
 - **Commands:** `placePlan { cell, placement }`, refused with grid's keys or `building.planned`;
   `deconstruct { cell, layer }`, refused with `building.nothingThere`, `building.planned`,
   `building.notEmpty` or `building.cabled`; `cancelPlan { id }`, refused with `building.noPlan`;

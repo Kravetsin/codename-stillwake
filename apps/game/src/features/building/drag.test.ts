@@ -3,14 +3,20 @@ import { describe, expect, it } from 'vitest';
 import { judge, lineOf, onButton } from './drag';
 import type { Tool } from './tools';
 
-const wall: Tool = {
+const wall = {
   kind: 'place',
+  id: 'wallSteel',
   placement: { layer: 'structure', kind: 'wall', material: 'steel' },
   label: 'wall',
-};
-const tank: Tool = { kind: 'place', placement: { layer: 'machine', kind: 'tank' }, label: 'tank' };
-const deconstruct: Tool = { kind: 'deconstruct', label: 'deconstruct' };
-const cancel: Tool = { kind: 'cancel', label: 'cancel' };
+} as const satisfies Tool;
+const tank = {
+  kind: 'place',
+  id: 'tank',
+  placement: { layer: 'machine', kind: 'tank' },
+  label: 'tank',
+} as const satisfies Tool;
+const deconstruct: Tool = { kind: 'deconstruct', id: 'deconstruct', label: 'deconstruct' };
+const cancel: Tool = { kind: 'cancel', id: 'cancel', label: 'cancel' };
 
 describe('a drag', () => {
   const W = 10;

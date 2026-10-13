@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { CostRow } from '../render/CostRow';
 import { pointerTip } from './ui';
 
 /**
@@ -19,6 +20,18 @@ export function PointerTip() {
 
   // What the inventory says wins: it is drawn over the world. The world's words need the world under.
   const lines = tip.item ?? (at.overWorld ? tip.world : undefined);
+  const cost = !tip.item && at.overWorld ? tip.cost : undefined;
+  if ((!lines || lines.length === 0) && cost) {
+    return (
+      <div
+        data-tip="cost"
+        className="pointer-events-none fixed z-50 rounded border border-amber-700/70 bg-slate-950/90 px-2 py-1 shadow"
+        style={{ left: at.x + 16, top: at.y + 16 }}
+      >
+        <CostRow lines={cost} />
+      </div>
+    );
+  }
   if (!lines || lines.length === 0) return null;
   const [head, ...rest] = lines;
   return (

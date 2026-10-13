@@ -1,3 +1,4 @@
+import type { CostLine } from '../render/CostRow';
 import { createStore } from './store';
 
 /**
@@ -42,4 +43,6 @@ export const overlayOn = createStore<string | undefined>(undefined);
 export const pointerTip = createStore<{
   readonly item?: readonly string[];
   readonly world?: readonly string[];
+  /** A blueprint's cost under the pointer, set by `building`: delivered against needed. */
+  readonly cost?: readonly CostLine[];
 }>({});

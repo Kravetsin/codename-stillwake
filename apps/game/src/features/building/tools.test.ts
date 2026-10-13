@@ -1,47 +1,66 @@
+import { BUILDS, CABLE_COST, MACHINES, MATERIALS } from '@stillwake/content';
+import { building, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
+import { EN } from '../../i18n/en';
+import { costLines } from '../../render/CostRow';
 import { overlayOn } from '../../session/ui';
-import { selected, TOOLS } from './tools';
+import { costOf, selected, TABS, TOOLS } from './tools';
 
-describe('the toolbar', () => {
-  it('offers every type the plan names, deconstruction and cancelling', () => {
-    expect(
-      TOOLS.map((tool) =>
-        tool.kind !== 'place'
-          ? tool.kind
-          : tool.placement.layer === 'structure' && tool.placement.kind === 'wall'
-            ? `wall:${tool.placement.material}`
-            : tool.placement.kind,
-      ),
-    ).toEqual([
-      'wall:scrap',
-      'wall:steel',
-      'floor',
-      'ladder',
-      'door',
-      'backWall',
-      'pipe',
-      'valve',
-      'cable',
-      'tank',
-      'generator',
-      'solarPanel',
-      'vent',
-      'crate',
-      'furnace',
-      'deconstruct',
-      'cancel',
-    ]);
+/** What a tool puts in the world, by the name the grid gives it, a wall by its material. */
+const what = (tool: (typeof TOOLS)[number]) =>
+  tool.kind !== 'place'
+    ? tool.kind
+    : tool.placement.layer === 'structure' && tool.placement.kind === 'wall'
+      ? `wall:${tool.placement.material}`
+      : tool.placement.kind;
+
+describe('the build menu', () => {
+  it('has a card for everything the ship is built of, each on one tab, taking apart and cancelling aside', () => {
+    const carded = TABS.flatMap((tab) => tab.tools.map(what));
+    expect(new Set(carded).size).toBe(carded.length);
+    expect(TABS.every((tab) => tab.tools.length > 0)).toBe(true);
+    expect(carded.sort()).toEqual(
+      [
+        ...Object.keys(MATERIALS).map((m) => `wall:${m}`),
+        ...Object.keys(BUILDS),
+        ...Object.keys(MACHINES),
+        'cable',
+      ].sort(),
+    );
+    expect(TOOLS.slice(-2).map(what)).toEqual(['deconstruct', 'cancel']);
   });
 
-  it('labels every tool with text, not a key', () => {
-    expect(
-      TOOLS.map((tool) => tool.label).filter((label) => /\b(tool|material)\.\w/.test(label)),
-    ).toEqual([]);
+  it('names every tab and tool, and says what each tool is for, in words, not keys', () => {
+    for (const tab of TABS) expect(EN[`build.tab.${tab.id}`]).toBeDefined();
+    for (const tool of TOOLS) {
+      expect(tool.label).not.toMatch(/\b(tool|material)\.\w/);
+      expect(EN[`tool.${tool.id}.about`]).toBeDefined();
+    }
+  });
+
+  it('prices each card as the sim does, a cable at its own cost', () => {
+    const q = stillwake.create(1).query(building);
+    const byId = (id: string) => TOOLS.find((tool) => tool.id === id);
+    const door = byId('door');
+    const cable = byId('cable');
+    if (!door || !cable) throw new Error('no tool');
+    expect(costOf(door, q.costFor)).toEqual(BUILDS.door.cost);
+    expect(costOf(cable, q.costFor)).toEqual(CABLE_COST);
+    for (const tool of TOOLS.filter((each) => each.kind !== 'place' && each.kind !== 'cable')) {
+      expect(costOf(tool, q.costFor)).toEqual({});
+    }
+  });
+
+  it('lays what is needed against what there is, item by item, short ones counted short', () => {
+    expect(costLines({ scrap: 2, steel: 1 }, { scrap: 5 })).toEqual([
+      { item: 'scrap', have: 5, need: 2 },
+      { item: 'steel', have: 0, need: 1 },
+    ]);
+    expect(costLines({}, { scrap: 5 })).toEqual([]);
   });
 
   it('turns on the overlay a tool lays in, and gives back the one before once put away', () => {
-    const tool = (kind: string) =>
-      TOOLS.find((t) => (t.kind === 'place' ? t.placement.kind : t.kind) === kind);
+    const tool = (kind: string) => TOOLS.find((each) => what(each) === kind);
     overlayOn.set('air');
     selected.set(tool('cable'));
     expect(overlayOn.get()).toBe('power');
