@@ -43,7 +43,7 @@ inside the ship, taut in zero gravity outside, not a second line of cells beside
 
 - The wreck starts with a panel on its roof cabled to the generator, which runs in full: 5 against 4.
   Every user added to that network slows the generator, the start's first pressure.
-- A cable is hit-tested by its drawn shape: with the power overlay on, Deconstruct clicked near one
+- A cable is hit-tested by its drawn shape: with the power overlay on, Remove clicked near one
   cuts it before whatever stands behind it; out of it, cables are out of reach, so taking a wall or
   back wall apart never cuts one by accident.
 - Networks are found from scratch every tick; tens of cables keep that cheap.

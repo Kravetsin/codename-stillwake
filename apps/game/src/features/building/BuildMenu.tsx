@@ -3,31 +3,45 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { t } from '../../i18n/en';
 import { CostRow, costLines } from '../../render/CostRow';
 import type { Game } from '../../session/game';
-import { CANCEL, costOf, DECONSTRUCT, selected, TABS, type Tool } from './tools';
+import { buildMode } from '../../session/ui';
+import { costOf, menuOpen, putPlanAway, REMOVE, selected, TABS, type Tool } from './tools';
 
 /** The inventory's counts are read this often while the menu is open: a panel reads on a timer. */
 const REFRESH_MS = 250;
 
 /**
- * The build menu, opened and closed with B: tabs of what can be built, each a card with its cost
- * against what the player carries, short ones in red, and what it is for under the pointer; taking
- * apart and cancelling in its header. Picking a card picks the tool and closes the menu. Closed with
- * a tool out, its name and how to use it stay at the bottom; closed without one, the key that opens it.
+ * The plan in hand, taken out with B: the build menu's tabs of what can be built, each a card with its
+ * cost against what the player carries, short ones in red, and what it is for under the pointer;
+ * removing in its header. Picking a card picks the tool and closes the menu, the right button on the
+ * world opens it again, and B or Esc puts the plan away. Closed with a tool out, its name and how to
+ * use it stay at the bottom; with the plan away, the key that takes it out.
  */
 export function BuildMenu({ game }: { readonly game: Game }) {
   const tool = useSyncExternalStore(selected.subscribe, selected.get);
-  const [open, setOpen] = useState(false);
+  const open = useSyncExternalStore(menuOpen.subscribe, menuOpen.get);
   const [tab, setTab] = useState(TABS[0]?.id ?? '');
   const [hovered, setHovered] = useState<Tool>();
   const [carried, setCarried] = useState<Cost>({});
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyB' && !e.repeat) setOpen((was) => !was);
-      if (e.code === 'Escape') setOpen(false);
+      if (e.code === 'KeyB' && !e.repeat) {
+        if (buildMode.get()) putPlanAway();
+        else menuOpen.set(true);
+      }
+      if (e.code === 'Escape') putPlanAway();
+    };
+    // On the world only: a right press on a panel is the panel's.
+    const onPointer = (e: PointerEvent) => {
+      const onWorld = (e.target as { tagName?: string } | null)?.tagName === 'CANVAS';
+      if (e.button === 2 && onWorld && buildMode.get()) menuOpen.set(!menuOpen.get());
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onPointer);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPointer);
+    };
   }, []);
 
   useEffect(() => {
@@ -40,7 +54,7 @@ export function BuildMenu({ game }: { readonly game: Game }) {
 
   const pick = (each: Tool) => {
     selected.set(each === tool ? undefined : each);
-    setOpen(false);
+    menuOpen.set(false);
   };
   const costFor = game.client.sim.query(building).costFor;
 
@@ -78,7 +92,7 @@ export function BuildMenu({ game }: { readonly game: Game }) {
           </button>
         ))}
         <span className="flex-1" />
-        {[DECONSTRUCT, CANCEL].map((each) => (
+        {[REMOVE].map((each) => (
           <button
             key={each.id}
             className={`rounded px-2 py-1 ${each === tool ? 'bg-red-800 text-white' : 'bg-slate-800 text-red-300 hover:bg-slate-700'}`}

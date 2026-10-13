@@ -11,13 +11,14 @@ const HANDLED = new Set([...LEFT, ...RIGHT, ...UP, ...DOWN, JUMP, USE]);
 
 /**
  * The keyboard as the hero reads it, from `target`: the window, or a test's stand-in; and the left
- * button pressed on the world, which grabs debris as E does.
+ * button on the world, which grabs debris as E does and, held, works plans.
  */
 export function createKeys(target: Window) {
   const held = new Set<string>();
   let jump = false;
   let use = false;
   let click = false;
+  let leftHeld = false;
 
   const onDown = (e: KeyboardEvent) => {
     if (!HANDLED.has(e.code)) return;
@@ -31,7 +32,12 @@ export function createKeys(target: Window) {
   const onPointer = (e: PointerEvent) => {
     if (e.button === 0 && (e.target as { tagName?: string } | null)?.tagName === 'CANVAS') {
       click = true;
+      leftHeld = true;
     }
+  };
+  // Anywhere: a press begun on the world may be let go over a panel.
+  const onRelease = (e: PointerEvent) => {
+    if (e.button === 0) leftHeld = false;
   };
   const onUp = (e: KeyboardEvent) => {
     if (!HANDLED.has(e.code)) return;
@@ -44,6 +50,7 @@ export function createKeys(target: Window) {
     jump = false;
     use = false;
     click = false;
+    leftHeld = false;
   };
   const axis = (minus: string[], plus: string[]) =>
     ((plus.some((k) => held.has(k)) ? 1 : 0) - (minus.some((k) => held.has(k)) ? 1 : 0)) as
@@ -53,6 +60,7 @@ export function createKeys(target: Window) {
   target.addEventListener('keyup', onUp);
   target.addEventListener('blur', onBlur);
   target.addEventListener('pointerdown', onPointer);
+  target.addEventListener('pointerup', onRelease);
 
   return {
     /** The input for the next controller step; a jump press counts for one step only. */
@@ -61,8 +69,8 @@ export function createKeys(target: Window) {
       jump = false;
       return input;
     },
-    /** Whether the use key is held down now: work goes on while it is. */
-    holdsUse: () => held.has(USE),
+    /** Whether the left button, pressed on the world, is held down now: work goes on while it is. */
+    holdsLeft: () => leftHeld,
     /** Whether the use key was pressed since the last call. */
     takeUse(): boolean {
       const pressed = use;
@@ -77,6 +85,7 @@ export function createKeys(target: Window) {
     },
     destroy() {
       target.removeEventListener('pointerdown', onPointer);
+      target.removeEventListener('pointerup', onRelease);
       target.removeEventListener('keydown', onDown);
       target.removeEventListener('keyup', onUp);
       target.removeEventListener('blur', onBlur);

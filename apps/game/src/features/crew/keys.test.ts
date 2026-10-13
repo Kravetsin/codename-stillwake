@@ -58,14 +58,26 @@ describe('keys', () => {
     expect(keys.takeUse()).toBe(false);
   });
 
-  it('tell whether the use key is held, for work that goes on while it is', () => {
-    const { keys, send } = setup();
-    expect(keys.holdsUse()).toBe(false);
-    send('keydown', 'KeyE');
-    keys.takeUse();
-    expect(keys.holdsUse()).toBe(true);
-    send('keyup', 'KeyE');
-    expect(keys.holdsUse()).toBe(false);
+  it('tell whether the left button pressed on the world is held, let go of anywhere', () => {
+    const { keys, target } = setup();
+    const pointer = (type: string, on: EventTarget, button = 0) => {
+      const e = Object.assign(new Event(type), { button });
+      Object.defineProperty(e, 'target', { value: on });
+      target.dispatchEvent(e);
+    };
+    const panel = Object.assign(new EventTarget(), { tagName: 'BUTTON' });
+    const canvas = Object.assign(new EventTarget(), { tagName: 'CANVAS' });
+    pointer('pointerdown', panel);
+    expect(keys.holdsLeft()).toBe(false);
+    pointer('pointerdown', canvas);
+    expect(keys.holdsLeft()).toBe(true);
+    pointer('pointerup', canvas, 2);
+    expect(keys.holdsLeft()).toBe(true);
+    pointer('pointerup', panel);
+    expect(keys.holdsLeft()).toBe(false);
+    pointer('pointerdown', canvas);
+    target.dispatchEvent(new Event('blur'));
+    expect(keys.holdsLeft()).toBe(false);
   });
 
   it('let go of everything when the window loses focus', () => {

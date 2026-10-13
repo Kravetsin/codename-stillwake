@@ -20,7 +20,7 @@ export interface Use {
 }
 
 /**
- * The cell under the pointer and what E does there: works a plan while held, or, when pressed,
+ * The cell under the pointer and what the hands do there: the left button held works a plan; E
  * toggles a door or valve, puts a canister into a tank, grabs a piece of debris or opens crate
  * `crate`. `piece` names the piece of debris a press grabs, which is outlined itself, not its cell.
  */
@@ -28,7 +28,7 @@ export interface Aim {
   readonly cell: number;
   readonly inReach: boolean;
   readonly press?: Use;
-  /** A plan E works on; `delivers` while it still lacks something, rather than building. */
+  /** A plan the left button works on; `delivers` while it still lacks something, not building. */
   readonly work?: {
     readonly plan: number;
     readonly problem: string | undefined;
@@ -58,11 +58,11 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
 
 /**
  * What the hero of peer `peer` aims at with the pointer at `point`, in cells; nothing off the grid.
- * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
- * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
- * block the mark beside it; when none can, the oldest, to show why; none in `served`, served in
- * this hold of E already. Then a crate or a furnace, a tank, a door, a valve: a valve under a
- * machine or in a door's cell is not worked with E. Last, the piece of debris
+ * A plan in the cell is worked: of several, the oldest that can be worked, so one the hero cannot
+ * pay for does not block the mark beside it; when none can, the oldest, to show why; none in
+ * `served`, served in this hold already. E works what is under it all the same: a crate or a
+ * furnace, a tank, a door, a valve; a valve under a machine or in a door's cell is not worked with
+ * E. With neither, the piece of debris
  * nearest the pointer within `DEBRIS.aimRadius`, only while the hero is out in space, where it can
  * catch one, and none in `passOver`: grabbed already, its grab still in flight.
  */
@@ -85,7 +85,7 @@ export function aimAt(
   const delivers = (id: number) => Object.keys(plans.lacking(id)).length > 0;
   const here = plans
     .plansAt(cell)
-    // A sweep delivers to each blueprint once; one with all it needs is built while E stays on it.
+    // A sweep delivers to each blueprint once; one with all it needs is built while held on.
     .filter((p) => !(served.has(p.id) && delivers(p.id)))
     .map((p) => ({
       plan: p.id,
@@ -93,11 +93,11 @@ export function aimAt(
       ...(delivers(p.id) ? { delivers: true } : {}),
     }));
   const work = here.find((w) => !w.problem) ?? here[0];
-  if (work) return { cell, inReach, work };
   const machine = sim.query(grid).machineAt(cell);
-  if (machine && holdsItems(machine.kind)) return { cell, inReach, crate: machine.id };
   const press = pressOf(sim, peer, cell);
-  if (press) return { cell, inReach, press };
+  const under =
+    machine && holdsItems(machine.kind) ? { crate: machine.id } : press ? { press } : undefined;
+  if (work || under) return { cell, inReach, ...(work ? { work } : {}), ...under };
   const piece = pieceNear(sim, hero, point, passOver);
   if (!piece) return { cell, inReach };
   // Aimed at where the piece is, which may be a cell beside the pointer's.
@@ -156,8 +156,8 @@ function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {
 }
 
 /**
- * What E sends this frame, the crate it opens if any, the blueprint it delivered to if any, and the
- * tick work was last sent on: -1 when none is under way.
+ * What the hands send this frame, the crate they open if any, the blueprint they delivered to if
+ * any, and the tick work was last sent on: -1 when none is under way.
  */
 export interface Uses {
   readonly commands: readonly Command[];
@@ -170,8 +170,9 @@ export interface Uses {
 const MAX_WORK_PER_FRAME = 5;
 
 /**
- * What E does this frame. A press within reach sends what is pressed, unless the sim would refuse
- * it. Held on a blueprint still lacking something, it delivers once: the caller keeps the blueprints
+ * What the hands do this frame: `pressed` is E, or the left button on a piece of debris; `held` the
+ * left button. A press within reach sends what is pressed, unless the sim would refuse it. Held on a
+ * blueprint still lacking something, it delivers once: the caller keeps the blueprints
  * served in this hold and passes them to `aimAt`, so sweeping the pointer delivers to each it passes.
  * Held on a plan with all it needs, or a mark, it sends one `work` for every tick released since the
  * last it sent for, so a peer drawing fewer frames than the ticks it runs builds as fast as any other;
@@ -179,17 +180,17 @@ const MAX_WORK_PER_FRAME = 5;
  */
 export function usesOf(
   aim: Aim | undefined,
-  e: { readonly pressed: boolean; readonly held: boolean },
+  hands: { readonly pressed: boolean; readonly held: boolean },
   tick: number,
   workedOnTick: number,
 ): Uses {
   if (!aim?.inReach) return { commands: [], workedOnTick: -1 };
-  if (e.pressed && aim.crate !== undefined) {
+  if (hands.pressed && aim.crate !== undefined) {
     return { commands: [], open: aim.crate, workedOnTick: -1 };
   }
   const commands: Command[] = [];
-  if (e.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
-  if (!aim.work || aim.work.problem || !e.held) return { commands, workedOnTick: -1 };
+  if (hands.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
+  if (!aim.work || aim.work.problem || !hands.held) return { commands, workedOnTick: -1 };
   const work = command(building, 'work', { plan: aim.work.plan });
   if (aim.work.delivers)
     return { commands: [...commands, work], served: aim.work.plan, workedOnTick: -1 };

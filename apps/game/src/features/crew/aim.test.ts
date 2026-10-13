@@ -132,7 +132,7 @@ describe('aiming', () => {
     expect(aimAt(open, 0, hero, centre(1 + cellsAway, 2))?.inReach).toBe(false);
   });
 
-  it('works a plan before a door in its cell, the oldest plan first', () => {
+  it('works the oldest plan in a cell, and leaves E the door under it', () => {
     const marked = worldFrom(`
       ########
       #..D.v.#
@@ -146,7 +146,12 @@ describe('aiming', () => {
       }),
     ]);
     const aim = aimAt(marked, 0, heroOn(2, 1), centre(3, 1));
-    expect(aim).toEqual({ cell: at(3, 1), inReach: true, work: { plan: 1, problem: undefined } });
+    expect(aim).toEqual({
+      cell: at(3, 1),
+      inReach: true,
+      work: { plan: 1, problem: undefined },
+      press: { command: command(grid, 'toggleDoor', { cell: at(3, 1) }), problem: undefined },
+    });
   });
 
   it("carries the sim's reason when E on a blueprint would be refused", () => {

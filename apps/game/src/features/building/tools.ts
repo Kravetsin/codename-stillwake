@@ -13,7 +13,7 @@ export type Tool =
       readonly label: string;
     }
   | {
-      readonly kind: 'cable' | 'deconstruct' | 'cancel';
+      readonly kind: 'cable' | 'remove';
       readonly id: string;
       readonly label: string;
     };
@@ -66,16 +66,11 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
   { id: 'storage', tools: [place('crate', { layer: 'machine', kind: 'crate' })] },
 ];
 
-/** Taking apart and cancelling, in the menu's header on every tab. */
-export const DECONSTRUCT: Tool = {
-  kind: 'deconstruct',
-  id: 'deconstruct',
-  label: t('tool.deconstruct'),
-};
-export const CANCEL: Tool = { kind: 'cancel', id: 'cancel', label: t('tool.cancel') };
+/** Cancelling plans and marking things to take apart, in the menu's header on every tab. */
+export const REMOVE: Tool = { kind: 'remove', id: 'remove', label: t('tool.remove') };
 
-/** Every tool, tab by tab, then the header's two. */
-export const TOOLS: readonly Tool[] = [...TABS.flatMap((tab) => tab.tools), DECONSTRUCT, CANCEL];
+/** Every tool, tab by tab, then the header's. */
+export const TOOLS: readonly Tool[] = [...TABS.flatMap((tab) => tab.tools), REMOVE];
 
 /** What a tool costs, by `costFor` (the sim's own rule) for what it places; a cable's own cost. */
 export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cost {
@@ -88,7 +83,20 @@ export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cos
  * there is one game and one player at this keyboard.
  */
 export const selected = createStore<Tool | undefined>(undefined);
-selected.subscribe(() => buildMode.set(selected.get() !== undefined));
+
+/** Whether the build menu is open: with B, and again with the right button while a tool is out. */
+export const menuOpen = createStore(false);
+
+// The plan is in hand while the menu is open or a tool is out: the hands do nothing else.
+const inHand = () => buildMode.set(menuOpen.get() || selected.get() !== undefined);
+selected.subscribe(inHand);
+menuOpen.subscribe(inHand);
+
+/** Puts the plan away: the menu closes and the tool goes with it. */
+export function putPlanAway(): void {
+  menuOpen.set(false);
+  selected.set(undefined);
+}
 
 /** The overlay a tool is used in, where what it lays is in sight: by the overlay's feature id. */
 export function overlayFor(tool: Tool | undefined): string | undefined {

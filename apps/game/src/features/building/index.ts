@@ -17,7 +17,7 @@ import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
 import { nearGrid } from './near-grid';
 import { BuildMenu } from './BuildMenu';
-import { selected } from './tools';
+import { putPlanAway, selected } from './tools';
 
 const PLAN = 0x5fd0ff;
 const MARK = 0xe05555;
@@ -28,7 +28,7 @@ const BAR = 0xf2f5fa;
 const DELIVERED = 0xe8b04a;
 const BAR_BACK = 0x0b0f17;
 const GRID_LINE = 0x9fb4c8;
-/** How near a Deconstruct click must be to a cable, in cells, to cut it. */
+/** How near a Remove click must be to a cable, in cells, to cut it. */
 const CUT_REACH = 0.35;
 
 /**
@@ -60,11 +60,6 @@ export const buildingFeature: Feature = {
     let pressed: Spot | undefined;
     /** The node a cable is being laid from, while the button is held. */
     let cableFrom: number | undefined;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') selected.set(undefined);
-    };
-    window.addEventListener('keydown', onKey);
-
     return {
       view,
       update({ game, camera }) {
@@ -92,7 +87,7 @@ export const buildingFeature: Feature = {
           const s = spotAt(size, p);
           return s.y * size.width + s.x;
         };
-        /** The cable a Deconstruct click at `p` cuts: the nearest within reach. */
+        /** The cable a Remove click at `p` cuts: the nearest within reach. */
         const cableNear = (p: Point) => {
           let best: { a: number; b: number; d: number } | undefined;
           for (const c of wires.cables()) {
@@ -119,7 +114,7 @@ export const buildingFeature: Feature = {
           const clicked =
             next.line && next.line[0].x === next.line[1].x && next.line[0].y === next.line[1].y;
           const cut =
-            tool.kind === 'deconstruct' && clicked && overlayOn.get() === 'power'
+            tool.kind === 'remove' && clicked && overlayOn.get() === 'power'
               ? cableNear(button.at)
               : undefined;
           pressed = next.pressed;
@@ -164,7 +159,7 @@ export const buildingFeature: Feature = {
           }
           return;
         }
-        if (tool?.kind === 'deconstruct' && pointer && overlayOn.get() === 'power') {
+        if (tool?.kind === 'remove' && pointer && overlayOn.get() === 'power') {
           const cable = cableNear(pointer);
           if (cable) {
             drawLine(ghost, shapeOf(shape, cable.a, cable.b), REFUSED);
@@ -201,10 +196,9 @@ export const buildingFeature: Feature = {
         }
       },
       destroy() {
-        window.removeEventListener('keydown', onKey);
         pointerTip.set({ ...pointerTip.get(), cost: undefined });
-        // The tool belongs to this game's world; a new one starts with none.
-        selected.set(undefined);
+        // The plan belongs to this game's world; a new one starts with it put away.
+        putPlanAway();
       },
     };
   },

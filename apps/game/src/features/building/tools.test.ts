@@ -3,8 +3,8 @@ import { building, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { EN } from '../../i18n/en';
 import { costLines } from '../../render/CostRow';
-import { overlayOn } from '../../session/ui';
-import { costOf, selected, TABS, TOOLS } from './tools';
+import { buildMode, overlayOn } from '../../session/ui';
+import { costOf, menuOpen, putPlanAway, selected, TABS, TOOLS } from './tools';
 
 /** What a tool puts in the world, by the name the grid gives it, a wall by its material. */
 const what = (tool: (typeof TOOLS)[number]) =>
@@ -15,7 +15,7 @@ const what = (tool: (typeof TOOLS)[number]) =>
       : tool.placement.kind;
 
 describe('the build menu', () => {
-  it('has a card for everything the ship is built of, each on one tab, taking apart and cancelling aside', () => {
+  it('has a card for everything the ship is built of, each on one tab, removing aside', () => {
     const carded = TABS.flatMap((tab) => tab.tools.map(what));
     expect(new Set(carded).size).toBe(carded.length);
     expect(TABS.every((tab) => tab.tools.length > 0)).toBe(true);
@@ -27,7 +27,7 @@ describe('the build menu', () => {
         'cable',
       ].sort(),
     );
-    expect(TOOLS.slice(-2).map(what)).toEqual(['deconstruct', 'cancel']);
+    expect(TOOLS.slice(-1).map(what)).toEqual(['remove']);
   });
 
   it('names every tab and tool, and says what each tool is for, in words, not keys', () => {
@@ -71,5 +71,17 @@ describe('the build menu', () => {
     selected.set(tool('valve'));
     selected.set(undefined);
     expect(overlayOn.get()).toBe('air');
+  });
+
+  it('holds the plan in hand while the menu is open or a tool is out, until put away', () => {
+    putPlanAway();
+    expect(buildMode.get()).toBe(false);
+    menuOpen.set(true);
+    expect(buildMode.get()).toBe(true);
+    selected.set(TOOLS[0]);
+    menuOpen.set(false);
+    expect(buildMode.get()).toBe(true);
+    putPlanAway();
+    expect([buildMode.get(), menuOpen.get(), selected.get()]).toEqual([false, false, undefined]);
   });
 });

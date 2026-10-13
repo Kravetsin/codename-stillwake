@@ -46,8 +46,10 @@ A living document: what is decided about the game and what is still open. Techni
   ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.
   Conduits: pipes and wires run through walls, one of each per cell. Machines stand on floors and
   connect to conduits. Materials differ in strength against meteors, air leaks and cost. Overlays
-  show air, pipes and power. The player places plans and the hero builds them by hand; drones come
-  later.
+  show air, pipes and power. The hands do one thing at a time: with the plan taken out (B) the
+  player lays blueprints and marks what to take apart; with it put away, the left button held
+  delivers to them and builds them by hand. Crafted tools will build faster than bare hands; drones
+  come later.
 - **The screen speaks without words.** What is always on screen shows the ship's state by colour
   and motion: a room losing air pulses red, pipes carrying oxygen glow, a low suit reddens the
   screen's edges, air escaping through the hull is seen leaving. Text is on demand, in overlays and by

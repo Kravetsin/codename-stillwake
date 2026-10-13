@@ -334,6 +334,20 @@ shows its tray of delivered/needed icons, sharing one cost row with the cards. T
 live in `tools.ts`; text under `tool.<id>`, `tool.<id>.about`, `build.tab.<id>`.
 Done when: unit tests for have/need; an e2e opens the menu with B, picks a card and sees the ghost.
 
+**P2-14 · The plan in hand** · S · client `building`, `crew`, i18n · after P2-13
+Mixing E for building with E for doors and two header tools for taking away confused. B takes the
+plan out and opens the menu; a card closes it with the tool out, the right button on the world
+opens it again, B or Esc puts the plan away. While it is out the hands do nothing else: E, grabs
+and work wait. One Remove tool replaces Deconstruct and Cancel: a drag begun on a plan, a mark
+included, cancels plans; begun on anything else, it marks what is built; clicked near a cable with
+the power overlay on, it cuts it. With the plan away the left button held on a plan works it as
+held E did (a sweep delivers, then builds or takes apart); E only presses: doors, valves, tanks,
+crates, debris, a door under a mark included. Bare hands only: tools that build faster (a
+screwdriver of iron and wood first) and slower bare hands come with crafting.
+Done when: unit tests for a drag's Remove mode by its first cell, the plan held while the menu is
+open or a tool is out, the left button held; an e2e takes the plan out, picks a card, reopens the
+menu with the right button and puts it away.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says

@@ -70,11 +70,16 @@ export function lineOf(width: number, tool: Tool, from: Spot, to: Spot): number[
   return cells;
 }
 
-/** What `tool` would do in each of `cells`, as the sim judges it now. */
+/**
+ * What `tool` would do in each of `cells`, as the sim judges it now. Removing cancels plans if the
+ * drag begins on one, a mark included, and marks what is built otherwise.
+ */
 export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict[] {
   // A machine spans several cells of a line, yet takes one mark and is cancelled once.
   const cancelled = new Set<number>();
   const marked = new Set<string>();
+  const first = cells[0];
+  const cancels = first !== undefined && q.building.plansAt(first).length > 0;
   return cells.map((cell) => {
     switch (tool.kind) {
       case 'place': {
@@ -82,7 +87,20 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
         const send = command(building, 'placePlan', { cell, placement: tool.placement });
         return { cell, problem, commands: problem ? [] : [send] };
       }
-      case 'deconstruct': {
+      case 'remove': {
+        if (cancels) {
+          const ids = q.building
+            .plansAt(cell)
+            .map((p) => p.id)
+            .filter((id) => !cancelled.has(id));
+          for (const id of ids) cancelled.add(id);
+          const covered = q.building.plansAt(cell).length > 0;
+          return {
+            cell,
+            problem: covered ? undefined : 'building.noPlan',
+            commands: ids.map((id) => command(building, 'cancelPlan', { id })),
+          };
+        }
         const next = q.building.clearAt(cell);
         if (!next) return { cell, problem: 'building.nothingThere', commands: [] };
         const problem = q.building.problem(cell, { clear: next.layer });
@@ -98,19 +116,6 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
       case 'cable':
         // A cable joins two nodes, not a line of cells: the layer lays it from press to release.
         return { cell, problem: undefined, commands: [] };
-      case 'cancel': {
-        const ids = q.building
-          .plansAt(cell)
-          .map((p) => p.id)
-          .filter((id) => !cancelled.has(id));
-        for (const id of ids) cancelled.add(id);
-        const covered = q.building.plansAt(cell).length > 0;
-        return {
-          cell,
-          problem: covered ? undefined : 'building.noPlan',
-          commands: ids.map((id) => command(building, 'cancelPlan', { id })),
-        };
-      }
     }
   });
 }

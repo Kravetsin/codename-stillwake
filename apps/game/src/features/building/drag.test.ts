@@ -15,8 +15,7 @@ const tank = {
   placement: { layer: 'machine', kind: 'tank' },
   label: 'tank',
 } as const satisfies Tool;
-const deconstruct: Tool = { kind: 'deconstruct', id: 'deconstruct', label: 'deconstruct' };
-const cancel: Tool = { kind: 'cancel', id: 'cancel', label: 'cancel' };
+const remove: Tool = { kind: 'remove', id: 'remove', label: 'remove' };
 
 describe('a drag', () => {
   const W = 10;
@@ -84,13 +83,13 @@ describe('judging a drag', () => {
 
   it('takes a machine first, then a conduit, then the structure', () => {
     const { q } = start();
-    const sends = judge(deconstruct, [9, 11, 0], q()).flatMap((v) => v.commands);
+    const sends = judge(remove, [9, 11, 0], q()).flatMap((v) => v.commands);
     expect(sends).toEqual([
       command(building, 'deconstruct', { cell: 9, layer: 'machine' }),
       command(building, 'deconstruct', { cell: 11, layer: 'conduit' }),
       command(building, 'deconstruct', { cell: 0, layer: 'structure' }),
     ]);
-    expect(judge(deconstruct, [10], q())[0]?.problem).toBe('building.nothingThere');
+    expect(judge(remove, [10], q())[0]?.problem).toBe('building.nothingThere');
   });
 
   it('sends nothing where the sim would refuse a mark', () => {
@@ -100,7 +99,7 @@ describe('judging a drag', () => {
       command(building, 'deconstruct', { cell: 0, layer: 'structure' }),
       command(building, 'deconstruct', { cell: 0, layer: 'back' }),
     );
-    expect(judge(deconstruct, [10, 0], q()).map((v) => [v.problem, v.commands])).toEqual([
+    expect(judge(remove, [10, 0], q()).map((v) => [v.problem, v.commands])).toEqual([
       ['building.nothingThere', []],
       ['building.planned', []],
     ]);
@@ -108,20 +107,20 @@ describe('judging a drag', () => {
 
   it('marks a machine once, however many of its cells the line crosses', () => {
     const { q } = start();
-    expect(judge(deconstruct, [8, 9], q()).flatMap((v) => v.commands)).toEqual([
+    expect(judge(remove, [8, 9], q()).flatMap((v) => v.commands)).toEqual([
       command(building, 'deconstruct', { cell: 8, layer: 'machine' }),
     ]);
   });
 
-  it('cancels every plan in a cell, a machine once however many of its cells the line crosses', () => {
+  it('begun on a plan, cancels every plan in a cell, a machine once however many cells it crosses', () => {
     const { q, run } = start();
     const placedTank = plan(10, { layer: 'machine', kind: 'tank' });
     run(plan(12, wall.placement), plan(12, { layer: 'conduit', kind: 'pipe' }), placedTank);
     // Ids follow the order the plans were made: wall 1, pipe 2, tank 3 over cells 10, 11, 17, 18.
-    const verdicts = judge(cancel, [19, 12, 11, 10, 17], q());
+    const verdicts = judge(remove, [12, 19, 11, 10, 17], q());
     expect(verdicts.map((v) => v.problem)).toEqual([
-      'building.noPlan',
       undefined,
+      'building.noPlan',
       undefined,
       undefined,
       undefined,
@@ -129,5 +128,21 @@ describe('judging a drag', () => {
     expect(verdicts.flatMap((v) => v.commands)).toEqual(
       [1, 2, 3].map((id) => command(building, 'cancelPlan', { id })),
     );
+  });
+
+  it('begun on a mark, takes the mark off; begun on what is built, leaves plans be', () => {
+    const { q, run } = start();
+    run(
+      command(building, 'deconstruct', { cell: 0, layer: 'structure' }),
+      plan(12, wall.placement),
+    );
+    // The mark is plan 1, the wall's blueprint plan 2.
+    expect(judge(remove, [0], q()).flatMap((v) => v.commands)).toEqual([
+      command(building, 'cancelPlan', { id: 1 }),
+    ]);
+    expect(judge(remove, [9, 12], q()).flatMap((v) => v.commands)).toEqual([
+      command(building, 'deconstruct', { cell: 9, layer: 'machine' }),
+      command(building, 'deconstruct', { cell: 12, layer: 'back' }),
+    ]);
   });
 });
