@@ -32,7 +32,10 @@ does not need a hero's shadow for now.
   one filter (`render/lighting`) that each feature sets on what it draws: back walls, walls,
   pipes, cables, machines, heroes, items. The filter blends a point's light from the four cells
   round it, those of its own cell's side only — walls with walls, the open with the open — so light
-  is smooth in a room and along a wall, and a wall's face keeps its edge. A cell's side rides in the
+  is smooth in a room and along a wall, and a wall's face keeps its edge. Only walls, floors, ladders and
+  doors take light from their own side; back walls, machines, heroes, items, pipes and cables take
+  it from the open cells alone, so the back wall beside a door narrower than its cell is lit by the
+  room it is in. Blocks of other shapes, half blocks or grilles, are lit the same way. A cell's side rides in the
   texture's alpha, a wall whole and the open a little less, so it survives being multiplied in.
   Pixi builds filters as GLSL ES 1.00: no `texelFetch`, no integer `%`. Gauges, plans, overlays,
   particles and the space behind the ship are not lit. A lit lamp also glows.

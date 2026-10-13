@@ -36,6 +36,7 @@ out vec4 finalColor;
 uniform sampler2D uTexture;
 uniform sampler2D uLightTexture;
 uniform vec2 uLightSize;
+uniform float uBlocks;
 
 // A cell's light, its alpha the cell's side: whole for a wall, a little less for the open. Read at
 // the texel's middle from a texture that is not filtered: that texel and no other.
@@ -59,7 +60,8 @@ void main(void) {
   vec2 corner = floor(at);
   vec2 f = at - corner;
   vec4 own = cell(floor(vLightUv * uLightSize));
-  bool side = own.a > 0.99;
+  // A block takes light from its own side; all else, in front of the back wall, from the open.
+  bool side = uBlocks > 0.5 && own.a > 0.99;
   vec3 sum = vec3(0.0);
   float weight = 0.0;
   add(cell(corner), (1.0 - f.x) * (1.0 - f.y), side, sum, weight);
@@ -76,13 +78,14 @@ void main(void) {
  * by `lighting.sprite`, so the camera's moves and zoom are the sprite's own.
  */
 class LitFilter extends Filter {
-  constructor() {
+  constructor(blocks: boolean) {
     super({
       glProgram: GlProgram.from({ vertex: VERTEX, fragment: FRAGMENT, name: 'lit-filter' }),
       resources: {
         litUniforms: new UniformGroup({
           uLightMatrix: { value: new Matrix(), type: 'mat3x3<f32>' },
           uLightSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
+          uBlocks: { value: blocks ? 1 : 0, type: 'f32' },
         }),
         uLightTexture: Texture.WHITE.source,
         uLightSampler: Texture.WHITE.source.style,
@@ -104,7 +107,18 @@ class LitFilter extends Filter {
   }
 }
 
-const filter = new LitFilter();
+/**
+ * How light falls on what it lights: `blocks` — walls, floors, ladders and doors — each from its
+ * own side, so a block keeps its edges; `open` — back walls, machines, heroes, items, pipes and
+ * cables — from the open cells only, so the back wall beside a door is lit by the room it is in,
+ * not by the door's cell.
+ */
+export type Falls = 'blocks' | 'open';
+
+const filters: Record<Falls, LitFilter> = {
+  blocks: new LitFilter(true),
+  open: new LitFilter(false),
+};
 
 /**
  * The light, shared as the particles are: one per page. The `light` feature works it out into a
@@ -116,18 +130,19 @@ export const lighting = {
   /** Lights with `texture`, a texel a cell, laid where `sprite` lies. */
   show(texture: Texture) {
     lighting.sprite.texture = texture;
-    filter.resources.uLightTexture = texture.source;
-    filter.resources.uLightSampler = texture.source.style;
-    const uniforms = (filter.resources.litUniforms as UniformGroup).uniforms as {
-      uLightSize: Float32Array;
-    };
-    uniforms.uLightSize[0] = texture.source.width;
-    uniforms.uLightSize[1] = texture.source.height;
-    (filter.resources.litUniforms as UniformGroup).update();
+    for (const filter of Object.values(filters)) {
+      filter.resources.uLightTexture = texture.source;
+      filter.resources.uLightSampler = texture.source.style;
+      const group = filter.resources.litUniforms as UniformGroup;
+      const uniforms = group.uniforms as { uLightSize: Float32Array };
+      uniforms.uLightSize[0] = texture.source.width;
+      uniforms.uLightSize[1] = texture.source.height;
+      group.update();
+    }
   },
 };
 
-/** Lights `view` from now on: back walls, walls, pipes, cables, machines, heroes, items. */
-export function lit(view: Container): void {
-  view.filters = [filter];
+/** Lights `view` from now on, light falling on it as on `falls`. */
+export function lit(view: Container, falls: Falls = 'open'): void {
+  view.filters = [filters[falls]];
 }
