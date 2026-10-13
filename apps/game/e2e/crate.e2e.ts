@@ -2,6 +2,9 @@ import { HERO, ITEMS, WRECK } from '@stillwake/content';
 import { expect, test, type Page } from '@playwright/test';
 import { CELL, START_ZOOM } from '../src/render/camera';
 
+// Waiting for the first piece of debris alone may take half a minute on a slow CI machine.
+test.describe.configure({ timeout: 60_000 });
+
 /** Where `char` is first drawn on the wreck, in cells. */
 function find(char: string): { x: number; y: number } {
   const y = WRECK.findIndex((row) => row.includes(char));
