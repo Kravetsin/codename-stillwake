@@ -1,3 +1,4 @@
+import type { MaterialId } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { defineModule, refuse } from '../../core/module';
@@ -247,7 +248,7 @@ describe('toggles a client has in flight', () => {
 });
 
 describe('other modules change the grid through its operations', () => {
-  const wall = (material: 'scrap' | 'steel' = 'steel'): Placement => ({
+  const wall = (material: 'scrap' | 'iron' = 'iron'): Placement => ({
     layer: 'structure',
     kind: 'wall',
     material,
@@ -264,7 +265,7 @@ describe('other modules change the grid through its operations', () => {
 
     expect(w.refusals).toEqual([]);
     const q = w.query(grid);
-    expect(q.structureAt(0)).toEqual({ kind: 'wall', material: 'steel' });
+    expect(q.structureAt(0)).toEqual({ kind: 'wall', material: 'iron' });
     expect(q.structureAt(1)).toEqual({ kind: 'door', open: false });
     // Pipes run through walls.
     expect(q.conduitAt(0)).toEqual({ kind: 'pipe' });
@@ -289,6 +290,25 @@ describe('other modules change the grid through its operations', () => {
       'grid.outOfBounds',
       'grid.blocked',
     ]);
+  });
+
+  it('backs a cell in a material, says which, and refuses a material the catalog does not have', () => {
+    const unknown = (name: string) => name as never;
+    const back = (material: MaterialId): Placement => ({
+      layer: 'back',
+      kind: 'backWall',
+      material,
+    });
+    const w = scenario(building, ROOM);
+    expect(w.query(grid).backAt(7)).toBe('scrap');
+    w.do(builder, 'clear', { cell: 7, layer: 'back' }).run();
+    expect(w.query(grid).backAt(7)).toBeUndefined();
+    w.do(builder, 'place', { cell: 7, placement: back(unknown('toString')) })
+      .do(builder, 'place', { cell: 7, placement: back(unknown('gold')) })
+      .do(builder, 'place', { cell: 7, placement: back('iron') })
+      .run();
+    expect(w.refusals).toEqual(['grid.noSuchMaterial', 'grid.noSuchMaterial']);
+    expect(w.query(grid).backAt(7)).toBe('iron');
   });
 
   it('refuses a material or machine the catalogs do not have, inherited names included', () => {

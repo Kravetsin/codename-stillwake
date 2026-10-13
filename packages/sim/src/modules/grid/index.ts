@@ -97,6 +97,7 @@ const gridModule = defineModule()({
       material: ctx.state.material,
       conduit: ctx.state.conduit,
       back: ctx.state.back,
+      backMaterial: ctx.state.backMaterial,
     }),
     /**
      * The structure and conduit layers as they would be after `toggles`, in order, each as its
@@ -138,6 +139,11 @@ const gridModule = defineModule()({
         default:
           return { kind: 'empty' };
       }
+    },
+    /** What the back wall behind `cell` is made of, or nothing when it has none. */
+    backAt(ctx, cell: number): MaterialId | undefined {
+      if (ctx.state.back[cell] !== BACK.wall) return undefined;
+      return materialByCode.get(ctx.state.backMaterial[cell] ?? 0) ?? 'scrap';
     },
     conduitAt(ctx, cell: number): ConduitView {
       switch (ctx.state.conduit[cell]) {
@@ -186,6 +192,7 @@ const gridModule = defineModule()({
           return;
         case 'back':
           state.back[cell] = BACK.wall;
+          state.backMaterial[cell] = MATERIALS[placement.material].code;
           return;
         case 'machine': {
           const id = state.nextMachineId;
@@ -210,6 +217,7 @@ const gridModule = defineModule()({
           return;
         case 'back':
           state.back[cell] = BACK.none;
+          state.backMaterial[cell] = 0;
           return;
         case 'machine': {
           const id = state.occupancy[cell] ?? 0;

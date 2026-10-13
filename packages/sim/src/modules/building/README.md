@@ -32,13 +32,13 @@ and refunded to the inventories in `items`.
   - On a blueprint with all it costs, or on a mark, it is one tick of one hero's work, sent every
     tick the player holds E on it within reach. Two heroes on one plan work it twice as fast, and
     work stopped keeps its progress. The tick that reaches its ticks completes it: a blueprint
-    takes its build's `buildTicks` (`MATERIALS` for walls, `BUILDS`, `MACHINES`) and is built; a
+    takes its build's `buildTicks` (`MATERIALS` for walls and back walls, `BUILDS`, `MACHINES`) and is built; a
     mark takes those of what it names divided by `DECONSTRUCT_SPEEDUP`, rounded up, and takes it
     apart, refunding its whole cost to the sender, what does not fit falling on the floor at it.
   - In creative mode a blueprint lacks nothing: it is worked as it is, taking nothing.
 - **Cancelling** a blueprint lets what was delivered fall on the floor at it, dropped by whoever
   cancels; cancelling a mark drops nothing.
-- What a thing costs and takes: its material's for a wall, `BUILDS` and `MACHINES` otherwise.
+- What a thing costs and takes: its material's for a wall or a back wall, `BUILDS` and `MACHINES` otherwise.
 - Anyone may cancel or work on any plan.
 
 ## API

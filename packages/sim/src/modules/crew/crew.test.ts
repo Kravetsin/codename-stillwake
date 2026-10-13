@@ -43,8 +43,8 @@ function setUp(canisters = 0, map = ROOM): { w: Scenario; tank: number; room: nu
 const hero = (w: Scenario, id = 0) => w.query(crew).hero(id);
 const aired = (w: Scenario) => w.query(atmosphere).airedCells();
 const airClock = (w: Scenario) => (w.sim.world.slices.atmosphere as { clock: number }).clock;
-/** ROOM's leak a minute: twenty scrap hull cells. */
-const LEAK = 20 * MATERIALS.scrap.leak;
+/** ROOM's leak a minute: twenty scrap hull cells and the scrap back walls behind its 21 cells. */
+const LEAK = (20 + 21) * MATERIALS.scrap.leak;
 
 /** Runs until room `room` is aired. */
 function airUp(w: Scenario, room: number): void {
@@ -121,7 +121,7 @@ describe('crew', () => {
     const clock = airClock(w);
     breaths(w, 1);
     expect(hero(w)?.suit).toBe(CREW.suit);
-    // The corner farthest from the vent went first; the hull leaks the room's air too.
+    // The corner farthest from the vent went first; the hull and back walls leak the room's air too.
     expect(aired(w)).not.toContain(at(7, 3));
     expect(aired(w)).toHaveLength(21 - 1 - leaked(LEAK, clock, airClock(w)));
   });

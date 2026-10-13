@@ -1,4 +1,4 @@
-import { AIR, BUILDS, DECONSTRUCT_SPEEDUP } from '@stillwake/content';
+import { AIR, DECONSTRUCT_SPEEDUP, MATERIALS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout, type Layout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
@@ -62,7 +62,7 @@ function setUp(map: string | Layout = ROOM): {
 }
 
 describe('back walls', () => {
-  const backWall: Placement = { layer: 'back', kind: 'backWall' };
+  const backWall: Placement = { layer: 'back', kind: 'backWall', material: 'iron' };
   /** ROOM with no back wall behind cell (5, 2). */
   const OPEN_BEHIND = ROOM.replace('#TT.....#', '#TT.. ..#');
   const statusOf = (w: Scenario) => {
@@ -77,10 +77,10 @@ describe('back walls', () => {
     const { w, tank, pipeUp } = setUp(OPEN_BEHIND);
     pipeUp();
     expect(statusOf(w)).toBe('venting');
-    giveItems(w, 0, BUILDS.backWall.cost);
+    giveItems(w, 0, { iron: MATERIALS.iron.cost });
     w.do(building, 'placePlan', { cell: at(5, 2), placement: backWall }).run();
-    work(w, 1 + BUILDS.backWall.buildTicks);
-    expect(w.query(grid).layers().back[at(5, 2)]).toBe(1);
+    work(w, 1 + MATERIALS.iron.buildTicks);
+    expect(w.query(grid).backAt(at(5, 2))).toBe('iron');
     w.do(atmosphere, 'loadCanister', { tank }).run();
     expect(statusOf(w)).toBe('filling');
   });
@@ -92,14 +92,14 @@ describe('back walls', () => {
     w.run((w.query(rooms).room(room)?.volume ?? 0) * AIR.ticksPerCell + 1);
     expect(statusOf(w)).toBe('aired');
     w.do(building, 'deconstruct', { cell: at(5, 2), layer: 'back' }).run();
-    work(w, Math.ceil(BUILDS.backWall.buildTicks / DECONSTRUCT_SPEEDUP));
+    work(w, Math.ceil(MATERIALS.scrap.buildTicks / DECONSTRUCT_SPEEDUP));
     expect(statusOf(w)).toBe('venting');
     expect(
       w
         .query(items)
         .inventory(0)
         .filter((s) => s?.item === 'scrap'),
-    ).toEqual([{ item: 'scrap', count: BUILDS.backWall.cost.scrap }]);
+    ).toEqual([{ item: 'scrap', count: MATERIALS.scrap.cost }]);
   });
 });
 
@@ -297,8 +297,8 @@ describe('generators', () => {
       statuses.add(w.query(atmosphere).roomStatus(room));
     }
     expect([...statuses]).toEqual(['filling']);
-    // A cell a unit, less what the hull leaked meanwhile.
-    expect(w.query(atmosphere).airedCells().length).toBeGreaterThan(10);
+    // A cell a unit, less what the hull and the back walls leaked meanwhile.
+    expect(w.query(atmosphere).airedCells().length).toBeGreaterThanOrEqual(10);
     expect(surveyOf(w, room)).toMatchObject({ made: AIR.generatorRate, problem: undefined });
     for (let i = 0; i < 100 * EVERY && w.query(atmosphere).roomStatus(room) !== 'aired'; i++) {
       w.run();

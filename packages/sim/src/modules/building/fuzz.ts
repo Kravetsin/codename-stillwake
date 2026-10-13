@@ -11,7 +11,9 @@ const PLACEMENTS: readonly Placement[] = [
   ...(['floor', 'ladder', 'door'] as const).map((kind) => ({ layer: 'structure', kind }) as const),
   ...(['pipe', 'valve'] as const).map((kind) => ({ layer: 'conduit', kind }) as const),
   ...(Object.keys(MACHINES) as MachineKind[]).map((kind) => ({ layer: 'machine', kind }) as const),
-  { layer: 'back', kind: 'backWall' },
+  ...(Object.keys(MATERIALS) as MaterialId[]).map(
+    (material) => ({ layer: 'back', kind: 'backWall', material }) as const,
+  ),
 ];
 const LAYERS: readonly Layer[] = ['structure', 'conduit', 'machine', 'back'];
 

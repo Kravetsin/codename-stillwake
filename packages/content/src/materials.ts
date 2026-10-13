@@ -14,7 +14,7 @@ export interface Material {
 /** Hull materials, weakest first. */
 export const MATERIALS = {
   scrap: { code: 1, strength: 2, leak: 3, cost: 2, buildTicks: 13 },
-  steel: { code: 2, strength: 5, leak: 1, cost: 3, buildTicks: 27 },
+  iron: { code: 2, strength: 5, leak: 1, cost: 3, buildTicks: 27 },
 } as const satisfies Readonly<Record<string, Material>>;
 
 export type MaterialId = keyof typeof MATERIALS;

@@ -380,6 +380,17 @@ some in, thinner the more openings.
 Done when: unit tests for flight, life, the limit, gravity aboard and in space, rising embers,
 fading and drag, and for which rooms stream where; each effect seen in the running game.
 
+**P2-17 · Walls of materials, front and back** · M · sim `grid`, `building`, `atmosphere`, content,
+client, ADR 0020 · after P2-16
+Iron replaces steel everywhere. A back wall has a material, one tool for each, and costs and takes as
+long as a wall of it; maps back every cell in the default hull. A room leaks through what its air
+touches: the back walls behind its cells, each by its material's `leak`, besides its hull as
+before; `AIR.generatorRate` grows to keep the starting room whole with two heroes breathing. Back
+walls are drawn by material, scrap as patched sheets and iron as panels.
+Done when: scenario tests for a back wall's material, cost and refund, for its leak, for no leak
+behind a wall or a closed door and a leak behind an open one; the wreck's balance tests pass; the
+desync fuzz draws back walls of every material.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says

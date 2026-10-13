@@ -86,7 +86,7 @@ describe('furnace', () => {
   it('waits with no room for what it makes, drawing no power meanwhile', () => {
     const { w, id } = setUp(1);
     putIn(w, id);
-    const full = { item: 'steel' as const, count: ITEMS.steel.stack };
+    const full = { item: 'iron' as const, count: ITEMS.iron.stack };
     const slots = [...w.query(items).crate(id)];
     // Nothing puts items into a furnace's outputs but smelting: straight into the world instead.
     (w.sim.world.slices.items as { crates: unknown[] }).crates = [

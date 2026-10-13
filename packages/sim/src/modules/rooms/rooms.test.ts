@@ -275,7 +275,7 @@ describe('rooms', () => {
     expect(w.query(rooms).room(at(1, 1))?.openings).toEqual([at(3, 1)]);
     w.do(builder, 'place', {
       cell: at(3, 1),
-      placement: { layer: 'back', kind: 'backWall' },
+      placement: { layer: 'back', kind: 'backWall', material: 'scrap' },
     }).run();
     expect(w.query(rooms).room(at(1, 1))?.openings).toEqual([]);
     w.do(builder, 'clear', { cell: at(5, 2), layer: 'back' }).run();
@@ -314,7 +314,10 @@ describe('rooms', () => {
           if (w.query(grid).layers().back[cell] === BACK.wall) {
             w.do(builder, 'clear', { cell, layer: 'back' }).run();
           } else {
-            w.do(builder, 'place', { cell, placement: { layer: 'back', kind: 'backWall' } }).run();
+            w.do(builder, 'place', {
+              cell,
+              placement: { layer: 'back', kind: 'backWall', material: 'scrap' },
+            }).run();
           }
         }
         const q = w.query(rooms);

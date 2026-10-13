@@ -153,7 +153,7 @@ describe('the floor', () => {
   });
 
   it('never makes or loses an item inside the ship, whatever is moved, dropped or picked up', () => {
-    const ALL: readonly Item[] = ['scrap', 'steel', 'canister'];
+    const ALL: readonly Item[] = ['scrap', 'iron', 'canister'];
     const place: fc.Arbitrary<Place> = fc.record({ slot: fc.integer({ min: -1, max: 37 }) });
     // Anywhere inside the room, or off the grid: only space throws things away.
     const cell = fc.oneof(
@@ -189,7 +189,7 @@ describe('the floor', () => {
     };
     fc.assert(
       fc.property(fc.array(step, { maxLength: 40, size: 'max' }), (steps) => {
-        const w = giveItems(giveItems(room(), 0, { scrap: 900, canister: 7 }), 1, { steel: 40 });
+        const w = giveItems(giveItems(room(), 0, { scrap: 900, canister: 7 }), 1, { iron: 40 });
         const start = everything(w);
         for (const s of steps) {
           if (s.type === 'drop') {

@@ -146,18 +146,18 @@ describe('power', () => {
     const w = scenario(world, map(both));
     expect(w.query(power).networks()[0]).toMatchObject({ supply: 5, demand: 8, satisfaction: 625 });
     expect(w.query(power).satisfaction(idAt(w, SECOND))).toBe(625);
-    // Unpiped, the second keeps all it makes: 125 a minute, twenty units in 192 ticks.
+    // Unpiped, the second keeps all it makes: 187.5 a minute, thirty units in 192 ticks.
     const ticks = 192;
     w.run(ticks);
     expect(store(w, SECOND)).toBe(Math.floor((ticks * AIR.generatorRate * 625) / 1000 / 1200));
-    expect(store(w, SECOND)).toBe(20);
+    expect(store(w, SECOND)).toBe(30);
   });
 
   it('runs a generator at full power at its rate, its fraction carried', () => {
     const w = scenario(world, parseLayout(ROWS, [], TO_FIRST));
-    w.run(192);
-    // Two hundred a minute: one every six ticks.
-    expect(store(w, GEN)).toBe(32);
+    w.run(120);
+    // Three hundred a minute: one every four ticks.
+    expect(store(w, GEN)).toBe(30);
   });
 
   it('keeps a cabled machine from being taken apart, marked or cabled after its mark', () => {

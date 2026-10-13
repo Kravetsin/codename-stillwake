@@ -329,23 +329,37 @@ export function roomsAir(air: Seen, world: World): RoomAir[] {
 }
 
 /**
- * Each room's leak, found once: a room is a new object whenever the structure changes, and nothing
- * else changes what its hull is made of.
+ * Each room's leak, found once: a room is a new object whenever its walls or back walls change, and
+ * either changes material only by being taken apart and built again, never within one tick.
  */
 const leaks = new WeakMap<Room, number>();
 
-/** The cells of air a room loses through its hull every `AIR.leakEvery` ticks. */
+/**
+ * The cells of air a room loses every `AIR.leakEvery` ticks through what its air touches (0020):
+ * the back wall behind each of its cells, and its hull, each by its material, a door by
+ * `AIR.doorLeak`.
+ */
 function leakOf(world: World, room: Room): number {
   const known = leaks.get(room);
   if (known !== undefined) return known;
-  let leak = 0;
-  for (const cell of room.hull) {
-    const s = world.grid.structureAt(cell);
-    if (s.kind === 'wall') leak += MATERIALS[s.material].leak;
-    else if (s.kind === 'door') leak += AIR.doorLeak;
+  // Every room's at once: one pass over the cells rather than one for each of hundreds of rooms.
+  const behind = new Map<number, number>();
+  const roomOf = world.rooms.roomOfCells();
+  for (let cell = 0; cell < roomOf.length; cell++) {
+    const id = roomOf[cell] ?? -1;
+    const material = id < 0 ? undefined : world.grid.backAt(cell);
+    if (material) behind.set(id, (behind.get(id) ?? 0) + MATERIALS[material].leak);
   }
-  leaks.set(room, leak);
-  return leak;
+  for (const r of [room, ...world.rooms.rooms()]) {
+    let leak = behind.get(r.id) ?? 0;
+    for (const cell of r.hull) {
+      const s = world.grid.structureAt(cell);
+      if (s.kind === 'wall') leak += MATERIALS[s.material].leak;
+      else if (s.kind === 'door') leak += AIR.doorLeak;
+    }
+    leaks.set(r, leak);
+  }
+  return leaks.get(room) ?? 0;
 }
 
 /** A tick's share of `perMinute`, spread over each `AIR.leakEvery` ticks so a minute's total is exact. */

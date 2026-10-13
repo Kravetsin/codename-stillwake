@@ -9,6 +9,7 @@ export interface Seen {
   readonly material: Int32Array;
   readonly conduit: Int32Array;
   readonly back: Int32Array;
+  readonly backMaterial: Int32Array;
 }
 
 export function chunksAcross(width: number): number {
@@ -32,6 +33,7 @@ export function emptySeen(cells: Cells): Seen {
     material: new Int32Array(size),
     conduit: new Int32Array(size),
     back: new Int32Array(size),
+    backMaterial: new Int32Array(size),
   };
 }
 
@@ -48,17 +50,20 @@ export function staleChunks(seen: Seen, cells: Cells): Set<number> {
     const m = cells.material[cell] ?? 0;
     const c = cells.conduit[cell] ?? 0;
     const b = cells.back[cell] ?? 0;
+    const bm = cells.backMaterial[cell] ?? 0;
     if (
       seen.structure[cell] === s &&
       seen.material[cell] === m &&
       seen.conduit[cell] === c &&
-      seen.back[cell] === b
+      seen.back[cell] === b &&
+      seen.backMaterial[cell] === bm
     )
       continue;
     seen.structure[cell] = s;
     seen.material[cell] = m;
     seen.conduit[cell] = c;
     seen.back[cell] = b;
+    seen.backMaterial[cell] = bm;
     stale.add(chunkOf(width, cell));
     const x = cell % width;
     if (x > 0) stale.add(chunkOf(width, cell - 1));

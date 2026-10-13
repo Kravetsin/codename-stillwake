@@ -21,6 +21,7 @@ export interface Cells {
   readonly material: readonly number[];
   readonly conduit: readonly number[];
   readonly back: readonly number[];
+  readonly backMaterial: readonly number[];
 }
 
 function tile(g: Graphics, texture: Texture, x: number, y: number): void {
@@ -42,7 +43,9 @@ function sidesOf(cells: Cells, cell: number, is: (neighbour: number) => boolean)
 /** Draws one cell's back wall into `g`: under everything else in the ship. */
 export function drawBack(g: Graphics, cells: Cells, cell: number): void {
   if (cells.back[cell] !== BACK.wall) return;
-  tile(g, backTexture(cell), (cell % cells.width) * CELL, Math.floor(cell / cells.width) * CELL);
+  const x = cell % cells.width;
+  const y = Math.floor(cell / cells.width);
+  tile(g, backTexture(cells.backMaterial[cell] ?? 0, x, y), x * CELL, y * CELL);
 }
 
 /** Draws one cell's structure into `g`, at the cell's place in the world. */

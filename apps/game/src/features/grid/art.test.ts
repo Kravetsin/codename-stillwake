@@ -1,7 +1,7 @@
 import { MACHINES, type MachineKind, type MaterialId } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { CELL } from '../../render/camera';
-import { GEAR, MACHINE_ART, PIECES, WALL } from './art';
+import { GEAR, MACHINE_ART, WALL } from './art';
 
 describe('machine art', () => {
   it.each(Object.keys(MACHINES) as MachineKind[])(
@@ -25,7 +25,6 @@ describe('wall art', () => {
       const width = rows[0]?.length ?? 0;
       expect(width % CELL).toBe(0);
       expect(rows.length % CELL).toBe(0);
-      expect((width / CELL) * (rows.length / CELL)).toBeLessThanOrEqual(PIECES);
       for (const row of rows) expect(row).toHaveLength(width);
     },
   );

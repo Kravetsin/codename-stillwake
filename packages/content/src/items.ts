@@ -20,10 +20,10 @@ export interface ItemSpec {
  */
 export const ITEMS = {
   scrap: { stack: 500 },
-  steel: { stack: 500 },
+  iron: { stack: 500 },
   canister: { stack: 5 },
   scrapChunk: { stack: 10, yields: { scrap: 12 }, smeltTicks: 100, oxygen: 2 },
-  hullPlate: { stack: 5, yields: { steel: 6, scrap: 4 }, smeltTicks: 200, oxygen: 4 },
+  hullPlate: { stack: 5, yields: { iron: 6, scrap: 4 }, smeltTicks: 200, oxygen: 4 },
   supplyPod: { stack: 1, yields: { canister: 1, scrap: 6 }, smeltTicks: 300, oxygen: 3 },
 } as const satisfies Readonly<Record<string, ItemSpec>>;
 

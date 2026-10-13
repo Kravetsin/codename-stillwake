@@ -24,7 +24,7 @@ function worldFrom(map: string): Sim {
 }
 
 /** What peer 0 carries in `withStore`. */
-const STORE = { scrap: 360, steel: 60 } as const;
+const STORE = { scrap: 360, iron: 60 } as const;
 
 /** `map` with a crate drawn below it, and peer 0 carrying `STORE`. */
 function withStore(map: string): Sim {
@@ -33,7 +33,7 @@ function withStore(map: string): Sim {
   // No command makes items out of nothing: put straight into the world, as the sim's own tests do.
   const slots = [
     { item: 'scrap', count: STORE.scrap },
-    { item: 'steel', count: STORE.steel },
+    { item: 'iron', count: STORE.iron },
     ...Array<null>(INVENTORY.slots - 2).fill(null),
   ];
   (sim.world.slices.items as { inventories: unknown[] }).inventories = [{ peer: 0, slots }];
@@ -49,7 +49,7 @@ function heroOn(x: number, y: number): Hero {
 
 const centre = (x: number, y: number) => ({ x: x + 0.5, y: y + 0.5 });
 
-const steelWall = { layer: 'structure', kind: 'wall', material: 'steel' } as const;
+const ironWall = { layer: 'structure', kind: 'wall', material: 'iron' } as const;
 /** A hall nine wide with rows enough inside for `cells` cells, seven to a row. */
 const hall = (cells: number) =>
   ['#########']
@@ -155,9 +155,9 @@ describe('aiming', () => {
   });
 
   it("carries the sim's reason when E on a blueprint would be refused", () => {
-    // A steel wall planned for a hero carrying nothing.
+    // A iron wall planned for a hero carrying nothing.
     const poor = worldFrom(hall(1));
-    poor.step([command(building, 'placePlan', { cell: inside(0), placement: steelWall })]);
+    poor.step([command(building, 'placePlan', { cell: inside(0), placement: ironWall })]);
     const aim = aimAt(poor, 0, heroOn(2, 1), centre(1, 1));
     expect(aim?.work).toEqual({ plan: 1, problem: 'items.notEnough', delivers: true });
   });
@@ -189,7 +189,7 @@ describe('aiming', () => {
     both.step([
       command(building, 'placePlan', {
         cell: inside(0),
-        placement: { ...steelWall, material: 'scrap' },
+        placement: { ...ironWall, material: 'scrap' },
       }),
       command(building, 'placePlan', {
         cell: inside(0),

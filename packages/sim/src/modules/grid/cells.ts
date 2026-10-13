@@ -41,7 +41,8 @@ export function placementProblem(
       return state.conduit[cell] === CONDUIT.none ? undefined : 'grid.occupied';
     // Behind anything, and in space: a refusal there would protect nothing.
     case 'back':
-      return state.back[cell] === BACK.none ? undefined : 'grid.occupied';
+      if (state.back[cell] !== BACK.none) return 'grid.occupied';
+      return Object.hasOwn(MATERIALS, placement.material) ? undefined : 'grid.noSuchMaterial';
     case 'machine': {
       if (!Object.hasOwn(MACHINES, placement.kind)) return 'grid.noSuchMachine';
       const cells = footprint(state, placement.kind, cell);

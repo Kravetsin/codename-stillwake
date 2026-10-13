@@ -32,8 +32,10 @@ export interface GridState {
   material: number[];
   /** A CONDUIT code per cell. Conduits run through walls and under machines. */
   conduit: number[];
-  /** A BACK code per cell: the wall behind it, which closes a room behind (ADR 0010). */
+  /** A BACK code per cell: the wall behind it, which closes a room behind (ADR 0020). */
   back: number[];
+  /** A material code from `MATERIALS` for back walls, 0 elsewhere. */
+  backMaterial: number[];
   machines: Machine[];
   nextMachineId: number;
   /** Derived: the id of the machine covering each cell, 0 for none. */
@@ -45,7 +47,7 @@ export type Placement =
   | { readonly layer: 'structure'; readonly kind: 'floor' | 'ladder' | 'door' }
   | { readonly layer: 'conduit'; readonly kind: 'pipe' | 'valve' }
   | { readonly layer: 'machine'; readonly kind: MachineKind }
-  | { readonly layer: 'back'; readonly kind: 'backWall' };
+  | { readonly layer: 'back'; readonly kind: 'backWall'; readonly material: MaterialId };
 
 export type Layer = Placement['layer'];
 

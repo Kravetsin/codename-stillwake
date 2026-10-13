@@ -52,10 +52,12 @@ vents into space.
   4. Every `AIR.ticksPerCell` ticks, each filling room airs the next cell of its order, paying one
      unit from the first of its vents (in id order) whose network holds any. More vents do not fill
      it faster.
-  5. Every other room holding air uses its leak — each hull cell's material `leak`, or
-     `AIR.doorLeak` for a closed door, every `AIR.leakEvery` ticks — spread over the minute: on each
-     tick what is due by its end less what was by its start, so a minute's total is exact. A room's
-     leak is found once per room object: rooms are new objects whenever the structure changes.
+  5. Every other room holding air uses its leak, through what its air touches (0020) — the material
+     `leak` of the back wall behind each of its cells and of each hull cell, or `AIR.doorLeak` for a
+     closed door, every `AIR.leakEvery` ticks — spread over the minute: on each tick what is due by
+     its end less what was by its start, so a minute's total is exact. A back wall behind a wall or a
+     closed door touches no air and leaks nothing. Leaks are found once per room object, every room's
+     in one pass over the cells: rooms are new objects whenever walls or back walls change.
 - **Draws** go tank by tank in tank id order along the network.
 - **Canisters:** a tank holds up to `AIR.tankCapacity`; `loadCanister` takes a canister from the
   sender's inventory (free in creative mode) and adds `AIR.canister`, refused when the tank would

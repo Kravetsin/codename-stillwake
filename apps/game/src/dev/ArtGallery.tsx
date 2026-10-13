@@ -10,7 +10,7 @@ import { drawBack, drawConduit, drawStructure, type Cells } from '../features/gr
 import { CELL } from '../render/camera';
 
 /**
- * A ship showing every tile: `#` scrap and `%` steel walls, `=` floor, `H` ladder, `D` and `d` doors
+ * A ship showing every tile: `#` scrap and `%` iron walls, `=` floor, `H` ladder, `D` and `d` doors
  * shut and open, `-` pipe, `v` and `x` valves open and shut, `.` back wall, ` ` space.
  */
 const SHIP = [
@@ -50,7 +50,7 @@ const MACHINES_SHOWN: readonly { kind: MachineKind; x: number; y: number }[] = [
 
 const CODES: Record<string, { structure?: number; conduit?: number; material?: number }> = {
   '#': { structure: STRUCTURE.wall, material: MATERIALS.scrap.code },
-  '%': { structure: STRUCTURE.wall, material: MATERIALS.steel.code },
+  '%': { structure: STRUCTURE.wall, material: MATERIALS.iron.code },
   '=': { structure: STRUCTURE.floor },
   H: { structure: STRUCTURE.ladder },
   D: { structure: STRUCTURE.doorClosed },
@@ -59,6 +59,9 @@ const CODES: Record<string, { structure?: number; conduit?: number; material?: n
   v: { conduit: CONDUIT.valveOpen },
   x: { conduit: CONDUIT.valveClosed },
 };
+
+/** Rows of `SHIP` above this one are backed in scrap, the rest in iron. */
+const BACKED_IN_SCRAP = 8;
 
 function cellsOf(rows: readonly string[]): Cells {
   const chars = rows.flatMap((row) => [...row]);
@@ -69,6 +72,12 @@ function cellsOf(rows: readonly string[]): Cells {
     material: chars.map((c) => CODES[c]?.material ?? 0),
     conduit: chars.map((c) => CODES[c]?.conduit ?? CONDUIT.none),
     back: chars.map((c) => (c === ' ' ? BACK.none : BACK.wall)),
+    // The upper deck backed in scrap, the lower in iron.
+    backMaterial: chars.map((c, i) =>
+      c === ' '
+        ? 0
+        : MATERIALS[i < BACKED_IN_SCRAP * (rows[0]?.length ?? 0) ? 'scrap' : 'iron'].code,
+    ),
   };
 }
 

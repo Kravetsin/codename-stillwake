@@ -36,7 +36,7 @@ describe('what the hero picks up as it goes', () => {
     floor.push(
       { id: 1, item: 'scrap', count: 3, cell: at(2, 2), ...rest(2, 2), by: 1, at: 0 },
       { id: 2, item: 'scrap', count: 3, cell: at(6, 2), ...rest(6, 2), by: 1, at: 0 },
-      { id: 3, item: 'steel', count: 1, cell: at(2, 1), ...rest(2, 1), by: 1, at: 0 },
+      { id: 3, item: 'iron', count: 1, cell: at(2, 1), ...rest(2, 1), by: 1, at: 0 },
     );
     expect(HERO.width).toBeLessThanOrEqual(UNIT);
     expect(pickUpsOf(sim, 0, standing(2), new Set())).toEqual([1, 3]);

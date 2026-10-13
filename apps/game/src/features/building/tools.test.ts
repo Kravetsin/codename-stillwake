@@ -10,8 +10,8 @@ import { costOf, menuOpen, putPlanAway, selected, TABS, TOOLS } from './tools';
 const what = (tool: (typeof TOOLS)[number]) =>
   tool.kind !== 'place'
     ? tool.kind
-    : tool.placement.layer === 'structure' && tool.placement.kind === 'wall'
-      ? `wall:${tool.placement.material}`
+    : tool.placement.kind === 'wall' || tool.placement.kind === 'backWall'
+      ? `${tool.placement.kind}:${tool.placement.material}`
       : tool.placement.kind;
 
 describe('the build menu', () => {
@@ -21,7 +21,7 @@ describe('the build menu', () => {
     expect(TABS.every((tab) => tab.tools.length > 0)).toBe(true);
     expect(carded.sort()).toEqual(
       [
-        ...Object.keys(MATERIALS).map((m) => `wall:${m}`),
+        ...Object.keys(MATERIALS).flatMap((m) => [`wall:${m}`, `backWall:${m}`]),
         ...Object.keys(BUILDS),
         ...Object.keys(MACHINES),
         'cable',
@@ -52,9 +52,9 @@ describe('the build menu', () => {
   });
 
   it('lays what is needed against what there is, item by item, short ones counted short', () => {
-    expect(costLines({ scrap: 2, steel: 1 }, { scrap: 5 })).toEqual([
+    expect(costLines({ scrap: 2, iron: 1 }, { scrap: 5 })).toEqual([
       { item: 'scrap', have: 5, need: 2 },
-      { item: 'steel', have: 0, need: 1 },
+      { item: 'iron', have: 0, need: 1 },
     ]);
     expect(costLines({}, { scrap: 5 })).toEqual([]);
   });

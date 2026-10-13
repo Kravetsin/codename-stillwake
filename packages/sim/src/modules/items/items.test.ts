@@ -47,8 +47,8 @@ const trader = defineModule<[ItemsModule]>()({
 });
 
 const world = defineSim([grid, rooms, items, trader]);
-const ALL: readonly Item[] = ['scrap', 'steel', 'canister'];
-const [SCRAP, STEEL, CANISTERS] = [360, 60, 3];
+const ALL: readonly Item[] = ['scrap', 'iron', 'canister'];
+const [SCRAP, IRON, CANISTERS] = [360, 60, 3];
 
 const count = (w: Scenario, item: Item, peer = 0) =>
   w
@@ -67,15 +67,15 @@ const stored = (w: Scenario) => {
   };
 };
 const empty = (n: number): Slot[] => Array.from({ length: n }, () => null);
-/** A world with no map, peer 0 carrying scrap and steel. */
-const stocked = () => giveItems(scenario(world), 0, { scrap: SCRAP, steel: STEEL });
+/** A world with no map, peer 0 carrying scrap and iron. */
+const stocked = () => giveItems(scenario(world), 0, { scrap: SCRAP, iron: IRON });
 
-/** Two crates, machines 1 and 2: the first holds scrap, steel and canisters, the second nothing. */
+/** Two crates, machines 1 and 2: the first holds scrap, iron and canisters, the second nothing. */
 const crates = () => {
   const w = scenario(world, parseLayout(['#KK.KK#']));
   const slots = placed(empty(MACHINES.crate.slots), {
     scrap: SCRAP,
-    steel: STEEL,
+    iron: IRON,
     canister: CANISTERS,
   });
   if (!slots) throw new Error('no room');
@@ -96,17 +96,17 @@ describe('items', () => {
     });
 
     it("pay from the sender's inventory alone, kept from then on in peer order", () => {
-      const w = giveItems(stocked(), 4, { scrap: SCRAP, steel: STEEL });
-      giveItems(w, 2, { steel: STEEL });
-      w.do(trader, 'buy', { cost: { scrap: 10, steel: 5 } }, 4)
-        .do(trader, 'buy', { cost: { steel: 1 } }, 2)
+      const w = giveItems(stocked(), 4, { scrap: SCRAP, iron: IRON });
+      giveItems(w, 2, { iron: IRON });
+      w.do(trader, 'buy', { cost: { scrap: 10, iron: 5 } }, 4)
+        .do(trader, 'buy', { cost: { iron: 1 } }, 2)
         .run();
       expect(w.refusals).toEqual([]);
-      expect(totals(w, 4)).toEqual([SCRAP - 10, STEEL - 5, 0]);
-      expect(totals(w, 2)).toEqual([0, STEEL - 1, 0]);
-      expect(totals(w, 0)).toEqual([SCRAP, STEEL, 0]);
+      expect(totals(w, 4)).toEqual([SCRAP - 10, IRON - 5, 0]);
+      expect(totals(w, 2)).toEqual([0, IRON - 1, 0]);
+      expect(totals(w, 0)).toEqual([SCRAP, IRON, 0]);
       expect(stored(w).inventories).toEqual([0, 2, 4]);
-      expect(w.sim.world.slices.trader).toEqual({ paid: [{ scrap: 10, steel: 5 }, { steel: 1 }] });
+      expect(w.sim.world.slices.trader).toEqual({ paid: [{ scrap: 10, iron: 5 }, { iron: 1 }] });
     });
 
     it('pay from the last stacks first, so the first slots are the last to empty', () => {
@@ -115,19 +115,19 @@ describe('items', () => {
         .run()
         .do(trader, 'buy', { cost: { scrap: ITEMS.scrap.stack - 1 } })
         .run();
-      // The refund topped up the first stack and spilled into a slot after the steel.
+      // The refund topped up the first stack and spilled into a slot after the iron.
       expect(w.query(items).inventory(0).slice(0, 3)).toEqual([
         { item: 'scrap', count: SCRAP + 1 },
-        { item: 'steel', count: STEEL },
+        { item: 'iron', count: IRON },
         null,
       ]);
     });
 
     it('spend down to nothing, and refuse one unit more without a change', () => {
       const w = stocked()
-        .do(trader, 'buy', { cost: { steel: STEEL } })
+        .do(trader, 'buy', { cost: { iron: IRON } })
         .run()
-        .do(trader, 'buy', { cost: { scrap: 1, steel: 1 } })
+        .do(trader, 'buy', { cost: { scrap: 1, iron: 1 } })
         .run();
       expect(w.refusals).toEqual(['items.notEnough']);
       expect(totals(w)).toEqual([SCRAP, 0, 0]);
@@ -139,16 +139,16 @@ describe('items', () => {
         .do(trader, 'buy', { cost: { scrap: 1, canister: 1 } })
         .run();
       expect(w.refusals).toEqual(['items.notEnough']);
-      expect(totals(w)).toEqual([SCRAP, STEEL, 0]);
+      expect(totals(w)).toEqual([SCRAP, IRON, 0]);
     });
 
     it('take refunds onto stacks of the item first, then into the first empty slots', () => {
       const w = stocked()
-        .do(trader, 'refund', { cost: { canister: ITEMS.canister.stack + 1, steel: 3 } })
+        .do(trader, 'refund', { cost: { canister: ITEMS.canister.stack + 1, iron: 3 } })
         .run();
       expect(w.query(items).inventory(0).slice(0, 5)).toEqual([
         { item: 'scrap', count: SCRAP },
-        { item: 'steel', count: STEEL + 3 },
+        { item: 'iron', count: IRON + 3 },
         { item: 'canister', count: ITEMS.canister.stack },
         { item: 'canister', count: 1 },
         null,
@@ -157,31 +157,31 @@ describe('items', () => {
 
     it('refuse a refund that does not fit, counting room on the stacks there are', () => {
       const scrapRoom = ITEMS.scrap.stack - SCRAP;
-      const steelRoom = ITEMS.steel.stack - STEEL;
+      const ironRoom = ITEMS.iron.stack - IRON;
       const slotsLeft = INVENTORY.slots - 2;
       const w = stocked()
         .do(trader, 'refund', { cost: { canister: slotsLeft * ITEMS.canister.stack } })
         .run();
       expect(w.query(items).fullFor(0, { canister: 1 })).toBe('items.full');
-      expect(w.query(items).fullFor(0, { scrap: scrapRoom, steel: steelRoom })).toBeUndefined();
-      w.do(trader, 'refund', { cost: { scrap: scrapRoom, steel: steelRoom + 1 } }).run();
+      expect(w.query(items).fullFor(0, { scrap: scrapRoom, iron: ironRoom })).toBeUndefined();
+      w.do(trader, 'refund', { cost: { scrap: scrapRoom, iron: ironRoom + 1 } }).run();
       expect(w.refusals).toEqual(['items.full']);
-      expect(totals(w)).toEqual([SCRAP, STEEL, slotsLeft * ITEMS.canister.stack]);
+      expect(totals(w)).toEqual([SCRAP, IRON, slotsLeft * ITEMS.canister.stack]);
     });
 
     it('take nothing in creative mode, and still give', () => {
       const w = stocked()
         .do(items, 'setCreative', { on: true })
-        .do(trader, 'buy', { cost: { steel: STEEL + 50, canister: 3 } })
+        .do(trader, 'buy', { cost: { iron: IRON + 50, canister: 3 } })
         .do(trader, 'refund', { cost: { scrap: 2 } })
         .run();
       expect(w.refusals).toEqual([]);
-      expect(totals(w)).toEqual([SCRAP + 2, STEEL, 0]);
+      expect(totals(w)).toEqual([SCRAP + 2, IRON, 0]);
       // Nothing was paid, so a refund of what was paid gives nothing back.
       expect(w.sim.world.slices.trader).toEqual({ paid: [{}] });
-      expect(w.query(items).shortOf(0, { steel: 9999 })).toBeUndefined();
+      expect(w.query(items).shortOf(0, { iron: 9999 })).toBeUndefined();
       w.do(items, 'setCreative', { on: false }).run();
-      expect(w.query(items).shortOf(0, { steel: 9999 })).toBe('items.notEnough');
+      expect(w.query(items).shortOf(0, { iron: 9999 })).toBe('items.notEnough');
     });
 
     it('keep no inventory for a change of nothing', () => {
@@ -198,7 +198,7 @@ describe('items', () => {
       expect(() => w.query(items).shortOf(0, { scrap: -1 })).toThrow(/not a whole amount/);
       expect(() => w.query(items).fullFor(0, { scrap: 1.5 })).toThrow(/not a whole amount/);
       w.do(items, 'setCreative', { on: true }).run();
-      expect(() => w.query(items).shortOf(0, { steel: -2 })).toThrow(/not a whole amount/);
+      expect(() => w.query(items).shortOf(0, { iron: -2 })).toThrow(/not a whole amount/);
       expect(() => w.do(trader, 'buy', { cost: { scrap: 0.5 } }).run()).toThrow(
         /not a whole amount/,
       );
@@ -262,8 +262,8 @@ describe('items', () => {
       move(w, { crate: 1, slot: 1 }, { slot: 0 }, 25, 3);
       expect(w.refusals).toEqual([]);
       expect(w.query(items).inventory(0)[4]).toEqual({ item: 'scrap', count: SCRAP });
-      expect(w.query(items).inventory(3)[0]).toEqual({ item: 'steel', count: 25 });
-      expect(crate(w, 1).slice(0, 2)).toEqual([null, { item: 'steel', count: STEEL - 25 }]);
+      expect(w.query(items).inventory(3)[0]).toEqual({ item: 'iron', count: 25 });
+      expect(crate(w, 1).slice(0, 2)).toEqual([null, { item: 'iron', count: IRON - 25 }]);
       move(w, { slot: 4 }, { crate: 1, slot: 5 }, 10);
       expect(crate(w, 1)[5]).toEqual({ item: 'scrap', count: 10 });
       expect(w.query(items).inventory(0)[4]).toEqual({ item: 'scrap', count: SCRAP - 10 });
@@ -302,11 +302,11 @@ describe('items', () => {
     });
 
     it('move within an inventory, and between two crates', () => {
-      const w = giveItems(crates(), 0, { steel: 7 });
+      const w = giveItems(crates(), 0, { iron: 7 });
       move(w, { slot: 0 }, { slot: 8 }, 999);
       move(w, { crate: 1, slot: 2 }, { crate: 2, slot: 0 }, 999);
       expect(w.refusals).toEqual([]);
-      expect(w.query(items).inventory(0)[8]).toEqual({ item: 'steel', count: 7 });
+      expect(w.query(items).inventory(0)[8]).toEqual({ item: 'iron', count: 7 });
       expect(w.query(items).inventory(0)[0]).toBeNull();
       expect(crate(w, 2)[0]).toEqual({ item: 'canister', count: CANISTERS });
       expect(stored(w).crates).toEqual([1, 2]);
@@ -317,7 +317,7 @@ describe('items', () => {
       for (const slot of [0, 1, 2]) move(w, { crate: 1, slot }, {}, 999);
       expect(w.refusals).toEqual([]);
       expect(stored(w).crates).toEqual([]);
-      expect(totals(w)).toEqual([SCRAP, STEEL, CANISTERS]);
+      expect(totals(w)).toEqual([SCRAP, IRON, CANISTERS]);
     });
 
     it('give the last stack to the first of two heroes taking it on one tick', () => {
@@ -387,7 +387,7 @@ describe('items', () => {
       };
       fc.assert(
         fc.property(fc.array(step, { maxLength: 80, size: 'max' }), (steps) => {
-          const w = giveItems(crates(), 1, { canister: 9, steel: 600 });
+          const w = giveItems(crates(), 1, { canister: 9, iron: 600 });
           const start = everything(w);
           for (const s of steps) {
             w.do(items, 'move', { src: s.src, dst: s.dst, count: s.count }, s.from).run();
@@ -426,7 +426,7 @@ describe('moves a client has in flight', () => {
     });
     fc.assert(
       fc.property(fc.array(step, { maxLength: 30, size: 'max' }), (moves) => {
-        const w = giveItems(crates(), 1, { canister: 9, steel: 600 });
+        const w = giveItems(crates(), 1, { canister: 9, iron: 600 });
         const hash = w.sim.hash();
         const shown = w.query(items).afterMoves(1, moves);
         expect(w.sim.hash()).toBe(hash);

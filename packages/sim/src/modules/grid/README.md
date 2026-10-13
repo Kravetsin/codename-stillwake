@@ -14,7 +14,7 @@ else that stands on the ship — rooms, pipe networks, air — is read from here
 | structure | empty, hull wall (with a material), floor, ladder, door (open or closed)                  |
 | conduit   | none, pipe, valve (open or closed); runs through walls and under machines                 |
 | machine   | machines from `MACHINES` in content, each covering its footprint, with ports for conduits |
-| back      | none, back wall: the wall behind a cell, which closes a room behind it (ADR 0010)         |
+| back      | none, back wall (with a material): the wall behind a cell, closing a room behind (0020)   |
 
 Walls, floors, ladders and doors are one structure per cell. A machine needs every footprint cell free
 of structure and of other machines. Conduits need only a free conduit slot, and a back wall only a
@@ -23,7 +23,7 @@ free back slot: it stands behind anything, and in space.
 ## API
 
 - **Queries:** `size`, `layers` (raw codes, for drawing and for modules that scan every cell),
-  `codes` (what those codes mean), `structureAt(cell)`, `conduitAt(cell)`, `machineAt(cell)`, `machines`,
+  `codes` (what those codes mean), `structureAt(cell)`, `backAt(cell)` (a back wall's material), `conduitAt(cell)`, `machineAt(cell)`, `machines`,
   `portsOf(machine)`, `footprint(kind, cell)`, `placementProblem(cell, placement)`,
   `afterToggles(toggles)` (copies of the structure and conduit layers after door and valve toggles,
   as their commands would apply them: what a client shows of its own before their tick runs).
@@ -43,7 +43,7 @@ free back slot: it stands behind anything, and in space.
 `#` wall of `DEFAULT_HULL`, `=` floor, `H` ladder, `D`/`d` door closed/open, `-` pipe, `v`/`x` valve
 open/closed, `T` tank, `G` oxygen generator, `P` solar panel, `F` furnace, `V` vent, `K` crate. A map's power cables come
 beside it, as cell pairs (`Layout.cables`, read by `power`). A machine is drawn as its whole footprint; a map that draws part of
-one does not load. Every character but a space has a back wall, hull walls included, so a room drawn
+one does not load. Every character but a space has a back wall of `DEFAULT_HULL`, hull walls included, so a room drawn
 with a space inside is open behind there. Pipes under walls and machines are drawn on the map under
 it (`LEGEND_UNDER`).
 A map's machines take ids 1, 2, … in the order `machinesOf` (in `core/layout`) lists them: by
@@ -54,7 +54,7 @@ their top-left cells in reading order. Other modules find a map's machines by th
 - Machines never overlap, and stand only on cells without structure.
 - `occupancy` (derived, rebuilt on load) names exactly the machine covering each cell.
 - Machine ids only grow; a removed machine's id is never reused.
-- Stored codes (structure, conduit, material, back) are part of the save format: never renumber
+- Stored codes (structure, conduit, material, back, back material) are part of the save format: never renumber
   them.
 
 ## Deliberately not handled

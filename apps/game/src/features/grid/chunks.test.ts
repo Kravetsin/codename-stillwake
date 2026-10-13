@@ -5,7 +5,7 @@ import type { Cells } from './draw';
 function cells(
   width: number,
   height: number,
-): Cells & { structure: number[]; conduit: number[]; back: number[] } {
+): Cells & { structure: number[]; conduit: number[]; back: number[]; backMaterial: number[] } {
   const size = width * height;
   return {
     width,
@@ -14,6 +14,7 @@ function cells(
     material: new Array<number>(size).fill(0),
     conduit: new Array<number>(size).fill(0),
     back: new Array<number>(size).fill(0),
+    backMaterial: new Array<number>(size).fill(0),
   };
 }
 
@@ -43,6 +44,8 @@ describe('grid chunks', () => {
     expect([...staleChunks(seen, c)]).toEqual([1]);
     expect(staleChunks(seen, c).size).toBe(0);
     c.back[5 * W + 20] = 1; // and a wall behind it
+    expect([...staleChunks(seen, c)]).toEqual([1]);
+    c.backMaterial[5 * W + 20] = 2; // of another material
     expect([...staleChunks(seen, c)]).toEqual([1]);
   });
 

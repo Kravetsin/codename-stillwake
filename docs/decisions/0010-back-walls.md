@@ -1,6 +1,6 @@
 # 0010 — Back walls close a room behind
 
-- Status: accepted
+- Status: superseded by [0020](0020-walls-of-materials-front-and-back.md)
 - Date: 2026-10-11
 
 ## Context

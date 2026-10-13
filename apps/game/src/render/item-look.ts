@@ -8,7 +8,7 @@ export const ITEM_LOOK: Readonly<
   Record<ItemId, { readonly colour: number; readonly round: boolean }>
 > = {
   scrap: { colour: 0xb0703c, round: false },
-  steel: { colour: 0xa9bccf, round: false },
+  iron: { colour: 0xa9bccf, round: false },
   canister: { colour: 0x5fd0ff, round: true },
   scrapChunk: { colour: 0x8c5a3a, round: false },
   hullPlate: { colour: 0x74889c, round: false },

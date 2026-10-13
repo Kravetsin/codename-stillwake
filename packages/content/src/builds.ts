@@ -10,16 +10,15 @@ export interface Build {
 }
 
 /**
- * What a hero builds besides walls, which cost their material (`MATERIALS`), and machines
+ * What a hero builds besides walls and back walls, which cost their material (`MATERIALS`), and machines
  * (`MACHINES`). Kept by the names the grid gives them.
  */
 export const BUILDS = {
   floor: { cost: { scrap: 1 }, buildTicks: 7 },
   ladder: { cost: { scrap: 1 }, buildTicks: 7 },
-  door: { cost: { scrap: 2, steel: 1 }, buildTicks: 20 },
+  door: { cost: { scrap: 2, iron: 1 }, buildTicks: 20 },
   pipe: { cost: { scrap: 1 }, buildTicks: 7 },
-  valve: { cost: { scrap: 1, steel: 1 }, buildTicks: 40 },
-  backWall: { cost: { scrap: 1 }, buildTicks: 6 },
+  valve: { cost: { scrap: 1, iron: 1 }, buildTicks: 40 },
 } as const satisfies Readonly<Record<string, Build>>;
 
 /** Taking a thing apart is this many times faster than building it; its ticks round up. */

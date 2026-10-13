@@ -11,7 +11,7 @@ import { building, type Plan } from './index';
 
 const withBuilder = defineSim([...MODULES, builder]);
 
-const wall: Placement = { layer: 'structure', kind: 'wall', material: 'steel' };
+const wall: Placement = { layer: 'structure', kind: 'wall', material: 'iron' };
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 const tank: Placement = { layer: 'machine', kind: 'tank' };
 
@@ -158,7 +158,7 @@ describe('building', () => {
   });
 
   it('plans a back wall behind a planned wall and in space, but not where one stands or is planned', () => {
-    const backWall: Placement = { layer: 'back', kind: 'backWall' };
+    const backWall: Placement = { layer: 'back', kind: 'backWall', material: 'scrap' };
     // Space, a wall, two backed cells, one with no back wall, one backed, a wall, space.
     const w = scenario(world, parseLayout(['   #.. .#   ']))
       .do(building, 'placePlan', { cell: 6, placement: wall })

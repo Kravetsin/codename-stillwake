@@ -84,7 +84,7 @@ export const WALL: Record<MaterialId, readonly string[]> = {
     'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
     'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
   ],
-  steel: [
+  iron: [
     'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
     'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
     'mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',
@@ -152,14 +152,85 @@ export const WALL: Record<MaterialId, readonly string[]> = {
   ],
 };
 
-const MATERIAL_COLOUR: Record<MaterialId, number> = { scrap: 0x5b6170, steel: 0x8f99ad };
+const MATERIAL_COLOUR: Record<MaterialId, number> = { scrap: 0x5b6170, iron: 0x8f99ad };
 const RUST = { r: 0x8a5a3a, R: 0x6a4430 };
 
-/** The wall behind a cell: darker than any wall, so walls stand out from it in any light. */
-const BACK_PANEL = 0x2f3646;
+/** Back walls by material: darker than any wall, so walls stand out from them in any light (0019). */
+const BACK_COLOUR: Record<MaterialId, number> = { scrap: 0x323640, iron: 0x2f3646 };
 
-/** Back wall panels; one in every few has a grille, so a long wall does not repeat. */
-const BACK = {
+/**
+ * The scrap back wall: sheets of every size, some corrugated, patched and welded, one seamless
+ * picture cut where each back wall stands, as walls are. Drawn in `BACK_COLOUR`, darker than walls.
+ */
+const BACK_SCRAP = [
+  'oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo',
+  'ollllllllllllllllllllllllllollllllllllllllllllllllllllllllllllllolllllllllllllllllllommmmmmmmmmmmmmmmmmmmmolllllllllllllllllllll',
+  'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlmmdlmmddolmmmmmmmmmmmmmmmmmdomnnRnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmxmmmxmmmxmmmxmmmxmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlmmdlmmddolmxmmmxmmmxmmmxmmmdomnxrnnnxnnnnxnnnnxnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlooooooooolmmmmooooooooommmmdomnnrnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlommmmmmmolmmmmommmmmmmommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmoooooooooommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmomnnnnnNommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmxmmommmmmmmmommmmmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnxnnnxolmxmmomnxnnnNomxmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmomnnnnnnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmomnnnnnNommmmdomnxnnnnnnnnnnnnnnxnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmomnxnnxnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmoNNNNNNNommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmomnxnnxnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnxnnnxolmmmmooooooooommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmxmmomnnnnnnNommmmmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmxmmmmmmRmmmmmxmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmoNNNNNNNNommmmmmmmmmdoddddddddddddddddddddddddddddoNNNNNNNolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+  'olmmmmoooooooooommmmmmmmmmdoooooooooooooooooooooooooooooooooooooolmxmmmxmmrxmmmxmmmdomnxnnnnnnnnnnnnnnxnnNoddddddddddddddddddddd',
+  'olmmmmmmmRmmmmmmmmmmmmmmmmdommmmmmmmmmmmmmmmmmmollllllllllllRlllolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNoooooooooooooooooooooo',
+  'olmxmmmmmrmmmmmmmmmmmmmxmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmrmmdolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNolllllllllllllllllllll',
+  'olmmmmmmmrmmmmmmmmmmmmmmmmdomnxnnnxnnnxnnnxnnnNolmxmmmxmmmxmrmmdodddddddddddddddddddomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmd',
+  'olmxmmmxmrmxmmmxmmmxmmmxmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmrmmdooooooooooooooooooooomnnnnnnnnnnnnnnnnnnnNolmxmmmmmxmmmmmxmmmmmd',
+  'olmmmmmmmrmmmmmmmmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolllllllllllllllllllomnxnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmd',
+  'olmmmmmmmmmmmmmmmmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmd',
+  'oddddddddddddddddddddddddddomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdomnxnnnnxnnnnxnnnnxnnNolmmmmmmmmmmmmmmmmRmmd',
+  'oooooooooooooooooooooooooooomRnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmrmmd',
+  'ommmmmmmmmmmmmmolllllllllllomrnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmrmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomrnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdoNNNNNNNNNNNNNNNNNNNNNolmxmmmmmmmmmmmmmmrmmd',
+  'omnxnnnnxnnnnnNolmxmmmxmmmdomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdooooooooooooooooooooooolmmmmmmmmmmmmmmmmrmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolllllllllllllllllllllolmmmmmmmmmmmmmmmmrmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmxmmmxmmmxmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+  'omnnnnnnnnnnnnNolmxmmmmxmmdomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+  'omnxnnnnnnnxnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmxmmmmmmmmmmmmmmxmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnoooooooooooooommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmooooooooooolmxmmmmmxmmmmmxmmmmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnxnnnxnnnxnollllllllllllommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmmmmmmolllllllllolmmmmmmmmmmmmmmmmmmmd',
+  'omnnnnnnnnnnnnNolmxmmmxmmmdomnnnnnnnnnnnolmmmmmmmmmmdommmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+  'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnolmxmmmmxmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmxmmmxmdoddddddddddddddddddddd',
+  'omnxnnnnnnnxnnNolmmmmmmmmmdoNNNNNNNNNNNNolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdoooooooooooooooooooooo',
+  'omnnnnnnnnnnnnNodddddddddddmmmmooooRooooolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmmmmmmolmxmmmxmdommmmmmmmmmmmmmmmmmmmm',
+  'omnnnnnnnnnnnnNmoommmmmmmmmmmmmolllrllllolmxmmmmxmmmdommmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdomnnnnnnnnnnnnnnnnnnnN',
+  'omnnRnnnnnnnnnNmlloommmmmmmmmmmolmmrmmmmolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmodddddddddomnxnnnxnnnxnnnxnnnnnN',
+  'omnnrnnnnnnnnnNmmmlloommmmmmmmmolmxrmmmmoddddddddddddommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmxmmmxooooooooooomnxnnnxnnnxnnnxnnnnnN',
+  'omnxrnnnnnnxnnNmmmmmlloommmmmmmolmmrmmmmoooooooooooooommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmRmmmmdomnnnnnnnnnnnnnnnnnnnN',
+  'omnnrnnnnnnnnnNmmmmmmmlloommmmmolmmrmmmmmmmmmmdolmxmRmxmmmxmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmrmmmmdomnnnnnnnnnnnnnnnnnnnN',
+  'omnnrnnnnnnnnnNmmmmmmmmmllmmmmmolmmmmmmmmmmmmmdolmmmrmmmmmmmmmmdodddddddddddddddddddodddddddddddddddrdddddoNNNNNNNNNNNNNNNNNNNNN',
+  'omnnrnnnnnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdolmmmrmmmmmmmmmmdoooooooooooooooooooooooooooooooooooorooooooooooooooooooooooooooo',
+  'omnxrnnnxnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdoddddddddddddddddommmmmmmmmmmmmmmmmmmmmmmmmolllllllllllllllllllllllllllllllllllll',
+  'omnnnnnnnnnnnnNmmmmmmmmmmmmmmmmolmxmmmmmmmmxmmdoooooooooooooooooomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+  'omnnnnnnnnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdommmmmmmmmmmmmmmmomnxnnnxnnnxnnnxnnnxnnnnnNolmxmmmmxmmmmxmmmmxmmmmxmmmmxmmmmxmmmd',
+  'oNNNNNNNNNNNNNNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+  'oooooooooooooooooooooooooooooooolmmmmmmmmmmmmmdomnxnnnxnnnxnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+  'ollllllllllllllllllllllllllllllolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmoooooooooommmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmmommmmmmmmommmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmxmmmmmmmmxmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmxmmmmmmmmmmmmmmmmmmomnnnnnnNommxmmd',
+  'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnxnnxnNommmmmd',
+  'olmdlmmdlmmdlmmdlmmdooooooooomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnnnnnnNommmmmd',
+  'olmdlmmdlmmdlmmdlmmdommmmmmmomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmmomnxnnxnNommmmmd',
+  'olmdlmmdlmmdlmmdlmmdomnnnnnNomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnnnnnnNommmmmd',
+  'olmdlmmdlmmdlmmdlmmdomnxnnnNomdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmxmmmmmmmmmooommmmmmoNNNNNNNNommxmmd',
+  'olmdlmmdlmmdlmmdlmmdomnnnnnNomdolmxmmmmmmmmxmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmooolllmmmmmmoooooooooommmmmd',
+  'olmdlmmdlmmdlmmdlmmdoNNNNNNNomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmooolllmmmmmmmmmmmmmmRmmmmmmmmmd',
+  'olmdlmmdlmmdlmmdlmmdooooooooomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmooolllmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmRdlmmdlmdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmlllmmmmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmxmmmmmxmmmmmdomnxnnnxnnnxnnnnNomnxnnnxnnnxnnnxnnnxnnnnnNolmxmmmmxmmmmxmmmmxmmmmxmmmrxmmmmxmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+  'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+  'oddddddddddddddddddddddddddddddodddddddddddddddoNNNNNNNNNNNNNNNNoNNNNNNNNNNNNNNNNNNNNNNNNNoddddddddddddddddddddddddddddddddddddd',
+];
+
+/** The iron back wall's panels; one in every few has a grille, so a long wall does not repeat. */
+const BACK_IRON = {
   plain: [
     'lllllllllllllllo',
     'lmmmmmmmmmmmmmdo',
@@ -572,30 +643,24 @@ const patterns = keptBy((code) => {
   });
 });
 
-/** The most cells a material's picture may have: its pieces are kept under numbers this far apart. */
-export const PIECES = 64;
+/** The cell at column `x` and row `y` of the grid cut from `picture`, laid over the world from its corner. */
+function cut(picture: Texture, x: number, y: number): Texture {
+  const across = picture.width / CELL;
+  const piece = (y % (picture.height / CELL)) * across + (x % across);
+  let pieces = cuts.get(picture);
+  if (!pieces) cuts.set(picture, (pieces = []));
+  return (pieces[piece] ??= new Texture({
+    source: picture.source,
+    frame: new Rectangle((piece % across) * CELL, Math.floor(piece / across) * CELL, CELL, CELL),
+  }));
+}
+
+const cuts = new Map<Texture, Texture[]>();
 
 /** The wall at column `x` and row `y` of the grid, of the material coded `code` (scrap for a code unknown). */
 export function wallTexture(code: number, x: number, y: number): Texture {
-  const rows = WALL[materialOf(code)];
-  const across = (rows[0]?.length ?? CELL) / CELL;
-  const down = rows.length / CELL;
-  return pieces(code * PIECES + (y % down) * across + (x % across));
+  return cut(patterns(code), x, y);
 }
-
-const pieces = keptBy((n) => {
-  const code = Math.floor(n / PIECES);
-  const pattern = patterns(code);
-  const across = pattern.width / CELL;
-  const piece = n % PIECES;
-  const frame = new Rectangle(
-    (piece % across) * CELL,
-    Math.floor(piece / across) * CELL,
-    CELL,
-    CELL,
-  );
-  return new Texture({ source: pattern.source, frame });
-});
 
 /** The outline over a wall of the material coded `code` on the `open` sides, which use `SIDE`'s bits. */
 export function wallEdgeTexture(code: number, open: number): Texture {
@@ -614,14 +679,33 @@ const edges = keptBy((n) => {
   });
 });
 
-/** The back wall of `cell`: a panel, a grille in about one cell of seven. */
-export function backTexture(cell: number): Texture {
-  return backs(hashOf(cell) % 7 === 0 ? 1 : 0);
+/**
+ * The back wall at column `x` and row `y` of the grid, of the material coded `code`: scrap cut from
+ * its picture, iron a panel, a grille in about one cell of seven.
+ */
+export function backTexture(code: number, x: number, y: number): Texture {
+  if (materialOf(code) === 'scrap') return cut(scrapBack(0), x, y);
+  return ironBacks(hashOf((y << 16) | x) % 7 === 0 ? 1 : 0);
 }
 
-const backs = keptBy((grille) => {
+const scrapBack = keptBy(() => {
+  const colour = BACK_COLOUR.scrap;
+  return pixelTexture('back:scrap', BACK_SCRAP, {
+    l: shade(colour, -0.1),
+    m: colour,
+    d: shade(colour, 0.8),
+    o: shade(colour, 0.6),
+    x: shade(colour, -0.18),
+    n: shade(colour, 0.86),
+    N: shade(colour, 0.74),
+    r: 0x5a3c2a,
+    R: 0x46301f,
+  });
+});
+
+const ironBacks = keptBy((grille) => {
   const look = grille ? 'grille' : 'plain';
-  return pixelTexture(`back:${look}`, BACK[look], shadesOf(BACK_PANEL));
+  return pixelTexture(`back:iron:${look}`, BACK_IRON[look], shadesOf(BACK_COLOUR.iron));
 });
 
 export function floorTexture(): Texture {

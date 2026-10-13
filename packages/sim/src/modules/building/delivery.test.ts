@@ -10,7 +10,7 @@ import { apartTicks } from './costs';
 import { building } from './index';
 
 /** What every hero in these tests carries from the start. */
-const STOCK = { scrap: 360, steel: 60 } as const;
+const STOCK = { scrap: 360, iron: 60 } as const;
 
 /** A world from `map` with peers 0 to 3 carrying STOCK. */
 function stocked(map: string | Layout): Scenario {
@@ -19,10 +19,10 @@ function stocked(map: string | Layout): Scenario {
   return w;
 }
 
-const steelWall: Placement = { layer: 'structure', kind: 'wall', material: 'steel' };
+const ironWall: Placement = { layer: 'structure', kind: 'wall', material: 'iron' };
 const door: Placement = { layer: 'structure', kind: 'door' };
 const tank: Placement = { layer: 'machine', kind: 'tank' };
-const STEEL_WALL = MATERIALS.steel.buildTicks;
+const IRON_WALL = MATERIALS.iron.buildTicks;
 
 /** Nine cells wide: cell (x, y) is y * 9 + x. */
 const OPEN = `
@@ -63,39 +63,54 @@ const placePlan = (w: Scenario, cell: number, placement: Placement) =>
 
 describe('blueprints', () => {
   it('cost nothing to place', () => {
-    const w = placePlan(stocked(OPEN), at(1, 1), steelWall);
+    const w = placePlan(stocked(OPEN), at(1, 1), ironWall);
     expect(plan(w, 1)).toEqual({
       id: 1,
       cell: at(1, 1),
       progress: 0,
-      place: steelWall,
+      place: ironWall,
       delivered: {},
     });
-    expect(count(w, 'steel')).toBe(STOCK.steel);
-    expect(w.query(building).costOf(1)).toEqual({ steel: MATERIALS.steel.cost });
-    expect(w.query(building).lacking(1)).toEqual({ steel: MATERIALS.steel.cost });
+    expect(count(w, 'iron')).toBe(STOCK.iron);
+    expect(w.query(building).costOf(1)).toEqual({ iron: MATERIALS.iron.cost });
+    expect(w.query(building).lacking(1)).toEqual({ iron: MATERIALS.iron.cost });
   });
 
   it('take what they lack on E, then are built by as many ticks of work as they take', () => {
-    const w = placePlan(stocked(OPEN), at(1, 1), steelWall);
+    const w = placePlan(stocked(OPEN), at(1, 1), ironWall);
     press(w, 1);
-    expect(plan(w, 1)).toMatchObject({ delivered: { steel: MATERIALS.steel.cost }, progress: 0 });
+    expect(plan(w, 1)).toMatchObject({ delivered: { iron: MATERIALS.iron.cost }, progress: 0 });
     expect(w.query(building).lacking(1)).toEqual({});
-    expect(count(w, 'steel')).toBe(STOCK.steel - MATERIALS.steel.cost);
-    hold(w, 1, STEEL_WALL - 1);
+    expect(count(w, 'iron')).toBe(STOCK.iron - MATERIALS.iron.cost);
+    hold(w, 1, IRON_WALL - 1);
     expect(w.query(grid).structureAt(at(1, 1)).kind).toBe('empty');
-    expect(plan(w, 1)?.progress).toBe(STEEL_WALL - 1);
+    expect(plan(w, 1)?.progress).toBe(IRON_WALL - 1);
     press(w, 1);
     expect(w.refusals).toEqual([]);
-    expect(w.query(grid).structureAt(at(1, 1))).toEqual({ kind: 'wall', material: 'steel' });
+    expect(w.query(grid).structureAt(at(1, 1))).toEqual({ kind: 'wall', material: 'iron' });
     expect(w.query(building).plans()).toEqual([]);
-    expect(count(w, 'steel')).toBe(STOCK.steel - MATERIALS.steel.cost);
+    expect(count(w, 'iron')).toBe(STOCK.iron - MATERIALS.iron.cost);
+  });
+
+  it('cost and take a back wall what a wall of its material does, refunded when taken apart', () => {
+    const w = stocked(OPEN);
+    w.do(building, 'deconstruct', { cell: at(1, 1), layer: 'back' }).run();
+    hold(w, 1, apartTicks(MATERIALS.scrap.buildTicks));
+    expect(w.query(grid).backAt(at(1, 1))).toBeUndefined();
+    expect(count(w, 'scrap')).toBe(STOCK.scrap + MATERIALS.scrap.cost);
+    placePlan(w, at(1, 1), { layer: 'back', kind: 'backWall', material: 'iron' });
+    expect(w.query(building).costOf(2)).toEqual({ iron: MATERIALS.iron.cost });
+    hold(w, 2, IRON_WALL);
+    expect(w.query(grid).backAt(at(1, 1))).toBeUndefined();
+    press(w, 2);
+    expect(w.query(grid).backAt(at(1, 1))).toBe('iron');
+    expect(count(w, 'iron')).toBe(STOCK.iron - MATERIALS.iron.cost);
   });
 
   it('take part from a hero carrying too little, and the rest from another', () => {
     const w = scenario(world, OPEN);
     giveItems(w, 5, { scrap: 1 });
-    giveItems(w, 6, { scrap: 9, steel: 9 });
+    giveItems(w, 6, { scrap: 9, iron: 9 });
     placePlan(w, at(1, 1), door);
     press(w, 1, 5);
     expect(plan(w, 1)).toMatchObject({ delivered: { scrap: 1 } });
@@ -106,9 +121,9 @@ describe('blueprints', () => {
     hold(w, 1, BUILDS.door.buildTicks, 5);
     expect(w.query(grid).structureAt(at(1, 1)).kind).toBe('door');
     // The second paid only what was still lacking.
-    expect([count(w, 'scrap', 6), count(w, 'steel', 6)]).toEqual([
+    expect([count(w, 'scrap', 6), count(w, 'iron', 6)]).toEqual([
       9 - (BUILDS.door.cost.scrap - 1),
-      9 - BUILDS.door.cost.steel,
+      9 - BUILDS.door.cost.iron,
     ]);
   });
 
@@ -120,29 +135,29 @@ describe('blueprints', () => {
     for (const cell of [at(1, 1), at(2, 1), at(1, 2), at(2, 2)]) {
       expect(w.query(grid).machineAt(cell)?.id).toBe(machine?.id);
     }
-    expect(count(w, 'steel')).toBe(STOCK.steel - MACHINES.tank.cost.steel);
+    expect(count(w, 'iron')).toBe(STOCK.iron - MACHINES.tank.cost.iron);
   });
 
   it('are built twice as fast by two heroes, and keep the work done when they stop', () => {
-    const w = placePlan(stocked(OPEN), at(1, 1), steelWall);
+    const w = placePlan(stocked(OPEN), at(1, 1), ironWall);
     press(w, 1);
-    const half = Math.floor(STEEL_WALL / 2);
+    const half = Math.floor(IRON_WALL / 2);
     for (let i = 0; i < half; i++) {
       w.do(building, 'work', { plan: 1 }, 0).do(building, 'work', { plan: 1 }, 1).run();
     }
     expect(plan(w, 1)?.progress).toBe(2 * half);
     w.run(50);
     expect(plan(w, 1)?.progress).toBe(2 * half);
-    hold(w, 1, STEEL_WALL - 2 * half);
+    hold(w, 1, IRON_WALL - 2 * half);
     expect(w.query(grid).structureAt(at(1, 1)).kind).toBe('wall');
     // Only the hero who delivered paid.
-    expect(count(w, 'steel', 1)).toBe(STOCK.steel);
+    expect(count(w, 'iron', 1)).toBe(STOCK.iron);
   });
 
   it('refuse E from a hero carrying none of what they lack, taking nothing', () => {
     const w = scenario(world, OPEN);
     giveItems(w, 5, { scrap: 50 });
-    placePlan(w, at(1, 1), steelWall);
+    placePlan(w, at(1, 1), ironWall);
     press(w, 1, 5);
     press(w, 1, 7);
     expect(w.refusals).toEqual(['items.notEnough', 'items.notEnough']);
@@ -178,10 +193,10 @@ describe('blueprints', () => {
     placePlan(w, at(1, 1), door);
     press(w, 1, 5);
     w.do(items, 'setCreative', { on: true }).run();
-    placePlan(w, at(3, 1), steelWall);
+    placePlan(w, at(3, 1), ironWall);
     expect(w.query(building).lacking(2)).toEqual({});
     hold(w, 1, BUILDS.door.buildTicks, 7);
-    hold(w, 2, STEEL_WALL, 7);
+    hold(w, 2, IRON_WALL, 7);
     expect(w.refusals).toEqual([]);
     expect(w.query(grid).structureAt(at(1, 1)).kind).toBe('door');
     expect(w.query(grid).structureAt(at(3, 1)).kind).toBe('wall');
@@ -208,7 +223,7 @@ describe('taking apart', () => {
 
   it('lets what does not fit fall where the thing stood', () => {
     const w = stocked(OPEN);
-    giveItems(w, 0, { steel: ITEMS.steel.stack - STOCK.steel });
+    giveItems(w, 0, { iron: ITEMS.iron.stack - STOCK.iron });
     giveItems(w, 0, { scrap: (INVENTORY.slots - 1) * ITEMS.scrap.stack - STOCK.scrap });
     w.do(building, 'deconstruct', { cell: at(0, 1), layer: 'structure' }).run();
     hold(w, 1, apartTicks(MATERIALS.scrap.buildTicks));
@@ -241,7 +256,7 @@ describe('taking apart', () => {
     w.do(building, 'deconstruct', { cell: at(2, 2), layer: 'machine' }).run();
     hold(w, 1, apartTicks(MACHINES.tank.buildTicks));
     expect(w.query(grid).machines()).toEqual([]);
-    expect(count(w, 'steel')).toBe(STOCK.steel + MACHINES.tank.cost.steel);
+    expect(count(w, 'iron')).toBe(STOCK.iron + MACHINES.tank.cost.iron);
     placePlan(w, at(0, 1), { layer: 'conduit', kind: 'pipe' });
     hold(w, 2, 1 + BUILDS.pipe.buildTicks);
     w.do(building, 'deconstruct', { cell: at(0, 1), layer: 'conduit' }).run();
@@ -253,7 +268,7 @@ describe('taking apart', () => {
 
 it('conserves items across inventories, the floor and blueprints, delivering no more than a cost', () => {
   const placement = fc.constantFrom<Placement>(
-    steelWall,
+    ironWall,
     { layer: 'structure', kind: 'wall', material: 'scrap' },
     door,
     { layer: 'conduit', kind: 'pipe' },
@@ -295,7 +310,7 @@ it('conserves items across inventories, the floor and blueprints, delivering no 
     for (let c = 0; c < 36; c++) {
       const s = q.structureAt(c);
       if (s.kind === 'wall' && s.material === item) total += MATERIALS[s.material].cost;
-      if (s.kind === 'door') total += BUILDS.door.cost[item as 'scrap' | 'steel'] ?? 0;
+      if (s.kind === 'door') total += BUILDS.door.cost[item as 'scrap' | 'iron'] ?? 0;
       if (q.conduitAt(c).kind === 'pipe') total += item === 'scrap' ? BUILDS.pipe.cost.scrap : 0;
     }
     for (const m of q.machines()) {
@@ -306,8 +321,8 @@ it('conserves items across inventories, the floor and blueprints, delivering no 
   fc.assert(
     fc.property(fc.array(step, { maxLength: 40, size: 'max' }), (steps) => {
       const w = stocked(OPEN);
-      giveItems(w, 4, { scrap: 3, steel: 1 });
-      const before = (['scrap', 'steel'] as const).map((i) => held(w, i) + built(w, i));
+      giveItems(w, 4, { scrap: 3, iron: 1 });
+      const before = (['scrap', 'iron'] as const).map((i) => held(w, i) + built(w, i));
       for (const s of steps) {
         if (s.type === 'placePlan') placePlan(w, s.cell, s.placement);
         else if (s.type === 'deconstruct') {
@@ -323,7 +338,7 @@ it('conserves items across inventories, the floor and blueprints, delivering no 
           }
         }
       }
-      expect((['scrap', 'steel'] as const).map((i) => held(w, i) + built(w, i))).toEqual(before);
+      expect((['scrap', 'iron'] as const).map((i) => held(w, i) + built(w, i))).toEqual(before);
     }),
     { numRuns: 60 },
   );

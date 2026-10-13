@@ -13,7 +13,7 @@ const world = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 const wall: Placement = { layer: 'structure', kind: 'wall', material: 'scrap' };
 
-/** Nine wide: a sealed room of 21 cells, a vent above a tank, hull of 20 scrap walls. */
+/** Nine wide: a sealed room of 21 cells, a vent above a tank, hull of 20 scrap walls, all backed in scrap. */
 const ROOM = `
   #########
   #V......#
@@ -24,7 +24,8 @@ const ROOM = `
 const at = (x: number, y: number) => y * 9 + x;
 const VOLUME = 21;
 const HULL = 20;
-const LEAK = HULL * MATERIALS.scrap.leak;
+/** What its air touches leaks: the hull, and the back wall behind each of its cells (0020). */
+const LEAK = (HULL + VOLUME) * MATERIALS.scrap.leak;
 
 /** ROOM with `rows` rows inside: 7 cells a row, a hull of 14 + 2 × `rows` cells. */
 const deep = (rows: number) =>
@@ -183,9 +184,10 @@ describe('air', () => {
     expect(status(w, room)).toBe('filling');
   });
 
-  it('leaks through each hull cell by its material and a door by its own, over a minute', () => {
-    // The right wall's middle cell is a closed door, and the left wall is steel: of the twenty hull
-    // cells, one leaks as a door, three as steel, the rest as scrap.
+  it('leaks through its hull and back walls by their materials and a door by its own, over a minute', () => {
+    // The right wall's middle cell is a closed door, and the left wall is iron: of the twenty hull
+    // cells, one leaks as a door, three as iron, the rest as scrap; each cell's scrap back wall
+    // leaks too, but not the one behind the door, which touches no air.
     const { w, room, tanks, fill } = setUp(`
       #########
       #V......#
@@ -196,13 +198,14 @@ describe('air', () => {
     for (const y of [1, 2, 3]) {
       w.do(builder, 'clear', { cell: at(0, y), layer: 'structure' }).do(builder, 'place', {
         cell: at(0, y),
-        placement: { layer: 'structure', kind: 'wall', material: 'steel' },
+        placement: { layer: 'structure', kind: 'wall', material: 'iron' },
       });
     }
     fill(2);
     airUp(w, room);
     const before = oxygen(w, tanks[0] as number);
-    const leak = (HULL - 4) * MATERIALS.scrap.leak + 3 * MATERIALS.steel.leak + AIR.doorLeak;
+    const leak =
+      (HULL - 4 + VOLUME) * MATERIALS.scrap.leak + 3 * MATERIALS.iron.leak + AIR.doorLeak;
     // Spread over the minute, paid by the tank: about half by half way, all of it by its end.
     w.run(AIR.leakEvery / 2);
     expect(before - oxygen(w, tanks[0] as number)).toBeGreaterThanOrEqual(Math.floor(leak / 2));
@@ -371,7 +374,7 @@ describe('air', () => {
       expect(status(w, shut)).toBe('aired');
       airUp(w, left);
       // No tank pays the right room's leak: it takes the room's own air, a cell at a time.
-      w.run(AIR.leakEvery / 4);
+      w.run(AIR.leakEvery / 8);
       expect(airedIn(w, shut).length).toBeLessThan(w.query(rooms).room(shut)?.volume ?? -1);
       expect(airedIn(w, shut).length).toBeGreaterThan(0);
     });
@@ -481,6 +484,50 @@ describe('rooms air', () => {
       made: 0,
       lasts: Math.floor((held * AIR.leakEvery) / leak),
       problem: undefined,
+    });
+  });
+
+  describe('through what its air touches', () => {
+    const leakOf = (w: Scenario, cell: number) =>
+      of(w, w.query(rooms).roomAt(cell) as number)?.leak;
+
+    it('leaks through each back wall by its material: iron behind every cell, a third of scrap', () => {
+      const { w, room } = setUp();
+      for (let cell = 0; cell < 9 * 5; cell++) {
+        if (w.query(rooms).roomAt(cell) !== room) continue;
+        w.do(builder, 'clear', { cell, layer: 'back' }).do(builder, 'place', {
+          cell,
+          placement: { layer: 'back', kind: 'backWall', material: 'iron' },
+        });
+      }
+      w.run();
+      expect(leakOf(w, at(4, 2))).toBe(HULL * MATERIALS.scrap.leak + VOLUME * MATERIALS.iron.leak);
+    });
+
+    it('leaks nothing through a back wall behind a wall: no air touches it', () => {
+      const { w } = setUp();
+      w.do(builder, 'place', { cell: at(5, 2), placement: wall }).run();
+      expect(leakOf(w, at(4, 2))).toBe((HULL + VOLUME - 1) * MATERIALS.scrap.leak);
+    });
+
+    it('leaks through the back wall behind an open door, a cell of the room, not a closed one', () => {
+      const TWO = `
+        ###############
+        #V......#.....#
+        #TT.....D.....#
+        #TT.....#.....#
+        ###############
+      `;
+      const at15 = (x: number, y: number) => y * 15 + x;
+      const w = scenario(world, TWO);
+      // Shut, each room its hull and its own cells; the door's back wall touches no air.
+      expect([leakOf(w, at15(4, 2)), leakOf(w, at15(10, 2))]).toEqual([
+        (17 + 21) * MATERIALS.scrap.leak,
+        (13 + 15) * MATERIALS.scrap.leak,
+      ]);
+      w.do(grid, 'toggleDoor', { cell: at15(8, 2) }).run();
+      // Open, one room: both hulls, both rooms' cells and the doorway's.
+      expect(leakOf(w, at15(4, 2))).toBe((17 + 13 + 21 + 15 + 1) * MATERIALS.scrap.leak);
     });
   });
 

@@ -16,6 +16,6 @@ export const AIR = {
   leakEvery: 1200,
   doorLeak: 2,
   ventDrain: 2,
-  generatorRate: 200,
+  generatorRate: 300,
   generatorStore: 40,
 } as const satisfies Readonly<Record<string, number>>;

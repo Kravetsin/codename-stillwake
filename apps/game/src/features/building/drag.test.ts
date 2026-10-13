@@ -5,8 +5,8 @@ import type { Tool } from './tools';
 
 const wall = {
   kind: 'place',
-  id: 'wallSteel',
-  placement: { layer: 'structure', kind: 'wall', material: 'steel' },
+  id: 'wallIron',
+  placement: { layer: 'structure', kind: 'wall', material: 'iron' },
   label: 'wall',
 } as const satisfies Tool;
 const tank = {

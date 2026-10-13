@@ -25,24 +25,26 @@ const place = (id: string, placement: Placement, label = t(`tool.${id}`)): Tool 
   label,
 });
 
-const walls = (Object.keys(MATERIALS) as MaterialId[]).map((material) =>
-  place(
-    `wall${material[0]?.toUpperCase()}${material.slice(1)}`,
-    { layer: 'structure', kind: 'wall', material },
-    `${t('tool.wall')}: ${t(`material.${material}`)}`,
-  ),
-);
+/** A tool for each material, `id` and its text's key followed by the material's name. */
+const ofEveryMaterial = (id: 'wall' | 'backWall', placement: (m: MaterialId) => Placement) =>
+  (Object.keys(MATERIALS) as MaterialId[]).map((material) =>
+    place(
+      `${id}${material[0]?.toUpperCase()}${material.slice(1)}`,
+      placement(material),
+      `${t(`tool.${id}`)}: ${t(`material.${material}`)}`,
+    ),
+  );
 
 /** The build menu's tabs, in order, each with its tools: what the player builds, grouped by use. */
 export const TABS: readonly { readonly id: string; readonly tools: readonly Tool[] }[] = [
   {
     id: 'structure',
     tools: [
-      ...walls,
+      ...ofEveryMaterial('wall', (material) => ({ layer: 'structure', kind: 'wall', material })),
+      ...ofEveryMaterial('backWall', (material) => ({ layer: 'back', kind: 'backWall', material })),
       place('floor', { layer: 'structure', kind: 'floor' }),
       place('ladder', { layer: 'structure', kind: 'ladder' }),
       place('door', { layer: 'structure', kind: 'door' }),
-      place('backWall', { layer: 'back', kind: 'backWall' }),
     ],
   },
   {

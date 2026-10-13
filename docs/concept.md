@@ -39,15 +39,17 @@ A living document: what is decided about the game and what is still open. Techni
   the room's vents pay for each breath, and without them the breath takes a cell from the patch's
   far edge. A breach or a door left open to space makes a room vent: its air goes and its network
   drains fast until a valve cuts the room off or the hole is patched. A door opened onto an empty
-  room joins the two, and the vents fill the rest through the doorway. Every outer hull cell
-  leaks a little all the time (its material decides how much), paid like a breath: from the tanks,
+  room joins the two, and the vents fill the rest through the doorway. A room leaks a little all the
+  time through what its air touches, the back wall behind each of its cells and every outer hull cell,
+  each as its material decides ([0020](decisions/0020-walls-of-materials-front-and-back.md)), paid like a breath: from the tanks,
   or from the room's own air without them. Growth is held back by the fill, the leak and breathing. Without air a hero breathes from the suit tank.
 - **Power runs on cables** laid point to point between machines and anchors, hanging inside the
   ship and taut out in space; a network short of power slows everything on it alike. Solar panels
   work only outside; the oxygen generator is the first thing that needs power
   ([0017](decisions/0017-power-runs-on-cables.md)).
 - **Building is cell by cell, in layers.** Structure: hull walls of different materials, floors,
-  ladders, doors, airlocks. Back walls: behind every cell of a room, or it is open to space.
+  ladders, doors, airlocks. Back walls, of the same materials: behind every cell of a room, or it is
+  open to space.
   Conduits: pipes and wires run through walls, one of each per cell. Machines stand on floors and
   connect to conduits. Materials differ in strength against meteors, air leaks and cost. Overlays
   show air, pipes and power. The hands do one thing at a time: with the plan taken out (B) the
