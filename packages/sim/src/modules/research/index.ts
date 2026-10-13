@@ -88,7 +88,8 @@ const researchModule = defineModule<Deps>()({
           if (m.kind !== 'analyzer') continue;
           const item = items.query.crate(m.id)[0]?.item;
           const learns = teaches(ctx.state.known, item);
-          // An empty slot, or nothing new in it: what was done is dropped.
+          // An empty slot, or nothing new in it: what was done is dropped, and no power drawn.
+          power.op.rest(m.id, learns.length === 0);
           if (learns.length === 0) continue;
           const was = ctx.state.analyses.find((a) => a.analyzer === m.id)?.progress ?? 0;
           const progress = was + power.query.satisfaction(m.id);
@@ -97,6 +98,7 @@ const researchModule = defineModule<Deps>()({
             continue;
           }
           ctx.state.known = [...ctx.state.known, ...learns].sort(byText);
+          power.op.rest(m.id, true);
           // A schematic is used up; a material stays to be taken back.
           if (item === 'schematic') items.op.consume(m.id, 0);
         }

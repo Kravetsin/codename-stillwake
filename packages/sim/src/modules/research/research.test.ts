@@ -89,16 +89,28 @@ describe('research', () => {
     expect(known(w)).toContain(SCHEMATICS[1]);
   });
 
-  it('stands with nothing new to teach, using nothing up, and draws power meanwhile', () => {
+  it('stands with nothing new to teach, using nothing up and drawing no power', () => {
     const { w, id } = setUp(map('all'));
     expect(w.query(power).networks()[0]?.demand).toBe(0);
     put(w, id, 'schematic');
     w.run(2 * RESEARCH.ticks);
     expect(w.query(research).at(id)).toMatchObject({ progress: 0, problem: 'research.nothingNew' });
     expect(w.query(items).crate(id)[0]).toEqual({ item: 'schematic', count: 1 });
-    expect(w.query(power).networks()[0]?.demand).toBe(2);
-    takeOut(w, id);
     expect(w.query(power).networks()[0]?.demand).toBe(0);
+  });
+
+  it('draws power while it learns, and none once it has learned what is in it', () => {
+    const { w, id } = setUp();
+    put(w, id, 'iron');
+    expect(w.query(power).networks()[0]?.demand).toBe(2);
+    w.run(RESEARCH.ticks);
+    expect(known(w)).toContain(UNLOCKS.iron[0]);
+    expect(w.query(items).crate(id)[0]?.item).toBe('iron');
+    expect(w.query(power).networks()[0]?.demand).toBe(0);
+    takeOut(w, id);
+    put(w, id, 'scrap');
+    w.run(1);
+    expect(w.query(power).networks()[0]?.demand).toBe(2);
   });
 
   it('stalls unpowered, saying so, and works proportionally slower short of power', () => {

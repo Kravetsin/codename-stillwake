@@ -6,7 +6,7 @@ its users would draw each network can give (ADR 0017); cables move by hand (0021
 - **Depends on:** `grid` (machines and what is built, to find nodes), `rooms` (whether a panel stands
   in space), `items` (what a cable costs).
 - **State:** `cables` — every cable as the cells of its two nodes, the lower first, and whether it was
-  paid for, ordered by its ends. Saved. Derived: `networks` — what the cables join, in id order, each
+  paid for, ordered by its ends; `resting` — the machines told to rest, by id, sorted. Saved. Derived: `networks` — what the cables join, in id order, each
   with its nodes, supply, demand and satisfaction; `satisfaction` — each cabled user's, by machine
   id. Both found again every tick, in the derivation phase.
 - **Files:** `nodes.ts` — nodes, spans and networks; `index.ts` — the module, its queries and commands.
@@ -24,7 +24,8 @@ its users would draw each network can give (ADR 0017); cables move by hand (0021
 - **A network** is the nodes cables join, named by its lowest node cell. Its supply is what the
   machines on it that make power make, each only with every cell of it in space (a solar panel inside
   a room is in the shade); its demand, what the machines on it that draw power draw, one working on what is put in it (an
-  analyzer) only while its first slot holds something. Its
+  analyzer) only while its first slot holds something, and none told to rest by the module it
+  works for (`rest`); a machine taken apart rests no more. Its
   satisfaction is `floor(1000 × supply / demand)`, at most 1000, and 1000 with no demand: every user
   on it works at that share, slowed alike. A powered machine with no cable is on no network: it makes
   nothing and gets nothing.
@@ -38,6 +39,8 @@ its users would draw each network can give (ADR 0017); cables move by hand (0021
   machine apart; `satisfaction(machineId)` — in thousandths, 0 off every network;
   `layProblem(peer, a, b)` — why that peer's `lay` would be refused, for the cable ghost;
   `moveProblem(from, to, cable?)` — why that `move` would be refused, for a dragged end.
+- **Operations:** `rest(machineId, resting)` — the machine draws nothing from the next tick on, or
+  works again: `research` rests an analyzer with nothing to learn.
 - **Commands:** `lay { a, b }` — a cable between the nodes at those cells, paid from the sender
   (`CABLE_COST`, nothing in creative mode), refused with `power.noNode`, `power.sameNode`,
   `power.tooLong`, `power.twice` or `items.notEnough`; `cut { a, b }` — takes the cable between those

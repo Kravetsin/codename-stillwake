@@ -20,6 +20,8 @@ export type { Cable, PowerNetwork } from './nodes';
 export interface PowerState {
   /** Every cable, ordered by its ends. */
   cables: Cable[];
+  /** The machines told to rest by the module they work for, by id, sorted: they draw nothing. */
+  resting: number[];
   /** Derived: the networks the cables join, in id order. */
   networks: PowerNetwork[];
   /** Derived: each cabled user's satisfaction in thousandths, by machine id. */
@@ -105,15 +107,20 @@ function layProblem(
   return items.shortOf(from, CABLE_COST);
 }
 
-/** Whether a user draws now: one that works on what is put in it only while its first slot holds something. */
-const drawing = (items: QueryApi<ItemsModule>) => (m: Machine) =>
-  (MACHINES[m.kind] as MachineSpec).slots === undefined || items.crate(m.id)[0] != null;
+/**
+ * Whether a user draws now: one that works on what is put in it only while its first slot holds
+ * something, and none told to rest.
+ */
+const drawing = (items: QueryApi<ItemsModule>, resting: readonly number[]) => (m: Machine) =>
+  ((MACHINES[m.kind] as MachineSpec).slots === undefined || items.crate(m.id)[0] != null) &&
+  !resting.includes(m.id);
 
 const powerModule = defineModule<Deps>()({
   id: 'power',
   dependsOn: ['grid', 'rooms', 'items'],
   init: (layout): PowerState => ({
     cables: startingCables(layout),
+    resting: [],
     networks: [],
     satisfaction: new Map(),
   }),
@@ -127,7 +134,7 @@ const powerModule = defineModule<Deps>()({
           ctx.deps.grid.query,
           ctx.deps.rooms.query,
           ctx.state.cables,
-          drawing(ctx.deps.items.query),
+          drawing(ctx.deps.items.query, ctx.state.resting),
         ),
       );
     },
@@ -150,6 +157,17 @@ const powerModule = defineModule<Deps>()({
     /** Why peer `peer`'s `lay` from `a` to `b` would be refused: what the cable ghost shows. */
     layProblem: (ctx, peer: number, a: number, b: number) =>
       layProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.cables, peer, a, b),
+  },
+
+  operations: {
+    /** Tells machine `id` to rest, drawing nothing from the next tick on, or to work again. */
+    rest(ctx, id: number, resting: boolean) {
+      const was = ctx.state.resting.includes(id);
+      if (was === resting) return;
+      ctx.state.resting = resting
+        ? [...ctx.state.resting, id].sort((a, b) => a - b)
+        : ctx.state.resting.filter((r) => r !== id);
+    },
   },
 
   commands: {
@@ -212,13 +230,18 @@ const powerModule = defineModule<Deps>()({
       // Every tick: a wall built or broken moves a panel in or out of space, a machine comes or goes.
       phase: 'derivation',
       run(ctx) {
+        const machines = ctx.deps.grid.query.machines();
+        // A machine taken apart rests no more: nothing else tells it to work again.
+        if (ctx.state.resting.some((id) => !machines.some((m) => m.id === id))) {
+          ctx.state.resting = ctx.state.resting.filter((id) => machines.some((m) => m.id === id));
+        }
         Object.assign(
           ctx.state,
           findNetworks(
             ctx.deps.grid.query,
             ctx.deps.rooms.query,
             ctx.state.cables,
-            drawing(ctx.deps.items.query),
+            drawing(ctx.deps.items.query, ctx.state.resting),
           ),
         );
       },

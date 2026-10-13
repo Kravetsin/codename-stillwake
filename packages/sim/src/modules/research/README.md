@@ -4,7 +4,7 @@ Knowing blueprints (ADR 0024): which blueprints the world knows, and analyzers l
 what is put in them. A blueprint not known cannot be planned.
 
 - **Depends on:** `grid` (which machines are analyzers), `items` (what their slot holds, `consume`,
-  creative mode), `power` (their satisfaction).
+  creative mode), `power` (their satisfaction, `rest`).
 - **State:** `known` — the blueprints known, by id, sorted; `analyses` — each analyzer at work,
   `{ analyzer, progress }` by machine id in id order, its work in thousandths of a tick at full
   power. Saved.
@@ -21,6 +21,7 @@ what is put in them. A blueprint not known cannot be planned.
   - a material (`UNLOCKS`): the blueprints it unlocks but those known; it stays in the slot;
   - a schematic: the first machine of `SCHEMATICS` not known; it is used up (`items.consume`).
 - An empty slot, or one holding what teaches nothing new, drops the work done; so does taking it out.
+  Such an analyzer rests (`power.rest`), drawing no power from the next tick, until it has work again.
 - `building` refuses a plan for a blueprint not known with `building.unknown`, but in creative mode.
 
 ## API
@@ -37,6 +38,5 @@ what is put in them. A blueprint not known cannot be planned.
 
 ## Deliberately not handled
 
-- An analyzer holding what teaches nothing new still draws power: `power` cannot ask `research`.
 - Two analyzers may finish the same thing on one tick; the world learns it once.
 - Taking apart what is built needs no knowledge of it: its refund is its cost.
