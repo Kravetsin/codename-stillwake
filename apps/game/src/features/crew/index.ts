@@ -4,7 +4,7 @@ import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
-import { lightAs, lighting } from '../../render/lighting';
+import { lit } from '../../render/lighting';
 import { aimedPiece, buildMode, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
@@ -106,11 +106,8 @@ export const crewFeature: Feature = {
     const view = new Container();
     const popups = createPickUpPopups();
     view.addChild(aimView, others, ownView, popups.view);
-    // Heroes are lit where they stand, and cast shadows of their own shape.
-    for (const figures of [others, ownView]) {
-      lightAs(figures, 'things');
-      lighting.casting.add(figures);
-    }
+    // Heroes are lit where they stand.
+    for (const figures of [others, ownView]) lit(figures);
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -244,8 +241,6 @@ export const crewFeature: Feature = {
         openCrate.set(undefined);
         shownPrompt.set(undefined);
         aimedPiece.set(undefined);
-        lighting.casting.delete(others);
-        lighting.casting.delete(ownView);
       },
     };
   },

@@ -1,6 +1,6 @@
 # 0018 — Light by radiance cascades, drawn only
 
-- Status: accepted
+- Status: superseded by [0019](0019-light-by-cells-in-colour.md)
 - Date: 2026-10-13
 
 ## Context

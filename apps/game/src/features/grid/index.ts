@@ -3,7 +3,7 @@ import { grid } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import { predictedGrid } from '../../session/predicted';
-import { lightAs } from '../../render/lighting';
+import { lit } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
 import { Batch, drawBack, drawConduit, drawStructure, type Cells } from './draw';
@@ -30,8 +30,7 @@ export const gridFeature: Feature = {
     const conduitLayer = new Container();
     behind.addChild(backLayer, conduitLayer);
     view.addChild(chunkLayer, machineLayer);
-    for (const open of [backLayer, conduitLayer, chunkLayer]) lightAs(open, 'open');
-    lightAs(machineLayer, 'things');
+    for (const layer of [backLayer, conduitLayer, chunkLayer, machineLayer]) lit(layer);
 
     let backChunks: Graphics[] = [];
     let chunks: Graphics[] = [];

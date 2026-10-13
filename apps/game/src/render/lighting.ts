@@ -1,5 +1,4 @@
 import {
-  ColorMatrixFilter,
   Filter,
   GlProgram,
   Matrix,
@@ -10,13 +9,6 @@ import {
   type FilterSystem,
   type RenderSurface,
 } from 'pixi.js';
-
-/**
- * What a surface is lit by: `open` for what light crosses and falls on — back walls, walls, floors,
- * pipes and cables behind — and `things` for what stands in the room — machines, heroes, items —
- * lit where they stand as though they did not block it themselves.
- */
-export type Surface = 'open' | 'things';
 
 const VERTEX = `in vec2 aPosition;
 out vec2 vTextureCoord;
@@ -68,12 +60,6 @@ class LitFilter extends Filter {
     });
   }
 
-  /** Lights with `texture`, laid where `lighting.sprite` lies. */
-  show(texture: Texture) {
-    this.resources.uLightTexture = texture.source;
-    this.resources.uLightSampler = texture.source.style;
-  }
-
   override apply(
     filters: FilterSystem,
     input: Texture,
@@ -88,32 +74,24 @@ class LitFilter extends Filter {
   }
 }
 
+const filter = new LitFilter();
+
 /**
- * The light, shared as the particles are: one per page. The `light` feature works it out into two
- * textures laid in the world by `sprite`; features set `filters[surface]` on what it lights and add
- * to `casting` what casts a shadow drawn as it is, the heroes. Until light is worked out, the
- * textures are white and light nothing differently.
+ * The light, shared as the particles are: one per page. The `light` feature works it out into a
+ * texture laid in the world by `sprite`; features set it on what it lights with `lit`. Until light
+ * is worked out, the texture is white and lights nothing differently.
  */
 export const lighting = {
   sprite: Object.assign(new Sprite(Texture.WHITE), { renderable: false }),
-  filters: { open: new LitFilter(), things: new LitFilter() },
-  casting: new Set<Container>(),
+  /** Lights with `texture`, laid where `sprite` lies. */
+  show(texture: Texture) {
+    lighting.sprite.texture = texture;
+    filter.resources.uLightTexture = texture.source;
+    filter.resources.uLightSampler = texture.source.style;
+  },
 };
 
-/** Lights `view` as `surface` from now on. */
-export function lightAs(view: Container, surface: Surface): void {
-  view.filters = [lighting.filters[surface]];
-}
-
-/**
- * The share of the mask's alpha that machines and heroes block with: they stop light, but less than
- * a wall's whole alpha, so the light can be found once without them.
- */
-export const THINGS = 0.6;
-
-/** What a hero looks like in the mask: its shape, black, at `THINGS`. */
-export function silhouette(): ColorMatrixFilter {
-  const filter = new ColorMatrixFilter();
-  filter.matrix = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, THINGS, 0];
-  return filter;
+/** Lights `view` from now on: back walls, walls, pipes, cables, machines, heroes, items. */
+export function lit(view: Container): void {
+  view.filters = [filter];
 }

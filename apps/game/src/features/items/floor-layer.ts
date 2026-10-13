@@ -1,7 +1,7 @@
 import { FLOOR } from '@stillwake/content';
 import { items, rooms, type FloorStack, type Item } from '@stillwake/sim';
 import { Container, Graphics } from 'pixi.js';
-import { lightAs } from '../../render/lighting';
+import { lit } from '../../render/lighting';
 import { CELL } from '../../render/camera';
 import { ITEM_ICON } from '../../render/item-icons';
 import { css, ITEM_LOOK } from '../../render/item-look';
@@ -31,7 +31,7 @@ interface Shown {
  */
 export function floorLayer(): Layer {
   const view = new Container();
-  lightAs(view, 'things');
+  lit(view);
   const shown = new Map<number, Shown>();
   let clockMs = 0;
   return {

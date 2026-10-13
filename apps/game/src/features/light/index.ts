@@ -1,44 +1,23 @@
-import { LIGHT } from '@stillwake/content';
 import { grid, power } from '@stillwake/sim';
-import { Container, Matrix, RenderTexture, Sprite, Texture, type WebGLRenderer } from 'pixi.js';
+import { BufferImageSource, Container, Sprite, Texture } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { GLOW, glowTexture } from '../../render/glow';
-import { lighting, silhouette } from '../../render/lighting';
+import { lighting } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { areaOf } from './area';
-import { createCascades, type Tuning } from './cascades';
-import { createMask } from './mask';
+import { bytesOf, lightOf, type Cells } from './cells';
 import { createReadout } from './readout';
-
-/** How finely light can be worked out, stepped through with F8 in development: the first is `LIGHT`'s. */
-const QUALITY = [
-  { name: 'default', perCell: LIGHT.perCell, spacing: LIGHT.spacing, rays: LIGHT.rays },
-  { name: 'fine', perCell: 16, spacing: 2, rays: 2 },
-  { name: 'finer', perCell: 16, spacing: 1, rays: 2 },
-] as const;
+import { cellsOf } from './scene';
 
 /** A lit lamp's warm glow, and how far across it reaches, in cells. */
 const LAMP_GLOW = { colour: 0xffd9a0, cells: 3 };
 
-interface Textures {
-  readonly mask: RenderTexture;
-  readonly open: RenderTexture;
-  readonly things: RenderTexture;
-}
-
-/** Lights everything as drawn: the light's textures white. */
-function unlit() {
-  lighting.sprite.texture = Texture.WHITE;
-  lighting.filters.open.show(Texture.WHITE);
-  lighting.filters.things.show(Texture.WHITE);
-}
-
 /**
- * Light without a word (ADR 0018): a dark ship lit by its lamps, its furnaces' fire, glowing sparks
- * and embers and the stars through holes in its back walls, with soft shadows and light that
- * fills rooms round corners. Worked out every frame on the GPU over the screen and around it
- * (`cascades`), and laid on what it lights by the filters of `render/lighting`, set by the features
- * that draw it. Gauges, plans, overlays and particles are not lit. A lit lamp also glows warm.
+ * Light without a word (ADR 0019): a dark ship lit cell by cell, in colour, by its lamps, its
+ * furnaces' fire, glowing sparks and embers, and the stars through holes in its back walls; walls
+ * lit where light falls on them and letting next to none through. Worked out every frame over the
+ * screen and around it (`cells`), and laid on what it lights by the filter of `render/lighting`,
+ * smoothed between cells. Gauges, plans, overlays and particles are not lit. A lit lamp also glows.
  */
 export const lightFeature: Feature = {
   id: 'light',
@@ -48,114 +27,39 @@ export const lightFeature: Feature = {
     glows.blendMode = 'add';
     view.addChild(lighting.sprite, glows);
     const glow = glowTexture();
-    const mask = createMask();
-    const shape = silhouette();
-    const tuning: { -readonly [K in keyof Tuning]: Tuning[K] } & { perCell: number } = {
-      perCell: LIGHT.perCell,
-      spacing: LIGHT.spacing,
-      rays: LIGHT.rays,
-      emit: LIGHT.emit,
-      exposure: LIGHT.exposure,
-      ambient: [...LIGHT.ambient] as [number, number, number],
-    };
-    if (import.meta.env.DEV) Object.assign(window, { __light: tuning });
-    // In development, F8 steps through how finely light is worked out, to weigh looks against cost.
-    let preset = 0;
-    const onKey = (e: KeyboardEvent) => {
-      if (!import.meta.env.DEV || e.code !== 'F8') return;
-      preset = (preset + 1) % QUALITY.length;
-      Object.assign(tuning, QUALITY[preset]);
-    };
-    window.addEventListener('keydown', onKey);
-    let cascades: ReturnType<typeof createCascades> | null | undefined;
-    let readout: ReturnType<typeof createReadout> | undefined;
-    let textures: Textures | undefined;
-    let placed = '';
+    const readout = import.meta.env.DEV ? createReadout() : undefined;
+    let shown: { source: BufferImageSource; bytes: Uint8Array; texture: Texture } | undefined;
+    let cells: Cells | undefined;
     let lampsKey = '';
 
     return {
       view,
-      update({ game, camera, screen, renderer, elapsedMs }) {
-        const gl = (renderer as WebGLRenderer).gl as WebGL2RenderingContext | undefined;
-        // Light needs WebGL2 with float targets; without, everything stays as drawn, unlit.
-        if (cascades === undefined) {
-          cascades = gl ? (createCascades(gl) ?? null) : null;
-          if (gl && cascades && import.meta.env.DEV) readout = createReadout(gl);
-        }
-        if (!cascades || !gl) return;
+      update({ game, camera, screen, elapsedMs }) {
         const { sim } = game.client;
-
-        const area = areaOf(camera.view(screen), tuning.perCell);
-        const width = area.width * area.perCell;
-        const height = area.height * area.perCell;
-        // A preset more than this GPU holds would lose it the whole context: back to the first.
-        if (preset !== 0 && !cascades.fits(width, height, tuning)) {
-          preset = 0;
-          Object.assign(tuning, QUALITY[0]);
-          return;
-        }
-        if (!textures || textures.mask.width !== width || textures.mask.height !== height) {
-          const old = textures;
-          cascades.forgetOutputs();
-          const make = (scaleMode: 'nearest' | 'linear') =>
-            RenderTexture.create({ width, height, scaleMode, antialias: false });
-          textures = { mask: make('nearest'), open: make('linear'), things: make('linear') };
-          lighting.sprite.texture = textures.open;
-          lighting.filters.open.show(textures.open);
-          lighting.filters.things.show(textures.things);
-          // Let go of the old only once nothing shows them.
-          for (const t of old ? [old.mask, old.open, old.things] : []) t.destroy(true);
-        }
-        const place = `${area.x},${area.y},${area.width},${area.height}`;
-        if (place !== placed) {
-          placed = place;
-          lighting.sprite.position.set(area.x * CELL, area.y * CELL);
-          lighting.sprite.width = area.width * CELL;
-          lighting.sprite.height = area.height * CELL;
-        }
-
-        // The world's pixels into the light's: a cell is `perCell` of them, the area's corner at 0.
-        const scale = area.perCell / CELL;
-        const toMask = new Matrix()
-          .scale(scale, scale)
-          .translate(-area.x * area.perCell, -area.y * area.perCell);
-        mask.draw(sim);
-        readout?.begin();
-        renderer.render({
-          container: mask.root,
-          target: textures.mask,
-          clear: true,
-          clearColor: [0, 0, 0, 0],
-          transform: toMask,
-        });
-        // Heroes as they are drawn, so each pose casts its own shadow.
-        for (const casting of lighting.casting) {
-          const filters = [...casting.filters];
-          casting.filters = [shape];
-          renderer.render({
-            container: casting,
-            target: textures.mask,
-            clear: false,
-            transform: toMask,
+        const started = performance.now();
+        const area = areaOf(camera.view(screen));
+        cells = cellsOf(sim, area, cells);
+        const light = lightOf(cells);
+        if (!shown || shown.source.width !== area.width || shown.source.height !== area.height) {
+          const old = shown;
+          const bytes = new Uint8Array(area.width * area.height * 4);
+          const source = new BufferImageSource({
+            resource: bytes,
+            width: area.width,
+            height: area.height,
+            scaleMode: 'linear',
           });
-          casting.filters = filters;
+          shown = { source, bytes, texture: new Texture({ source }) };
+          lighting.show(shown.texture);
+          old?.texture.destroy(true);
         }
-        const glOf = (t: RenderTexture) =>
-          (renderer as WebGLRenderer).texture.getGlSource(t.source).texture;
-        cascades.run(
-          glOf(textures.mask),
-          width,
-          height,
-          { open: glOf(textures.open), things: glOf(textures.things) },
-          tuning,
-          area.perCell,
-        );
-        readout?.end();
-        renderer.resetState();
-        readout?.show(
-          `${QUALITY[preset]?.name ?? ''} ${area.perCell}px/cell · probes ${tuning.spacing}px · ${tuning.rays ** 2} rays · ${width}×${height}`,
-          elapsedMs,
-        );
+        bytesOf(light, shown.bytes);
+        shown.source.update();
+        // A texel a cell, its middle on the cell's: smoothed between cells as it is drawn.
+        lighting.sprite.position.set(area.x * CELL, area.y * CELL);
+        lighting.sprite.width = area.width * CELL;
+        lighting.sprite.height = area.height * CELL;
+        readout?.show(`${area.width}×${area.height}`, performance.now() - started, elapsedMs);
 
         const lamps = sim
           .query(grid)
@@ -182,13 +86,10 @@ export const lightFeature: Feature = {
         }
       },
       destroy() {
-        window.removeEventListener('keydown', onKey);
-        unlit();
+        lighting.show(Texture.WHITE);
         readout?.destroy();
         glow.destroy(true);
-        for (const t of textures ? [textures.mask, textures.open, textures.things] : []) {
-          t.destroy(true);
-        }
+        shown?.texture.destroy(true);
       },
     };
   },

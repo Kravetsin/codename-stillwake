@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { Container, Renderer } from 'pixi.js';
+import type { Container } from 'pixi.js';
 import type { Camera } from '../render/camera';
 import type { Game } from '../session/game';
 
@@ -10,8 +10,6 @@ export interface Frame {
   readonly camera: Camera;
   /** Real time since the last frame, whatever the game speed. */
   readonly elapsedMs: number;
-  /** What draws the frame: for a layer that draws into textures of its own first, as light does. */
-  readonly renderer: Renderer;
 }
 
 /** Something drawn into the world: created once, updated every frame, destroyed with the game. */

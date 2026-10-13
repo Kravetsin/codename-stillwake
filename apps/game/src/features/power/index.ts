@@ -5,7 +5,7 @@ import { t } from '../../i18n/en';
 import { middleOf, shapeOf, type Point } from '../../render/cable';
 import { CELL } from '../../render/camera';
 import { pointerTip } from '../../session/ui';
-import { lightAs } from '../../render/lighting';
+import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
 
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
@@ -48,7 +48,7 @@ function everyTick(draw: (sim: Sim) => void) {
  */
 function cables(): Layer {
   const lines = new Graphics();
-  lightAs(lines, 'open');
+  lit(lines);
   const redraw = everyTick((sim) => {
     const q = { grid: sim.query(grid), rooms: sim.query(rooms) };
     lines.clear();

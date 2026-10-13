@@ -302,14 +302,13 @@ change, uploaded as one texel per cell with linear filtering. Overlays, gauges a
 it. The wreck's room A gets a lamp on the panel's network.
 Done when: unit tests for blocking, starlight, dimming and the helmet; a lamp's draw counted; the
 reference world rebuilds its light in under 2 ms.
-Built without the helmet lamp, which comes later as equipment. Then reworked after a look at it:
-light by cells was too plain, so light is now worked out by radiance cascades (ADR 0018) — it
-fills rooms round corners, machines and heroes cast soft shadows of their real shapes, a working
-furnace and glowing particles light what is around them — in the world over the screen and a
-margin, laid on by filters per layer.
-Done when, reworked: unit tests for the light's area and the mask's runs; the wreck seen lit in
-the running game, its dark rooms dark and no light through walls; the GPU's time on screen in
-development.
+Built without the helmet lamp, which comes later as equipment. Reworked twice after a look at it:
+radiance cascades (ADR 0018) gave soft shadows at too high a cost and with artefacts, so light is
+now by cells in colour, as Terraria and its lighting mods do it (ADR 0019): spread by sweeps,
+dimmed by machines, stopped by walls that are lit where it falls, given off by stars, lamps, a
+working furnace and glowing particles, smoothed between cells as it is drawn. No hero's shadow.
+Done when, reworked: unit tests for spreading, walls, machines and colours; the wreck seen lit in
+the running game, its dark rooms dark; the cost a frame on screen in development.
 
 **P2-12 · Blueprints and delivery** · M · sim `building`, `items`, content, client `crew`,
 `building` · after P2-10, asked for by both developers

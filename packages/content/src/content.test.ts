@@ -242,13 +242,29 @@ describe('crew', () => {
 });
 
 describe('light', () => {
-  it('is worked out at whole pixels a cell over a whole margin, and never leaves a corner black', () => {
-    expect(Number.isSafeInteger(LIGHT.perCell) && LIGHT.perCell >= 2).toBe(true);
+  it('fades in air, more through machines, and a cell-thick wall lets next to none through', () => {
     expect(Number.isSafeInteger(LIGHT.margin) && LIGHT.margin >= 0).toBe(true);
-    for (const n of [LIGHT.emit, LIGHT.exposure]) expect(n).toBeGreaterThan(0);
+    expect(Number.isSafeInteger(LIGHT.rounds) && LIGHT.rounds >= 1).toBe(true);
+    for (const keep of [LIGHT.air, LIGHT.machine, LIGHT.wallIn, LIGHT.wallOut]) {
+      expect(keep).toBeGreaterThan(0);
+      expect(keep).toBeLessThan(1);
+    }
+    expect(LIGHT.machine).toBeLessThan(LIGHT.air);
+    // Through a wall a cell thick, into the cell beyond: a tenth at most.
+    expect(LIGHT.wallIn * LIGHT.wallOut * LIGHT.air).toBeLessThan(0.1);
+  });
+
+  it('comes in colours above 0, sources at most twice white, never leaving a corner black', () => {
+    for (const colour of [LIGHT.star, LIGHT.lamp, LIGHT.fire]) {
+      for (const n of colour) {
+        expect(n).toBeGreaterThan(0);
+        expect(n).toBeLessThanOrEqual(2);
+      }
+    }
     for (const n of LIGHT.ambient) {
       expect(n).toBeGreaterThan(0);
       expect(n).toBeLessThan(1);
     }
+    expect(LIGHT.particle).toBeGreaterThan(0);
   });
 });
