@@ -15,7 +15,6 @@ const QUALITY = [
   { name: 'default', perCell: LIGHT.perCell, spacing: LIGHT.spacing, rays: LIGHT.rays },
   { name: 'fine', perCell: 16, spacing: 2, rays: 2 },
   { name: 'finer', perCell: 16, spacing: 1, rays: 2 },
-  { name: 'finest', perCell: 16, spacing: 1, rays: 4 },
 ] as const;
 
 /** A lit lamp's warm glow, and how far across it reaches, in cells. */
@@ -89,6 +88,12 @@ export const lightFeature: Feature = {
         const area = areaOf(camera.view(screen), tuning.perCell);
         const width = area.width * area.perCell;
         const height = area.height * area.perCell;
+        // A preset more than this GPU holds would lose it the whole context: back to the first.
+        if (preset !== 0 && !cascades.fits(width, height, tuning)) {
+          preset = 0;
+          Object.assign(tuning, QUALITY[0]);
+          return;
+        }
         if (!textures || textures.mask.width !== width || textures.mask.height !== height) {
           const old = textures;
           cascades.forgetOutputs();

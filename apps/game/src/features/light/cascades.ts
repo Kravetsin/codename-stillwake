@@ -247,18 +247,46 @@ interface Target {
   readonly height: number;
 }
 
+/** One cascade: its probes' spacing, rays across one side, and how many probes across and down. */
 interface Cascade {
-  readonly target: Target;
   readonly spacing: number;
   readonly d: number;
   readonly probes: readonly [number, number];
 }
 
-/** One way of stopping light: its distance field and its cascades. */
-interface Field {
-  readonly seeds: readonly [Target, Target];
-  readonly distance: Target;
-  readonly cascades: readonly Cascade[];
+/** The cascades for light `width` × `height` worked out at `finest`: enough to reach across it. */
+function cascadesFor(width: number, height: number, finest: Tuning): Cascade[] {
+  const across = Math.hypot(width, height);
+  let count = 1;
+  while ((finest.spacing * (4 ** count - 1)) / 3 < across) count++;
+  return Array.from({ length: count }, (_, c) => {
+    const spacing = finest.spacing * 2 ** c;
+    return {
+      spacing,
+      d: finest.rays * 2 ** c,
+      probes: [Math.ceil(width / spacing), Math.ceil(height / spacing)] as const,
+    };
+  });
+}
+
+/** Video memory light takes at most, in bytes: past it a GPU may give up the whole context. */
+const MOST_BYTES = 384 * 1024 * 1024;
+
+/**
+ * The texture a cascade is kept in for light `width` × `height` at `finest`, the widest of them;
+ * and the bytes light takes: seeds, distances and three cascades at 8 a pixel.
+ */
+export function costOf(width: number, height: number, finest: Tuning) {
+  const cascades = cascadesFor(width, height, finest);
+  const across = Math.max(...cascades.map((c) => c.probes[0] * c.d));
+  const down = Math.max(...cascades.map((c) => c.probes[1] * c.d));
+  return { across, down, bytes: (width * height + across * down) * 8 * 3 };
+}
+
+/** Whether light `width` × `height` at `finest` fits the GPU: its textures and its memory. */
+export function fits(width: number, height: number, finest: Tuning, largest: number): boolean {
+  const cost = costOf(width, height, finest);
+  return cost.across <= largest && cost.down <= largest && cost.bytes <= MOST_BYTES;
 }
 
 /**
@@ -267,6 +295,7 @@ interface Field {
  */
 export function createCascades(gl: WebGL2RenderingContext) {
   if (!gl.getExtension('EXT_color_buffer_float')) return undefined;
+  const largest = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
 
   const program = (fragment: string) => {
     const p = gl.createProgram();
@@ -313,6 +342,7 @@ export function createCascades(gl: WebGL2RenderingContext) {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
 
+  /** A target to draw into, four halves a pixel: packed floats would halve it, and cost twice the time. */
   const target = (width: number, height: number): Target => {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -331,28 +361,40 @@ export function createCascades(gl: WebGL2RenderingContext) {
     gl.deleteFramebuffer(t.fbo);
   };
 
-  const field = (width: number, height: number, finest: Tuning): Field => {
-    // Enough cascades for the last to reach across the whole light.
-    const across = Math.hypot(width, height);
-    let count = 1;
-    while ((finest.spacing * (4 ** count - 1)) / 3 < across) count++;
+  /**
+   * What light is worked out in: seeds and distances, used by each finding in turn; two cascades
+   * in turn, each written from the one above, which is needed no more once it is; and the finest
+   * cascade of the light found without things, kept for the light found with them.
+   */
+  interface Made {
+    readonly width: number;
+    readonly height: number;
+    readonly spacing: number;
+    readonly rays: number;
+    readonly cascades: readonly Cascade[];
+    readonly seeds: readonly [Target, Target];
+    readonly distance: Target;
+    readonly turn: readonly [Target, Target];
+    readonly kept: Target;
+  }
+  let made: Made | undefined;
+  const make = (width: number, height: number, tuning: Tuning): Made => {
+    const { across, down } = costOf(width, height, tuning);
     return {
+      width,
+      height,
+      spacing: tuning.spacing,
+      rays: tuning.rays,
+      cascades: cascadesFor(width, height, tuning),
       seeds: [target(width, height), target(width, height)],
       distance: target(width, height),
-      cascades: Array.from({ length: count }, (_, c) => {
-        const spacing = finest.spacing * 2 ** c;
-        const d = finest.rays * 2 ** c;
-        const probes: [number, number] = [Math.ceil(width / spacing), Math.ceil(height / spacing)];
-        return { target: target(probes[0] * d, probes[1] * d), spacing, d, probes };
-      }),
+      turn: [target(across, down), target(across, down)],
+      kept: target(across, down),
     };
   };
-  const freeField = (f: Field) => {
-    for (const t of [...f.seeds, f.distance, ...f.cascades.map((c) => c.target)]) free(t);
+  const unmake = (m: Made) => {
+    for (const t of [...m.seeds, m.distance, ...m.turn, m.kept]) free(t);
   };
-
-  let size = { width: 0, height: 0, spacing: 0, rays: 0 };
-  let fields: { open: Field; things: Field } | undefined;
   /** Framebuffers drawing into the textures light is shown from, by texture. */
   const outputs = new Map<WebGLTexture, WebGLFramebuffer>();
 
@@ -375,19 +417,18 @@ export function createCascades(gl: WebGL2RenderingContext) {
     return unit;
   };
 
-  /** Light stopped by whatever the mask's alpha puts over `blocks`: into `f`'s finest cascade. */
-  const find = (mask: WebGLTexture, f: Field, blocks: number, tuning: Tuning) => {
-    const { width, height } = size;
-    const first = f.seeds[0];
-    draw(first.fbo, width, height, programs.seed, (u) => {
+  /** Light stopped by whatever the mask's alpha puts over `blocks`: its finest cascade into `into`. */
+  const find = (m: Made, mask: WebGLTexture, blocks: number, into: Target, tuning: Tuning) => {
+    const { width, height } = m;
+    draw(m.seeds[0].fbo, width, height, programs.seed, (u) => {
       gl.uniform1i(u('uMask'), sample(0, mask));
       gl.uniform1f(u('uBlocks'), blocks);
     });
     let from = 0;
     const top = 2 ** Math.ceil(Math.log2(Math.max(width, height))) / 2;
     for (let step = top; step >= 1; step /= 2) {
-      const read = f.seeds[from];
-      const write = f.seeds[1 - from];
+      const read = m.seeds[from];
+      const write = m.seeds[1 - from];
       if (!read || !write) return;
       draw(write.fbo, width, height, programs.flood, (u) => {
         gl.uniform1i(u('uSeed'), sample(0, read.texture));
@@ -396,18 +437,20 @@ export function createCascades(gl: WebGL2RenderingContext) {
       });
       from = 1 - from;
     }
-    const flooded = f.seeds[from];
+    const flooded = m.seeds[from];
     if (!flooded) return;
-    draw(f.distance.fbo, width, height, programs.distance, (u) =>
+    draw(m.distance.fbo, width, height, programs.distance, (u) =>
       gl.uniform1i(u('uSeed'), sample(0, flooded.texture)),
     );
-    for (let c = f.cascades.length - 1; c >= 0; c--) {
-      const at = f.cascades[c];
-      const above = f.cascades[c + 1];
-      if (!at) continue;
-      draw(at.target.fbo, at.target.width, at.target.height, programs.cascade, (u) => {
+    let upper: { target: Target; cascade: Cascade } | undefined;
+    for (let c = m.cascades.length - 1; c >= 0; c--) {
+      const at = m.cascades[c];
+      const write = c === 0 ? into : m.turn[c % 2];
+      if (!at || !write) continue;
+      const above = upper;
+      draw(write.fbo, at.probes[0] * at.d, at.probes[1] * at.d, programs.cascade, (u) => {
         gl.uniform1i(u('uMask'), sample(0, mask));
-        gl.uniform1i(u('uDist'), sample(1, f.distance.texture));
+        gl.uniform1i(u('uDist'), sample(1, m.distance.texture));
         gl.uniform1i(u('uUpper'), sample(2, above?.target.texture ?? null));
         gl.uniform2f(u('uLight'), width, height);
         gl.uniform1f(u('uSpacing'), at.spacing);
@@ -415,27 +458,32 @@ export function createCascades(gl: WebGL2RenderingContext) {
         gl.uniform1f(u('uStart'), (tuning.spacing * (4 ** c - 1)) / 3);
         gl.uniform1f(u('uEnd'), (tuning.spacing * (4 ** (c + 1) - 1)) / 3);
         gl.uniform1i(u('uHasUpper'), above ? 1 : 0);
-        gl.uniform2i(u('uUpperProbes'), above?.probes[0] ?? 1, above?.probes[1] ?? 1);
+        gl.uniform2i(
+          u('uUpperProbes'),
+          above?.cascade.probes[0] ?? 1,
+          above?.cascade.probes[1] ?? 1,
+        );
         gl.uniform1f(u('uEmit'), tuning.emit);
       });
+      upper = { target: write, cascade: at };
     }
   };
 
   /**
-   * Shows the light found in `f` into `into`, a texture the light's size; walls' faces from
-   * `things`, the light found without things, within `cell` light pixels.
+   * Shows the light whose finest cascade is in `finest` into `into`, a texture the light's size;
+   * walls' faces from `unblocked`, the light found without things, within `cell` light pixels.
    */
   const show = (
+    m: Made,
     mask: WebGLTexture,
-    f: Field,
-    things: Field,
+    finest: Target,
+    unblocked: Target,
     into: WebGLTexture,
     tuning: Tuning,
     cell: number,
   ) => {
-    const finest = f.cascades[0];
-    const unblocked = things.cascades[0];
-    if (!finest || !unblocked) return;
+    const first = m.cascades[0];
+    if (!first) return;
     let fbo = outputs.get(into);
     if (!fbo) {
       fbo = gl.createFramebuffer();
@@ -443,22 +491,24 @@ export function createCascades(gl: WebGL2RenderingContext) {
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, into, 0);
       outputs.set(into, fbo);
     }
-    draw(fbo, size.width, size.height, programs.output, (u) => {
-      gl.uniform1i(u('uC0'), sample(0, finest.target.texture));
+    draw(fbo, m.width, m.height, programs.output, (u) => {
+      gl.uniform1i(u('uC0'), sample(0, finest.texture));
       gl.uniform1i(u('uMask'), sample(1, mask));
-      gl.uniform1i(u('uThings'), sample(2, unblocked.target.texture));
+      gl.uniform1i(u('uThings'), sample(2, unblocked.texture));
       gl.uniform1f(u('uEmit'), tuning.emit);
       gl.uniform1f(u('uWall'), (1 + THINGS) / 2);
       gl.uniform1f(u('uCell'), cell);
-      gl.uniform1f(u('uSpacing'), finest.spacing);
-      gl.uniform1i(u('uD'), finest.d);
-      gl.uniform2i(u('uProbes'), finest.probes[0], finest.probes[1]);
+      gl.uniform1f(u('uSpacing'), first.spacing);
+      gl.uniform1i(u('uD'), first.d);
+      gl.uniform2i(u('uProbes'), first.probes[0], first.probes[1]);
       gl.uniform3f(u('uAmbient'), ...tuning.ambient);
       gl.uniform1f(u('uExposure'), tuning.exposure);
     });
   };
 
   return {
+    /** Whether light `width` × `height` at `tuning` fits this GPU. */
+    fits: (width: number, height: number, tuning: Tuning) => fits(width, height, tuning, largest),
     /**
      * Lights the world in `mask`, `width` × `height` at `cell` pixels a cell, into `open` and
      * `things`, textures of that size the game samples.
@@ -471,21 +521,19 @@ export function createCascades(gl: WebGL2RenderingContext) {
       tuning: Tuning,
       cell: number,
     ) {
-      const made =
-        width === size.width &&
-        height === size.height &&
-        tuning.spacing === size.spacing &&
-        tuning.rays === size.rays;
-      if (!made || !fields) {
-        if (fields) {
-          freeField(fields.open);
-          freeField(fields.things);
-        }
+      const same =
+        made &&
+        width === made.width &&
+        height === made.height &&
+        tuning.spacing === made.spacing &&
+        tuning.rays === made.rays;
+      if (!same || !made) {
+        if (made) unmake(made);
         for (const fbo of outputs.values()) gl.deleteFramebuffer(fbo);
         outputs.clear();
-        size = { width, height, spacing: tuning.spacing, rays: tuning.rays };
-        fields = { open: field(width, height, tuning), things: field(width, height, tuning) };
+        made = make(width, height, tuning);
       }
+      const m = made;
       gl.bindVertexArray(vao);
       gl.disable(gl.BLEND);
       gl.disable(gl.SCISSOR_TEST);
@@ -493,10 +541,11 @@ export function createCascades(gl: WebGL2RenderingContext) {
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
       gl.colorMask(true, true, true, true);
-      find(mask, fields.open, THINGS / 2, tuning);
-      find(mask, fields.things, (1 + THINGS) / 2, tuning);
-      show(mask, fields.open, fields.things, into.open, tuning, cell);
-      show(mask, fields.things, fields.things, into.things, tuning, cell);
+      // Without things first, kept; then with them, its finest left in the first of the two.
+      find(m, mask, (1 + THINGS) / 2, m.kept, tuning);
+      find(m, mask, THINGS / 2, m.turn[0], tuning);
+      show(m, mask, m.turn[0], m.kept, into.open, tuning, cell);
+      show(m, mask, m.kept, m.kept, into.things, tuning, cell);
       gl.bindVertexArray(null);
     },
     /** Forgets the targets, so the next `run` makes them anew, after the textures it drew into went. */
