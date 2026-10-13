@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { shapeOf, type Point } from '../../render/cable';
 import { HERO } from '@stillwake/content';
 import { ROPE_STEP_MS, type Body } from '../../render/rope';
-import { createCableRopes, type CableRopes } from './ropes';
+import { createCableRopes, hangFor, layingRope, type CableRopes } from './ropes';
 
 /** A room with a lamp in each top corner and a cable between them, hanging across the room. */
 const ROWS = ['##########', '#L......L#', '#........#', '#........#', '##########'];
@@ -142,6 +142,26 @@ describe('cables as drawn', () => {
     ropes.land(20 + 4, { node: 10 + 8, at: away });
     run(ropes, 1);
     expect(pointsOf(ropes).at(-1)).toMatchObject(away);
+    run(ropes, 10);
+    expect(offRest(ropes)).toBeLessThan(0.15);
+  });
+
+  it('laid by hand, are drawn as the rope they were laid as, and go on as it once the world has them', () => {
+    const ropes = createCableRopes();
+    ropes.sync(stillwake.create(1, parseLayout(ROWS)));
+    const from = rest[0] ?? { x: 0, y: 0 };
+    const to = rest.at(-1) ?? { x: 0, y: 0 };
+    // Laid from the far lamp, 18, to the near one, 11: the rope runs the other way to the cable.
+    const rope = layingRope(to);
+    for (let i = 0; i < 60; i++) rope.update(to, from, ROPE_STEP_MS, hangFor, []);
+    ropes.adopt({ a: 10 + 8, b: 10 + 1, from: to, to: from, rope });
+    expect([...ropes.lines()].map((l) => [l.a, l.b])).toEqual([[18, 11]]);
+    const laid = rope
+      .points()
+      .map(({ x, y }) => ({ x, y }))
+      .reverse();
+    ropes.sync(sim);
+    expect(pointsOf(ropes).map(({ x, y }) => ({ x, y }))).toEqual(laid);
     run(ropes, 10);
     expect(offRest(ropes)).toBeLessThan(0.15);
   });

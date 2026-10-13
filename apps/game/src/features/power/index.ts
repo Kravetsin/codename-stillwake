@@ -113,6 +113,7 @@ function cables(): Layer {
       own.hold(mode?.carried()?.end);
       const landing = mode?.takeLanding();
       if (landing) own.land(landing.node, landing.end);
+      for (const laid of mode?.takeLaid() ?? []) own.adopt(laid);
       time += elapsedMs / 1000;
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
@@ -198,7 +199,7 @@ function powerOverlay(): Layer {
       redraw(sim, elapsedMs);
       time += elapsedMs / 1000;
       blink(bolts, time);
-      hands.update(game, camera, [...(ropes?.lines() ?? [])]);
+      hands.update(game, camera, [...(ropes?.lines() ?? [])], elapsedMs);
       // The cable carried by hand stands out from the rest.
       const carried = hands.carried();
       const holds = (a: number, b: number) =>

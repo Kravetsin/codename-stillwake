@@ -26,6 +26,22 @@ const FLOATING: RopeStyle = {
  */
 const HANG = 1 + (8 * SAG * SAG) / 3;
 const LOOSE = 1.02;
+/** How long a hanging cable is for its span, in cells. */
+export const hangFor = (span: number) => span * HANG;
+
+/** A rope for a cable being laid from `from`: it hangs as a cable aboard does. */
+export function layingRope(from: Point): Rope {
+  return createRope(HANGING, from, from);
+}
+
+/** A cable just laid, from node `a` at `from` to node `b` at `to`, and the rope it was laid as. */
+export interface Laid {
+  readonly a: number;
+  readonly b: number;
+  readonly from: Point;
+  readonly to: Point;
+  readonly rope: Rope;
+}
 /**
  * How long an end let go on a node stays where it was let go, waiting for the world to move the
  * cable there: past this, the move was refused, and the end goes back to its node.
@@ -69,6 +85,13 @@ export function createCableRopes() {
   let held: Held | undefined;
   /** An end let go on `node`, kept where it was let go until the world has the cable there. */
   let landing: { node: number; end: Held; ms: number } | undefined;
+  /** Cables laid by hand that the world has yet to have, drawn as the ropes they were laid as. */
+  const pending = new Map<string, Laid & { ms: number }>();
+  /** The points of `rope`, moving as they are, end to end the other way round when `turned`. */
+  const handed = (rope: Rope, turned: boolean) => {
+    const points = rope.points().map(({ x, y, px, py }) => ({ x, y, px, py }));
+    return turned ? points.reverse() : points;
+  };
   /**
    * The points of the one-piece cable `c` was carried from, from its node `a` to `b`: the cable
    * between its other end and the node the hand took it from, its rope's points, moving as they
@@ -83,11 +106,9 @@ export function createCableRopes() {
     const old = cables.get(`${other}:${was}`) ?? cables.get(`${was}:${other}`);
     const rope = old?.stretches.length === 1 ? old.stretches[0]?.rope : undefined;
     if (!rope) return undefined;
-    // Where each point is and was a step before, so it swings on as it did.
-    const points = rope.points().map(({ x, y, px, py }) => ({ x, y, px, py }));
     // The old rope ran from its own `a`; the new one runs from `c.a`.
     const fromOther = cables.has(`${other}:${was}`);
-    return fromOther === (c.a === other) ? points : points.reverse();
+    return handed(rope, fromOther !== (c.a === other));
   };
   return {
     /** Takes the cables as the world has them now: new ones in, gone ones out. */
@@ -103,14 +124,20 @@ export function createCableRopes() {
         if (cables.get(key)?.shape === shape) continue;
         const lands = landing !== undefined && (c.a === landing.node || c.b === landing.node);
         landed ||= lands;
-        // A cable carried here goes on as the very rope that was carried, from where it hangs now.
-        const carried = lands && landing ? carriedPoints(c, landing) : undefined;
+        // A cable carried or laid here goes on as the very rope it was in hand, as it hangs now.
+        const laid = pending.get(`${c.a}:${c.b}`) ?? pending.get(`${c.b}:${c.a}`);
+        if (laid) pending.delete(`${laid.a}:${laid.b}`);
+        const carried = laid
+          ? handed(laid.rope, laid.a !== c.a)
+          : lands && landing
+            ? carriedPoints(c, landing)
+            : undefined;
         const stretches = pieces.map((piece, i) => {
           const style = piece.hangs ? HANGING : FLOATING;
           const rest =
             carried && pieces.length === 1
               ? carried
-              : started && !lands
+              : started && !lands && !laid
                 ? undefined
                 : cablePoints(piece.from, piece.to, piece.hangs);
           const rope = createRope(style, piece.from, piece.to, c.a + c.b + i, rest);
@@ -133,9 +160,17 @@ export function createCableRopes() {
     land(node: number, end: Held) {
       landing = { node, end, ms: 0 };
     },
+    /** A cable laid by hand: drawn as `laid.rope` until the world has it, then roped as that. */
+    adopt(laid: Laid) {
+      pending.set(`${laid.a}:${laid.b}`, { ...laid, ms: 0 });
+    },
     /** Moves every cable on by `elapsedMs`, brushed by `bodies` aboard. */
     update(elapsedMs: number, bodies: readonly Body[]) {
       if (landing && (landing.ms += elapsedMs) > LANDING_MS) landing = undefined;
+      for (const [key, laid] of pending) {
+        if ((laid.ms += elapsedMs) > LANDING_MS) pending.delete(key);
+        else laid.rope.update(laid.from, laid.to, elapsedMs, hangFor, bodies);
+      }
       const hand = held ?? landing?.end;
       for (const [key, c] of cables) {
         const [a, b] = key.split(':').map(Number) as [number, number];
@@ -166,6 +201,8 @@ export function createCableRopes() {
         const points = c.stretches.flatMap(({ rope }, i) => rope.points().slice(i === 0 ? 0 : 1));
         yield { a, b, points, feeds: c.feeds };
       }
+      for (const { a, b, rope } of pending.values())
+        yield { a, b, points: rope.points(), feeds: [] };
     },
   };
 }

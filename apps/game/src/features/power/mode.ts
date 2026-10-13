@@ -7,7 +7,8 @@ import type { Camera } from '../../render/camera';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import type { Game } from '../../session/game';
 import { hand } from '../../session/ui';
-import type { Held } from './ropes';
+import { traceRope, type Rope } from '../../render/rope';
+import { hangFor, layingRope, type Held, type Laid } from './ropes';
 import { gripAt, lightOf, supportOnWay, type Grip, type Line } from './wiring';
 
 const FITS = 0x7fe08a;
@@ -42,12 +43,16 @@ export function createPowerMode() {
   let from: number | undefined;
   /** The cable's end carried now, and whether it may be let go where it is. */
   let carried: { end: Held; fits: boolean } | undefined;
+  /** The cable being laid, as the rope it will be. */
+  let rope: Rope | undefined;
+  /** Cables laid since told, with the ropes they were laid as. */
+  let laid: Laid[] = [];
   /** The node a cable was last carried to, and its end there, until told. */
   let landing: { node: number; end: Held } | undefined;
 
   return {
     views: [ghost, reason] as const,
-    update(game: Game, camera: Camera, lines: readonly Line[]) {
+    update(game: Game, camera: Camera, lines: readonly Line[], elapsedMs: number) {
       const sim: Sim = game.client.sim;
       const q = sim.query(grid);
       const wires = sim.query(power);
@@ -58,7 +63,15 @@ export function createPowerMode() {
         return x < 0 || y < 0 || x >= width || y >= height ? -1 : y * width + x;
       };
       const isMachine = (node: number) => q.machineAt(node)?.cell === node;
-      const lay = (a: number, b: number) => game.client.send(command(power, 'lay', { a, b }));
+      // Laid, the cable goes on as the rope it was laid as.
+      const lay = (a: number, b: number) => {
+        game.client.send(command(power, 'lay', { a, b }));
+        const to = wires.nodeAt(b);
+        if (rope && to !== undefined) {
+          laid.push({ a, b: to, from: endOf(q, a), to: endOf(q, to), rope });
+        }
+        rope = undefined;
+      };
 
       const holds = hand.get();
       // The right button cuts with something in hand; an empty hand takes nothing apart.
@@ -78,6 +91,7 @@ export function createPowerMode() {
       if (!wiring) {
         grip = undefined;
         from = undefined;
+        rope = undefined;
       }
       for (const button of wiring ? camera.takeLeft() : []) {
         const cell = cellAt(button.at);
@@ -115,6 +129,7 @@ export function createPowerMode() {
         }
         grip = undefined;
         from = undefined;
+        rope = undefined;
       }
 
       ghost.clear();
@@ -172,11 +187,12 @@ export function createPowerMode() {
       const node = why ? undefined : wires.nodeAt(target);
       const to = node === undefined ? pointer : endOf(q, node);
       if (grip.kind === 'lay') {
+        // The cable laid is a rope already, hanging from where it runs to the hand.
         const p = endOf(q, from);
-        ghost
-          .moveTo(p.x * CELL, p.y * CELL)
-          .lineTo(to.x * CELL, to.y * CELL)
-          .stroke({ width: 1.5, color: why ? REFUSED : FITS, alpha: 0.9 });
+        rope ??= layingRope(p);
+        rope.update(p, to, elapsedMs, hangFor, []);
+        traceRope(ghost, rope.points(), CELL);
+        ghost.stroke({ width: 1.5, color: why ? REFUSED : FITS, alpha: 0.9, cap: 'round' });
       } else {
         // A cable carried is the cable itself, its end in hand.
         const cable = grip.kind === 'end' ? grip.cable : undefined;
@@ -195,10 +211,17 @@ export function createPowerMode() {
       landing = undefined;
       return taken;
     },
+    /** The cables laid since asked, with the ropes they were laid as: the cables layer takes them. */
+    takeLaid() {
+      const taken = laid;
+      laid = [];
+      return taken;
+    },
     /** Lets go of whatever is held: the mode turned off mid-drag. */
     release() {
       grip = undefined;
       from = undefined;
+      rope = undefined;
       carried = undefined;
       ghost.clear();
       reason.text = '';
