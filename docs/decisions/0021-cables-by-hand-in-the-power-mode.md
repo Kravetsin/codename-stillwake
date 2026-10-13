@@ -1,6 +1,6 @@
 # 0021 — Cables by hand, in the power mode
 
-- Status: accepted
+- Status: accepted; its power mode superseded by [0022](0022-one-hand.md)
 - Date: 2026-10-13
 
 ## Context

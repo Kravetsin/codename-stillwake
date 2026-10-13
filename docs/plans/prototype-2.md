@@ -401,6 +401,23 @@ every cable plugs into; pegs are drawn where cables end on walls.
 Done when: scenario tests for every `move` and each refusal, and that no cable is left taut;
 the fuzz draws `move`; client tests for leading a cable past its reach and for the lit targets.
 
+**P2-19 · One hand** · M · client `building`, `power`, `crew`, `items`, `grid`, render, i18n, sim
+`building` (a query), ADR 0022 · after P2-18
+The plan and the power mode stacked and a button did what the other said. The hand holds one thing:
+`free`, `plan` or `cable`, one store for `buildMode` and `cableInHand`. Overlays only show, and
+filter what the right button removes and the middle picks: none or O — machines, structure, back
+walls; P — pipes and valves; L — cables. Left does what the card does, Shift + left with the cable
+moves a peg or a plug, right removes with the plan or the cable in hand (a drag cancels or marks; in
+L a press cuts), middle picks the card of what is under the pointer. B opens the menu, on the
+overlay's tab; no Remove card, no right button for the menu. The menu is a grid of thumbnails from
+the ship's art, a tooltip with name, cost and description, dim when short; a bar shows what is in
+hand. Plans and the ghost are drawn as their own pictures under a blue tint (green or red for the
+ghost). The art building draws moves to `render/`; `building.clearAt` takes the layers to look in.
+Done when: a scenario for `clearAt` by layers; unit tests for the hand (a card, the cable, the
+wheel, L turned off), the filter by overlay, the pipette's card for a cell, and the menu's tab by
+overlay; e2e: B opens the menu, a thumbnail picks a card, the right button drags a removal, the
+middle button picks a wall's card; P2-14's e2e moved off the right button.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says
