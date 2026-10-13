@@ -79,23 +79,68 @@ interface Queries {
 /** Whether a cable ending at `cell` hangs there: anywhere but out in space, where nothing pulls it. */
 export const hangsAt = (q: Queries, cell: number) => q.rooms.roomAt(cell) !== 'space';
 
-/** Where the cable between nodes `a` and `b` meets each, and whether it hangs: inside at both. */
-export function endsOf(
-  q: Queries,
-  a: number,
-  b: number,
-): { from: Point; to: Point; hangs: boolean } {
-  const toA = middleOf(q.grid, a);
-  const toB = middleOf(q.grid, b);
-  return {
-    from: endOf(q.grid, a, toB),
-    to: endOf(q.grid, b, toA),
-    hangs: hangsAt(q, a) && hangsAt(q, b),
-  };
+/** A stretch of a cable between two fixed points: hanging aboard, floating out in space. */
+export interface Piece {
+  readonly from: Point;
+  readonly to: Point;
+  readonly hangs: boolean;
 }
 
-/** The points of the cable between nodes `a` and `b` at rest, each end where it meets its node. */
+/** How finely the way between a cable's ends is walked to find where it goes through the hull. */
+const PROBE = 0.05;
+
+/**
+ * The cable between nodes `a` and `b`, each end where it meets its node, in pieces: where its way
+ * passes from space through the hull into the ship it is held, in the middle of the wall it goes
+ * through, so the part aboard hangs and the part outside floats. `feeds` are those points, a
+ * fitting drawn on the wall at each. Only drawn: the sim knows a cable by its two nodes.
+ */
+export function piecesOf(q: Queries, a: number, b: number): { pieces: Piece[]; feeds: Point[] } {
+  const from = endOf(q.grid, a, middleOf(q.grid, b));
+  const to = endOf(q.grid, b, middleOf(q.grid, a));
+  const { width, height } = q.grid.size();
+  const kindAt = (t: number): 'space' | 'solid' | 'aboard' => {
+    const x = Math.floor(from.x + (to.x - from.x) * t);
+    const y = Math.floor(from.y + (to.y - from.y) * t);
+    if (x < 0 || y < 0 || x >= width || y >= height) return 'space';
+    const room = q.rooms.roomAt(y * width + x);
+    return room === 'space' ? 'space' : room === undefined ? 'solid' : 'aboard';
+  };
+  const steps = Math.max(1, Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / PROBE));
+  const kinds = Array.from({ length: steps + 1 }, (_, i) => kindAt(i / steps));
+  // Where the way changes between space and the ship: in the middle of the wall between, if any.
+  const splits: { t: number; feed: boolean }[] = [];
+  let last: { kind: 'space' | 'aboard'; at: number } | undefined;
+  for (let i = 0; i <= steps; i++) {
+    const kind = kinds[i];
+    if (kind === 'solid' || kind === undefined) continue;
+    if (last && last.kind !== kind) {
+      const wall = i - last.at > 1;
+      splits.push({ t: (wall ? (last.at + 1 + i - 1) / 2 : i - 0.5) / steps, feed: wall });
+    }
+    last = { kind, at: i };
+  }
+  const at = (t: number): Point => ({
+    x: from.x + (to.x - from.x) * t,
+    y: from.y + (to.y - from.y) * t,
+  });
+  const ts = [0, ...splits.map((s) => s.t), 1];
+  const pieces = ts.slice(1).map((end, i) => {
+    const start = ts[i] ?? 0;
+    const first = Math.round(start * steps);
+    const stop = Math.round(end * steps);
+    return {
+      from: at(start),
+      to: at(end),
+      hangs: !kinds.slice(first, stop + 1).includes('space'),
+    };
+  });
+  return { pieces, feeds: splits.filter((s) => s.feed).map((s) => at(s.t)) };
+}
+
+/** The points of the cable between nodes `a` and `b` at rest, piece by piece. */
 export function shapeOf(q: Queries, a: number, b: number): Point[] {
-  const { from, to, hangs } = endsOf(q, a, b);
-  return cablePoints(from, to, hangs);
+  return piecesOf(q, a, b).pieces.flatMap((p, i) =>
+    cablePoints(p.from, p.to, p.hangs).slice(i === 0 ? 0 : 1),
+  );
 }

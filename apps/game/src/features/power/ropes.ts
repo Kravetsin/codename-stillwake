@@ -1,5 +1,5 @@
 import { grid, power, rooms, type Sim } from '@stillwake/sim';
-import { cablePoints, endsOf, SAG, STEPS, type Point } from '../../render/cable';
+import { cablePoints, piecesOf, SAG, STEPS, type Piece, type Point } from '../../render/cable';
 import { createRope, type Body, type Rope, type RopeStyle } from '../../render/rope';
 
 /** Aboard: gravity pulls a cable into its hang, and air slows its swing. Cells, steps of 1/60 s. */
@@ -27,17 +27,25 @@ const FLOATING: RopeStyle = {
 const HANG = 1 + (8 * SAG * SAG) / 3;
 const LOOSE = 1.02;
 
+/** A piece of a cable as a rope, between two of its fixed points. */
+interface Stretch {
+  readonly piece: Piece;
+  readonly rope: Rope;
+}
+
 interface Cable {
-  rope: Rope;
-  from: Point;
-  to: Point;
-  hangs: boolean;
+  stretches: Stretch[];
+  /** Where it goes through the hull. */
+  feeds: Point[];
+  /** What its pieces are, ends and all: a cable whose pieces change is roped anew. */
+  shape: string;
 }
 
 /**
- * Every cable as a rope, kept between frames by its two nodes. The cables found at the start are
- * already at rest; one laid later starts straight and falls into its hang, swinging. A cable whose
- * end comes inside or goes out is a new rope.
+ * Every cable as ropes, a rope for each of its pieces (`piecesOf`), kept between frames by its two
+ * nodes: the part aboard hangs and the part outside floats, held where it goes through the hull.
+ * The cables found at the start are already at rest; one laid later starts straight and falls into
+ * its hang, swinging.
  */
 export function createCableRopes() {
   const cables = new Map<string, Cable>();
@@ -50,36 +58,45 @@ export function createCableRopes() {
       for (const c of sim.query(power).cables()) {
         const key = `${c.a}:${c.b}`;
         seen.add(key);
-        const { from, to, hangs } = endsOf(q, c.a, c.b);
-        const kept = cables.get(key);
-        if (kept && kept.hangs === hangs) {
-          kept.from = from;
-          kept.to = to;
-          continue;
-        }
-        const style = hangs ? HANGING : FLOATING;
-        const rest = started ? undefined : cablePoints(from, to, hangs);
-        cables.set(key, { rope: createRope(style, from, to, c.a + c.b, rest), from, to, hangs });
+        const { pieces, feeds } = piecesOf(q, c.a, c.b);
+        const shape = JSON.stringify(pieces);
+        if (cables.get(key)?.shape === shape) continue;
+        const stretches = pieces.map((piece, i) => {
+          const style = piece.hangs ? HANGING : FLOATING;
+          const rest = started ? undefined : cablePoints(piece.from, piece.to, piece.hangs);
+          return { piece, rope: createRope(style, piece.from, piece.to, c.a + c.b + i, rest) };
+        });
+        cables.set(key, { stretches, feeds, shape });
       }
       for (const key of cables.keys()) if (!seen.has(key)) cables.delete(key);
       started = true;
     },
-    /** Moves every cable on by `elapsedMs`, brushed by `bodies`. */
+    /** Moves every cable on by `elapsedMs`, brushed by `bodies` aboard. */
     update(elapsedMs: number, bodies: readonly Body[]) {
       for (const c of cables.values()) {
-        const factor = c.hangs ? HANG : LOOSE;
-        c.rope.update(c.from, c.to, elapsedMs, (span) => span * factor, c.hangs ? bodies : []);
+        for (const { piece, rope } of c.stretches) {
+          const factor = piece.hangs ? HANG : LOOSE;
+          rope.update(
+            piece.from,
+            piece.to,
+            elapsedMs,
+            (span) => span * factor,
+            piece.hangs ? bodies : [],
+          );
+        }
       }
     },
-    /** Each cable's points, by its two nodes. */
+    /** Each cable's points, end to end, by its two nodes, and where it goes through the hull. */
     *lines(): Generator<{
       readonly a: number;
       readonly b: number;
       readonly points: readonly Point[];
+      readonly feeds: readonly Point[];
     }> {
       for (const [key, c] of cables) {
         const [a, b] = key.split(':').map(Number) as [number, number];
-        yield { a, b, points: c.rope.points() };
+        const points = c.stretches.flatMap(({ rope }, i) => rope.points().slice(i === 0 ? 0 : 1));
+        yield { a, b, points, feeds: c.feeds };
       }
     },
   };

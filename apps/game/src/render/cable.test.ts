@@ -1,6 +1,6 @@
-import { grid, parseLayout, stillwake } from '@stillwake/sim';
+import { grid, parseLayout, rooms, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
-import { cablePoints, distanceTo, endOf } from './cable';
+import { cablePoints, distanceTo, endOf, piecesOf } from './cable';
 
 describe('a cable as drawn', () => {
   it('hangs below the line between its ends inside, deepest in the middle, and is straight outside', () => {
@@ -26,5 +26,45 @@ describe('a cable as drawn', () => {
     expect(right.x).toBeCloseTo(2.85);
     expect(right.y).toBe(1);
     expect(endOf(q, 0, { x: 7, y: 1 })).toEqual({ x: 0.5, y: 0.5 });
+  });
+});
+
+describe('a cable through the hull', () => {
+  // A panel out in space over a room's roof, a lamp under the roof inside; the roof is row 2.
+  const ROWS = ['PPP     ', '        ', '########', '#..L...#', '#......#', '########'];
+  const q = (rows: readonly string[], cables: [number, number, number, number]) => {
+    const sim = stillwake.create(
+      1,
+      parseLayout(
+        rows,
+        [],
+        [
+          [
+            { x: cables[0], y: cables[1] },
+            { x: cables[2], y: cables[3] },
+          ],
+        ],
+      ),
+    );
+    return { grid: sim.query(grid), rooms: sim.query(rooms) };
+  };
+
+  it('is held where it goes through, floating outside and hanging aboard', () => {
+    const world = q(ROWS, [0, 0, 3, 3]);
+    const { pieces, feeds } = piecesOf(world, 0, 3 * 8 + 3);
+    expect(pieces.map((p) => p.hangs)).toEqual([false, true]);
+    expect(feeds).toHaveLength(1);
+    // In the roof's row, where the pieces meet.
+    expect(Math.floor(feeds[0]?.y ?? 0)).toBe(2);
+    expect(pieces[0]?.to).toEqual(feeds[0]);
+    expect(pieces[1]?.from).toEqual(feeds[0]);
+  });
+
+  it('is one hanging piece between two things aboard', () => {
+    const world = q(['########', '#.L..L.#', '#......#', '########'], [2, 1, 5, 1]);
+    expect(piecesOf(world, 8 + 2, 8 + 5)).toEqual({
+      pieces: [expect.objectContaining({ hangs: true })],
+      feeds: [],
+    });
   });
 });

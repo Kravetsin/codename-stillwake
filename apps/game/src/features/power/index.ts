@@ -14,6 +14,8 @@ import { createCableRopes, type CableRopes } from './ropes';
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
 const CABLE = 0x7c8794;
 const CABLE_WIDTH = 1.25;
+/** Where a cable goes through the hull: a dark fitting round it. */
+const FITTING = 0x1a1e25;
 /** In the overlay, cables and nodes by their network's state: fed in full, short, dark. */
 const FED = 0x7fe08a;
 const SHORT = 0xf0b44c;
@@ -50,19 +52,29 @@ function everyTick(draw: (sim: Sim) => void) {
  */
 function cables(): Layer {
   const lines = new Graphics();
-  lit(lines);
+  // Fittings sit on the hull's face, in front of the wall the cable goes behind.
+  const fittings = new Graphics();
+  for (const g of [lines, fittings]) lit(g);
   const own = createCableRopes();
   ropes = own;
   const sync = everyTick((sim) => own.sync(sim));
   return {
-    view: new Container(),
+    view: fittings,
     behind: lines,
     update: ({ game, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
       own.update(elapsedMs, heroBodies.get());
       lines.clear();
-      for (const { points } of own.lines()) traceRope(lines, points, CELL);
+      fittings.clear();
+      const feeds = [];
+      for (const line of own.lines()) {
+        traceRope(lines, line.points, CELL);
+        feeds.push(...line.feeds);
+      }
       lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
+      // A fitting on the wall where a cable goes through the hull.
+      for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 2).fill(FITTING);
+      for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 1).fill(CABLE);
     },
   };
 }
