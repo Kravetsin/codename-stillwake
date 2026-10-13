@@ -1,4 +1,4 @@
-import { AIR, CABLE_COST, INVENTORY, ITEMS, MACHINES, POWER } from '@stillwake/content';
+import { AIR, CABLE_COST, INVENTORY, ITEMS, POWER } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { parseLayout, type Point } from '../../core/layout';
@@ -160,15 +160,13 @@ describe('power', () => {
     expect(store(w, GEN)).toBe(32);
   });
 
-  it('keeps a cabled machine from being taken apart, marked or on its last tick', () => {
+  it('keeps a cabled machine from being taken apart, marked or cabled after its mark', () => {
     const w = scenario(world, map());
     w.do(building, 'deconstruct', { cell: GEN, layer: 'machine' }).run();
     expect(w.refusals).toEqual(['building.cabled']);
     w.do(power, 'cut', { a: GEN, b: PANEL }).run();
     w.do(building, 'deconstruct', { cell: GEN, layer: 'machine' }).run();
     const plan = w.query(building).plans()[0]?.id ?? 0;
-    const ticks = Math.ceil(MACHINES.generator.buildTicks / 2);
-    for (let i = 0; i < ticks - 1; i++) w.do(building, 'work', { plan }).run();
     w.do(power, 'lay', { a: GEN, b: PANEL }).run();
     w.do(building, 'work', { plan }).run();
     expect(w.refusals).toEqual(['building.cabled', 'building.cabled']);

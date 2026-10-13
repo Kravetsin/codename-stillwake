@@ -55,8 +55,9 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
  * What the hero of peer `peer` aims at with the pointer at `point`, in cells; nothing off the grid.
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
- * block the mark beside it; when none can, the oldest, to show why. Then a crate or a furnace, a tank, a door, a
- * valve: a valve under a machine or in a door's cell is not worked with E. Last, the piece of debris
+ * block the mark beside it; when none can, the oldest, to show why; none in `served`, served in
+ * this hold of E already. Then a crate or a furnace, a tank, a door, a valve: a valve under a
+ * machine or in a door's cell is not worked with E. Last, the piece of debris
  * nearest the pointer within `DEBRIS.aimRadius`, only while the hero is out in space, where it can
  * catch one, and none in `passOver`: grabbed already, its grab still in flight.
  */
@@ -66,6 +67,7 @@ export function aimAt(
   hero: Hero,
   point: { x: number; y: number },
   passOver: ReadonlySet<number> = new Set(),
+  served: ReadonlySet<number> = new Set(),
 ): Aim | undefined {
   const cells = sim.query(grid).layers();
   const x = Math.floor(point.x);
@@ -77,6 +79,7 @@ export function aimAt(
   const plans = sim.query(building);
   const here = plans
     .plansAt(cell)
+    .filter((p) => !served.has(p.id))
     .map((p) => ({ plan: p.id, problem: plans.workProblem(p.id, peer) }));
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
@@ -141,41 +144,28 @@ function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {
   return undefined;
 }
 
-/**
- * What E sends this frame, the crate it opens if any, and the tick work was last sent on: -1 when
- * none is under way.
- */
+/** What E sends this frame, the crate it opens if any, and the plan it served if any. */
 export interface Uses {
   readonly commands: readonly Command[];
   readonly open?: number;
-  readonly workedOnTick: number;
+  readonly served?: number;
 }
-
-/** How many ticks of work one frame sends at most, after a stall. */
-const MAX_WORK_PER_FRAME = 5;
 
 /**
  * What E does this frame. A press within reach sends what is pressed, unless the sim would refuse
- * it. Held on a plan the sim would take, it sends one `work` for every tick released since the last
- * it sent for, so a peer drawing fewer frames than the ticks it runs builds as fast as any other; a
- * hold just begun sends one. `tick` is the client's world tick.
+ * it. Held on a plan the sim would take, it sends one `work` for it: delivering to a blueprint,
+ * taking apart a mark. The caller keeps the plans served in this hold and passes them to `aimAt`,
+ * so sweeping the pointer serves each plan it passes once.
  */
 export function usesOf(
   aim: Aim | undefined,
   e: { readonly pressed: boolean; readonly held: boolean },
-  tick: number,
-  workedOnTick: number,
 ): Uses {
-  if (!aim?.inReach) return { commands: [], workedOnTick: -1 };
-  if (e.pressed && aim.crate !== undefined) {
-    return { commands: [], open: aim.crate, workedOnTick: -1 };
-  }
+  if (!aim?.inReach) return { commands: [] };
+  if (e.pressed && aim.crate !== undefined) return { commands: [], open: aim.crate };
   const commands: Command[] = [];
   if (e.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
-  if (!aim.work || aim.work.problem || !e.held) return { commands, workedOnTick: -1 };
-  // A hold just begun sends one; so does a load that took the world's tick back.
-  const fresh = workedOnTick < 0 || tick < workedOnTick;
-  const due = fresh ? 1 : Math.min(tick - workedOnTick, MAX_WORK_PER_FRAME);
-  for (let i = 0; i < due; i++) commands.push(command(building, 'work', { plan: aim.work.plan }));
-  return { commands, workedOnTick: due > 0 ? tick : workedOnTick };
+  if (!aim.work || aim.work.problem || !e.held) return { commands };
+  commands.push(command(building, 'work', { plan: aim.work.plan }));
+  return { commands, served: aim.work.plan };
 }

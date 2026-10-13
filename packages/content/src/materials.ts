@@ -7,14 +7,12 @@ export interface Material {
   readonly leak: number;
   /** Units of this material spent to build one cell. */
   readonly cost: number;
-  /** Ticks of a hero's work to build one cell. */
-  readonly buildTicks: number;
 }
 
 /** Hull materials, weakest first. */
 export const MATERIALS = {
-  scrap: { code: 1, strength: 2, leak: 3, cost: 2, buildTicks: 13 },
-  steel: { code: 2, strength: 5, leak: 1, cost: 3, buildTicks: 27 },
+  scrap: { code: 1, strength: 2, leak: 3, cost: 2 },
+  steel: { code: 2, strength: 5, leak: 1, cost: 3 },
 } as const satisfies Readonly<Record<string, Material>>;
 
 export type MaterialId = keyof typeof MATERIALS;

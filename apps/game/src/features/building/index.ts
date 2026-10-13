@@ -71,9 +71,11 @@ export const buildingFeature: Feature = {
 
         const plans = q.building.plans();
         // Ids alone would miss a load that brings other plans under the same ids.
-        // Progress is in the key, so bars grow as work goes on.
-        const key = plans.map(
-          (p) => `${p.id}:${p.cell}:${'place' in p ? p.place.kind : p.clear}:${p.progress}`,
+        // What was delivered is in the key, so bars grow as deliveries land.
+        const key = plans.map((p) =>
+          'place' in p
+            ? `${p.id}:${p.cell}:${p.place.kind}:${JSON.stringify(p.delivered)}`
+            : `${p.id}:${p.cell}:${p.clear}`,
         );
         if (key.join() !== drawn) {
           drawn = key.join();
@@ -227,7 +229,7 @@ function boxOf(cells: readonly number[], width: number) {
 
 /**
  * Plans as translucent shapes by layer, marks as red crosses over what they take out, and a bar
- * along the bottom of each plan with work done on it.
+ * along the bottom of each blueprint with the share of its cost delivered.
  */
 function drawPlans(
   g: Graphics,
@@ -259,10 +261,14 @@ function drawPlans(
         .fill({ color: PLAN, alpha: p.place.layer === 'machine' ? 0.15 : 0.25 })
         .stroke({ width: p.place.layer === 'machine' ? 2 : 1, color: PLAN });
     }
-    const ticks = q.building.ticksFor(p.id);
-    if (p.progress > 0 && ticks) {
+    // A blueprint's bar: the share of its cost delivered so far, counted in units of any item.
+    const cost = 'place' in p ? q.building.costOf(p.id) : undefined;
+    const total = cost ? Object.values(cost).reduce((sum: number, n) => sum + (n ?? 0), 0) : 0;
+    const got =
+      'place' in p ? Object.values(p.delivered).reduce((sum: number, n) => sum + (n ?? 0), 0) : 0;
+    if (got > 0 && total > 0) {
       g.rect(x + 2, y + h - 5, w - 4, 3).fill({ color: BAR_BACK });
-      g.rect(x + 2, y + h - 5, ((w - 4) * p.progress) / ticks, 3).fill({ color: BAR });
+      g.rect(x + 2, y + h - 5, ((w - 4) * got) / total, 3).fill({ color: BAR });
     }
   }
 }

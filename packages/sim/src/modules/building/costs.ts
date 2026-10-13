@@ -1,23 +1,15 @@
-import {
-  BUILDS,
-  DECONSTRUCT_SPEEDUP,
-  MACHINES,
-  MATERIALS,
-  type Build,
-  type MaterialId,
-} from '@stillwake/content';
+import { BUILDS, MACHINES, MATERIALS, type Build, type MaterialId } from '@stillwake/content';
 import type { QueryApi } from '../../core/module';
 import type { GridModule, Layer, Placement } from '../grid';
-import type { Plan } from './state';
+import type { Cost } from '../items';
 
 type Grid = QueryApi<GridModule>;
 
 function wall(material: MaterialId): Build {
-  const { cost, buildTicks } = MATERIALS[material];
-  return { cost: { [material]: cost }, buildTicks };
+  return { cost: { [material]: MATERIALS[material].cost } };
 }
 
-/** What a placement costs and how long it takes to build. */
+/** What a placement costs. */
 export function buildOf(placement: Placement): Build {
   switch (placement.layer) {
     case 'structure':
@@ -52,14 +44,12 @@ export function builtAt(grid: Grid, cell: number, layer: Layer): Build | undefin
   }
 }
 
-/** Ticks to take apart what took `buildTicks` to build: a share of them, rounded up. */
-export function apartTicks(buildTicks: number): number {
-  return Math.ceil(buildTicks / DECONSTRUCT_SPEEDUP);
-}
-
-/** Ticks of work a plan takes: its build's, or those to take apart what a mark names. */
-export function ticksFor(grid: Grid, plan: Plan): number {
-  if ('place' in plan) return buildOf(plan.place).buildTicks;
-  const built = builtAt(grid, plan.cell, plan.clear);
-  return built ? apartTicks(built.buildTicks) : 1;
+/** What a blueprint still lacks of `cost`, `delivered` so far: the items with some still due. */
+export function lacking(cost: Cost, delivered: Cost): Cost {
+  const out: Partial<Record<keyof Cost, number>> = {};
+  for (const [item, need] of Object.entries(cost) as [keyof Cost, number][]) {
+    const due = need - (delivered[item] ?? 0);
+    if (due > 0) out[item] = due;
+  }
+  return out;
 }

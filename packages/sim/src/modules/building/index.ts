@@ -1,8 +1,8 @@
 import { defineModule, refuse, withFuzz, type Ctx } from '../../core/module';
 import type { GridModule, Layer, Placement } from '../grid';
-import type { ItemsModule } from '../items';
+import type { Cost, ItemsModule } from '../items';
 import type { PowerModule } from '../power';
-import { buildOf, builtAt, ticksFor } from './costs';
+import { buildOf, builtAt, lacking } from './costs';
 import { fuzzBuilding } from './fuzz';
 import { clearAt, covers, markedCell, planProblem, workProblem } from './rules';
 import type { Action, BuildingState, Plan } from './state';
@@ -12,8 +12,8 @@ export type { Action, BuildingState, Plan } from './state';
 type Deps = [GridModule, ItemsModule, PowerModule];
 
 /**
- * Builds what a plan asks for, or takes apart what a mark names and refunds it to the hero of peer
- * `from`; drops the plan.
+ * Builds what a blueprint asks for, or takes apart what a mark names, refunding it to the hero of
+ * peer `from`, what does not fit falling at the mark; drops the plan.
  */
 function complete(ctx: Ctx<BuildingState, Deps, never>, plan: Plan, from: number): void {
   const { grid, items } = ctx.deps;
@@ -25,7 +25,7 @@ function complete(ctx: Ctx<BuildingState, Deps, never>, plan: Plan, from: number
     const built = builtAt(grid.query, plan.cell, plan.clear);
     if (built) {
       grid.op.clear(plan.cell, plan.clear);
-      items.op.give(from, built.cost);
+      items.op.giveOrDrop(from, built.cost, plan.cell);
     }
   }
   ctx.state.plans = ctx.state.plans.filter((p) => p.id !== plan.id);
@@ -63,10 +63,10 @@ const buildingModule = defineModule<Deps>()({
         id,
         peer,
       ),
-    /** Ticks of work plan `id` takes in all, for its progress bar. */
-    ticksFor: (ctx, id: number) => {
+    /** What blueprint `id` costs in all, for its tray and bar; nothing for a mark or no plan. */
+    costOf: (ctx, id: number) => {
       const plan = ctx.state.plans.find((p) => p.id === id);
-      return plan && ticksFor(ctx.deps.grid.query, plan);
+      return plan && 'place' in plan ? buildOf(plan.place).cost : undefined;
     },
   },
 
@@ -87,7 +87,7 @@ const buildingModule = defineModule<Deps>()({
       },
       apply(ctx, p: { cell: number; placement: Placement }) {
         const id = ctx.state.nextPlanId;
-        ctx.state.plans.push({ id, cell: p.cell, progress: 0, place: p.placement, paid: {} });
+        ctx.state.plans.push({ id, cell: p.cell, place: p.placement, delivered: {} });
         ctx.state.nextPlanId += 1;
       },
     },
@@ -107,27 +107,25 @@ const buildingModule = defineModule<Deps>()({
       },
       apply(ctx, p: { cell: number; layer: Layer }) {
         const cell = markedCell(ctx.deps.grid.query, p.cell, p.layer) ?? p.cell;
-        ctx.state.plans.push({ id: ctx.state.nextPlanId, cell, progress: 0, clear: p.layer });
+        ctx.state.plans.push({ id: ctx.state.nextPlanId, cell, clear: p.layer });
         ctx.state.nextPlanId += 1;
       },
     },
     cancelPlan: {
       validate(ctx, p: { id: number }) {
-        const plan = ctx.state.plans.find((each) => each.id === p.id);
-        if (!plan) return refuse('building.noPlan');
-        const why = 'place' in plan && ctx.deps.items.query.fullFor(ctx.from, plan.paid);
-        if (why) return refuse(why);
+        if (!ctx.state.plans.some((each) => each.id === p.id)) return refuse('building.noPlan');
       },
       apply(ctx, p: { id: number }) {
         const plan = ctx.state.plans.find((each) => each.id === p.id);
-        // What was paid goes back to whoever cancels: not always the hero who paid.
-        if (plan && 'place' in plan) ctx.deps.items.op.give(ctx.from, plan.paid);
+        // What was delivered falls where the blueprint was, for whoever comes to pick it up.
+        if (plan && 'place' in plan) ctx.deps.items.op.dropAt(ctx.from, plan.delivered, plan.cell);
         ctx.state.plans = ctx.state.plans.filter((each) => each.id !== p.id);
       },
     },
     /**
-     * One tick of a hero's work on a plan, sent every tick the player holds E on it within reach.
-     * The first tick of a plan to place pays for it from the worker; the last completes it.
+     * E on a plan. A blueprint takes from the sender, item by item, the lesser of what it lacks and
+     * what the sender carries, and is built once it has everything; in creative mode it is built as
+     * it is. A mark takes its thing apart at once.
      */
     work: {
       validate(ctx, p: { plan: number }) {
@@ -142,16 +140,24 @@ const buildingModule = defineModule<Deps>()({
         if (why) return refuse(why);
       },
       apply(ctx, p: { plan: number }) {
+        const { items } = ctx.deps;
         const at = ctx.state.plans.findIndex((each) => each.id === p.plan);
         const plan = ctx.state.plans[at] as Plan;
-        const paid =
-          'place' in plan && plan.progress === 0
-            ? { paid: ctx.deps.items.op.take(ctx.from, buildOf(plan.place).cost) }
-            : {};
-        const worked = { ...plan, ...paid, progress: plan.progress + 1 } as Plan;
-        ctx.state.plans[at] = worked;
-        if (worked.progress >= ticksFor(ctx.deps.grid.query, worked))
-          complete(ctx, worked, ctx.from);
+        if (!('place' in plan) || items.query.creative()) return complete(ctx, plan, ctx.from);
+        const carried = items.query.totals(ctx.from);
+        const due = lacking(buildOf(plan.place).cost, plan.delivered);
+        const delivered: Partial<Record<keyof Cost, number>> = { ...plan.delivered };
+        for (const [item, n] of Object.entries(due) as [keyof Cost, number][]) {
+          const given = Math.min(n, carried[item] ?? 0);
+          if (given === 0) continue;
+          items.op.take(ctx.from, { [item]: given });
+          delivered[item] = (delivered[item] ?? 0) + given;
+        }
+        const now = { ...plan, delivered };
+        ctx.state.plans[at] = now;
+        if (Object.keys(lacking(buildOf(plan.place).cost, delivered)).length === 0) {
+          complete(ctx, now, ctx.from);
+        }
       },
     },
   },

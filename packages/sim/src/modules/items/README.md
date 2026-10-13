@@ -52,6 +52,7 @@ crate, a furnace) holds, by its machine id; and creative mode, the world setting
 ## API
 
 - **Queries:** `inventory(peer)` and `crate(id)` — their slots, live and read-only; `creative()`;
+  `totals(peer)` — how much of each item the peer carries;
   `shortOf(peer, cost)` — `items.notEnough` when the peer cannot pay `cost`, never in creative mode;
   `fullFor(peer, cost)` — `items.full` when `cost` does not fit, creative mode or not. A caller
   refuses with these keys. `afterMoves(peer, moves)` — copies of the peer's inventory and of the
@@ -65,6 +66,8 @@ crate, a furnace) holds, by its machine id; and creative mode, the world setting
   throws; it returns what it took, nothing in creative mode, so a caller refunds exactly that.
   `give(peer, cost)` — the caller checks `fullFor` first, and giving past the room throws.
   `giveOrDrop(peer, cost, cell)` — gives what fits; the rest falls on `cell`, dropped by that peer.
+  `dropAt(peer, cost, cell)` — lets all of `cost` fall on `cell`, still, dropped by that peer: what a
+  cancelled blueprint held.
 - **Commands:** `setCreative { on }`, from the dev panel, with no refusals.
   `move { src: { crate?, slot }, dst: { crate?, slot? }, count }`, no crate meaning the sender's
   inventory; refused with `items.noCrate` (a side names no crate), `items.noSlot` (a slot out of

@@ -2,7 +2,7 @@ import type { QueryApi } from '../../core/module';
 import type { GridModule, Layer } from '../grid';
 import type { ItemsModule } from '../items';
 import type { PowerModule } from '../power';
-import { buildOf, builtAt, ticksFor } from './costs';
+import { buildOf, lacking } from './costs';
 import type { Action, Plan } from './state';
 
 type Grid = QueryApi<GridModule>;
@@ -110,9 +110,9 @@ export function planProblem(
 }
 
 /**
- * Why work on plan `id` by peer `peer` is refused: the plan is gone; it is not begun and the hero
- * cannot pay; or this tick would take apart what a mark names, and it is a crate that holds
- * something again, a machine cabled since, or the refund does not fit.
+ * Why E on plan `id` by peer `peer` is refused: the plan is gone; it is a blueprint and the hero
+ * carries none of what it lacks (never in creative mode, which builds it as it is); or it is a mark
+ * on a crate that holds something or a machine a cable ends on.
  */
 export function workProblem(
   grid: Grid,
@@ -124,12 +124,10 @@ export function workProblem(
 ): string | undefined {
   const plan = plans.find((p) => p.id === id);
   if (!plan) return 'building.noPlan';
-  if ('place' in plan) {
-    return plan.progress === 0 ? items.shortOf(peer, buildOf(plan.place).cost) : undefined;
-  }
-  if (plan.progress + 1 < ticksFor(grid, plan)) return undefined;
-  const built = builtAt(grid, plan.cell, plan.clear);
-  return (
-    inUse(grid, items, power, plan.cell, plan.clear) ?? (built && items.fullFor(peer, built.cost))
-  );
+  if ('clear' in plan) return inUse(grid, items, power, plan.cell, plan.clear);
+  if (items.creative()) return undefined;
+  const carried = items.totals(peer);
+  const due = lacking(buildOf(plan.place).cost, plan.delivered);
+  const any = Object.keys(due).some((item) => (carried[item as keyof typeof carried] ?? 0) > 0);
+  return any ? undefined : 'items.notEnough';
 }

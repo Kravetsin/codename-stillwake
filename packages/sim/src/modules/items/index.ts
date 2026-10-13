@@ -20,6 +20,7 @@ import { layDown, settle } from './floor';
 import { fuzzItems } from './fuzz';
 import {
   crateOf,
+  entries,
   inventoryOf,
   isNothing,
   moved,
@@ -37,6 +38,14 @@ import type { Cost, FloorStack, Item, ItemsState, Place, Slot, Target } from './
 export type { Cost, FloorStack, Item, ItemsState, Place, Slot, Stack, Target } from './state';
 
 type Grid = QueryApi<GridModule>;
+
+/** Lays `cost` on cell `cell` as stacks at rest, dropped by `peer`. */
+function dropAt(state: ItemsState, grid: Grid, peer: number, cost: Cost, cell: number): void {
+  const { width } = grid.size();
+  for (const [item, count] of entries(cost)) {
+    if (count > 0) layDown(state, { item, count, cell, vx: 0, width }, peer);
+  }
+}
 
 /** What machine `id` is, when it holds items: a crate, a furnace. */
 function holderOf(grid: Grid, id: number): MachineSpec | undefined {
@@ -179,6 +188,13 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
       return spec?.inputs !== undefined && smelted(slots, spec.inputs) !== undefined;
     },
     creative: (ctx) => ctx.state.creative,
+    /** How much of each item `peer` carries, over all its slots: what it could pay with. */
+    totals(ctx, peer: number): Cost {
+      const out: Partial<Record<Item, number>> = {};
+      for (const s of inventoryOf(ctx.state, peer))
+        if (s) out[s.item] = (out[s.item] ?? 0) + s.count;
+      return out;
+    },
     /** `items.notEnough` when `peer` cannot pay `cost`; never in creative mode. */
     shortOf(ctx, peer: number, cost: Cost) {
       const short = taken(inventoryOf(ctx.state, peer), cost) === undefined;
@@ -270,10 +286,11 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
       if (isNothing(cost)) return;
       const { slots, left } = placedSome(inventoryOf(ctx.state, peer), cost);
       setInventory(ctx.state, peer, slots);
-      const { width } = ctx.deps.grid.query.size();
-      for (const [item, count] of left) {
-        layDown(ctx.state, { item, count, cell, vx: 0, width }, peer);
-      }
+      dropAt(ctx.state, ctx.deps.grid.query, peer, Object.fromEntries(left), cell);
+    },
+    /** Lets `cost` fall on cell `cell` as if peer `peer` dropped it there, still. */
+    dropAt(ctx, peer: number, cost: Cost, cell: number): void {
+      dropAt(ctx.state, ctx.deps.grid.query, peer, cost, cell);
     },
   },
 

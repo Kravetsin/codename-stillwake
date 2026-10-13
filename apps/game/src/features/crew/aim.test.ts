@@ -1,4 +1,4 @@
-import { DEBRIS, HERO, MACHINES, MATERIALS, INVENTORY } from '@stillwake/content';
+import { DEBRIS, HERO, INVENTORY } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
@@ -149,43 +149,34 @@ describe('aiming', () => {
     expect(aim).toEqual({ cell: at(3, 1), inReach: true, work: { plan: 1, problem: undefined } });
   });
 
-  it("carries the sim's reason when work on a plan would be refused", () => {
-    // One steel wall more than the steel carried begins, laid row by row in a hall nine wide.
-    const affordable = Math.floor(STORE.steel / MATERIALS.steel.cost);
-    const poor = withStore(hall(affordable + 1));
-    for (let i = 0; i <= affordable; i++) {
-      poor.step([command(building, 'placePlan', { cell: inside(i), placement: steelWall })]);
-    }
-    for (let id = 1; id <= affordable; id++) poor.step([command(building, 'work', { plan: id })]);
-    const [x, y] = [1 + (affordable % 7), 1 + Math.floor(affordable / 7)];
-    const aim = aimAt(poor, 0, heroOn(x - 1, y), centre(x, y));
-    expect(aim?.work).toEqual({ plan: affordable + 1, problem: 'items.notEnough' });
-    expect(aimAt(poor, 0, heroOn(x - 1, y), centre(x - 1, y))?.work).toEqual({
-      plan: affordable,
-      problem: undefined,
-    });
+  it("carries the sim's reason when E on a blueprint would be refused", () => {
+    // A steel wall planned for a hero carrying nothing.
+    const poor = worldFrom(hall(1));
+    poor.step([command(building, 'placePlan', { cell: inside(0), placement: steelWall })]);
+    const aim = aimAt(poor, 0, heroOn(2, 1), centre(1, 1));
+    expect(aim?.work).toEqual({ plan: 1, problem: 'items.notEnough' });
   });
 
-  it('works a plan the hero can pay for before an older one it cannot', () => {
+  it('works a plan it can before an older one it cannot, and passes over those served', () => {
     // Nine wide. A tank is planned over a pipe, and the pipe is marked: two plans in cell 15.
-    // Below the tank's rows, enough steel walls are begun to leave too little steel for it.
-    const walls = Math.floor((STORE.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
-    const tight = withStore(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
-    for (let i = 0; i < walls; i++) {
-      tight.step([command(building, 'placePlan', { cell: 18 + inside(i), placement: steelWall })]);
-    }
-    for (let id = 1; id <= walls; id++) tight.step([command(building, 'work', { plan: id })]);
+    const tight = worldFrom(`#########
+#.....-.#
+#.......#
+#########`);
     tight.step([
       command(building, 'placePlan', { cell: 15, placement: { layer: 'machine', kind: 'tank' } }),
       command(building, 'deconstruct', { cell: 15, layer: 'conduit' }),
     ]);
     const q = tight.query(building);
     expect(q.plansAt(15).map((p) => [p.id, q.workProblem(p.id, 0)])).toEqual([
-      [walls + 1, 'items.notEnough'],
-      [walls + 2, undefined],
+      [1, 'items.notEnough'],
+      [2, undefined],
     ]);
-    const aim = aimAt(tight, 0, heroOn(5, 1), centre(6, 1));
-    expect(aim?.work).toEqual({ plan: walls + 2, problem: undefined });
+    const hero = heroOn(5, 1);
+    expect(aimAt(tight, 0, hero, centre(6, 1))?.work).toEqual({ plan: 2, problem: undefined });
+    // Served in this hold of E already: the sweep goes on to the other plan.
+    const next = aimAt(tight, 0, hero, centre(6, 1), new Set(), new Set([2]));
+    expect(next?.work).toEqual({ plan: 1, problem: 'items.notEnough' });
   });
 
   it('aims at nothing off the grid', () => {
@@ -272,14 +263,10 @@ describe('a crate under the pointer', () => {
     const near = heroOn(2, row - 1);
     const aim = aimAt(room, 0, near, centre(1, row));
     expect(aim).toEqual({ cell: crate.cell + 1, inReach: true, crate: crate.id });
-    expect(usesOf(aim, { pressed: true, held: true }, 3, -1)).toEqual({
-      commands: [],
-      open: crate.id,
-      workedOnTick: -1,
-    });
-    expect(usesOf(aim, { pressed: false, held: true }, 3, -1).open).toBeUndefined();
+    expect(usesOf(aim, { pressed: true, held: true })).toEqual({ commands: [], open: crate.id });
+    expect(usesOf(aim, { pressed: false, held: true }).open).toBeUndefined();
     const far = aimAt(room, 0, heroOn(8, row - 7), centre(1, row));
-    expect(usesOf(far, { pressed: true, held: true }, 3, -1).open).toBeUndefined();
+    expect(usesOf(far, { pressed: true, held: true }).open).toBeUndefined();
   });
 
   it('stays in reach while any cell of it is, and not once it is taken apart', () => {
@@ -311,7 +298,7 @@ describe('a piece of debris under the pointer', () => {
     const aim = aimAt(space, 0, heroOn(x - 2, y), centre(x, y));
     expect(aim?.press).toEqual({ command: grab, problem: undefined });
     expect(aim?.piece).toBe(piece.id);
-    expect(usesOf(aim, { pressed: true, held: true }, 3, -1).commands).toEqual([grab]);
+    expect(usesOf(aim, { pressed: true, held: true }).commands).toEqual([grab]);
     // Grabbed, its grab in flight: the aim passes over it, so E cannot send it twice.
     const passed = aimAt(space, 0, heroOn(x - 2, y), centre(x, y), new Set([piece.id]));
     expect([passed?.piece, passed?.press]).toEqual([undefined, undefined]);
@@ -356,49 +343,28 @@ describe('what E sends', () => {
   const hold = { pressed: false, held: true };
 
   it('toggles a door once on a press, and nothing while E stays held', () => {
-    expect(usesOf(onDoor, press, 10, -1).commands).toEqual([door]);
-    expect(usesOf(onDoor, hold, 11, -1).commands).toEqual([]);
+    expect(usesOf(onDoor, press).commands).toEqual([door]);
+    expect(usesOf(onDoor, hold).commands).toEqual([]);
   });
 
-  it('sends one work for every tick released while E is held on a plan', () => {
-    let worked = -1;
-    const sent: unknown[] = [];
-    for (const tick of [5, 5, 6, 6, 8]) {
-      const uses = usesOf(onPlan, hold, tick, worked);
-      worked = uses.workedOnTick;
-      sent.push(uses.commands.length);
-    }
-    // One when the hold begins, none until the next tick, then one per tick, two after a skip.
-    expect(sent).toEqual([1, 0, 1, 0, 2]);
-  });
-
-  it('catches up after a stall, a few ticks at most', () => {
-    expect(usesOf(onPlan, hold, 100, 10).commands).toHaveLength(5);
-  });
-
-  it('starts afresh when a load takes the tick back', () => {
-    expect(usesOf(onPlan, hold, 3, 50)).toEqual({ commands: [work], workedOnTick: 3 });
+  it('sends one work for a plan while E is held, naming the plan it served', () => {
+    expect(usesOf(onPlan, hold)).toEqual({ commands: [work], served: 7 });
+    expect(usesOf(onPlan, press)).toEqual({ commands: [work], served: 7 });
   });
 
   it('sends nothing out of reach, for a plan the sim would refuse, or with E up', () => {
-    expect(usesOf({ ...onPlan, inReach: false }, press, 5, 4)).toEqual({
-      commands: [],
-      workedOnTick: -1,
-    });
+    expect(usesOf({ ...onPlan, inReach: false }, press)).toEqual({ commands: [] });
     const refused: Aim = { ...onPlan, work: { plan: 7, problem: 'items.notEnough' } };
-    expect(usesOf(refused, hold, 5, -1).commands).toEqual([]);
-    expect(usesOf(onPlan, { pressed: false, held: false }, 5, 4)).toEqual({
-      commands: [],
-      workedOnTick: -1,
-    });
+    expect(usesOf(refused, hold)).toEqual({ commands: [] });
+    expect(usesOf(onPlan, { pressed: false, held: false })).toEqual({ commands: [] });
   });
 
   it('presses nothing the sim would refuse', () => {
     const full: Aim = { ...onDoor, press: { command: door, problem: 'atmosphere.tankFull' } };
-    expect(usesOf(full, press, 5, -1).commands).toEqual([]);
+    expect(usesOf(full, press).commands).toEqual([]);
   });
 
   it('works a plan in a door cell on a press, rather than toggling the door', () => {
-    expect(usesOf({ ...onPlan, cell: 3 }, press, 5, -1).commands).toEqual([work]);
+    expect(usesOf({ ...onPlan, cell: 3 }, press).commands).toEqual([work]);
   });
 });

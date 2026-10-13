@@ -109,7 +109,8 @@ export const crewFeature: Feature = {
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
     let hero: { previous: Hero; current: Hero } | undefined;
-    let workedOnTick = -1;
+    /** The plans E has served in this hold: a sweep serves each it passes once. */
+    const served = new Set<number>();
     let steps = 0;
     let wasOut = false;
 
@@ -191,7 +192,9 @@ export const crewFeature: Feature = {
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
         popups.update(elapsedMs, x, y);
-        const aim = pointer && aimAt(sim, game.client.id, current, pointer, grabbing(game.client));
+        if (!keys.holdsUse()) served.clear();
+        const aim =
+          pointer && aimAt(sim, game.client.id, current, pointer, grabbing(game.client), served);
         // With a build tool out the building layer shows the pointer's cell and its own reasons.
         const prompt = out || buildMode.get() ? undefined : promptOf(sim, aim, shown);
         drawAim(aimView, sim, prompt && aim, prompt?.problem !== undefined);
@@ -212,8 +215,8 @@ export const crewFeature: Feature = {
         const e = out
           ? { pressed: false, held: false }
           : { pressed: pressed || grab, held: keys.holdsUse() };
-        const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
-        workedOnTick = uses.workedOnTick;
+        const uses = usesOf(aim, e);
+        if (uses.served !== undefined) served.add(uses.served);
         for (const c of uses.commands) game.client.send(c);
         if (uses.open !== undefined) openCrate.set(uses.open);
         // A crate stays open while the hero can reach it, awake.

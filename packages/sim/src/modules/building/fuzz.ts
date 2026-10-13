@@ -24,8 +24,8 @@ const BUILT: readonly number[] = WRECK.flatMap((row, y) =>
 );
 
 /**
- * Draws every command, refused ones included: off the grid, on nothing, twice on one thing, work on
- * a plan that is gone or that the ship cannot pay for.
+ * Draws every command, refused ones included: off the grid, on nothing, twice on one thing, E on a
+ * plan that is gone or a blueprint the hero has nothing for.
  */
 export function fuzzBuilding(state: DeepReadonly<BuildingState>, rng: Rng) {
   const anywhere = () => rng.below(CELLS + 2) - 1;
@@ -55,16 +55,17 @@ export function fuzzBuilding(state: DeepReadonly<BuildingState>, rng: Rng) {
     case 2:
       return { type: 'cancelPlan', payload: { id: rng.below(state.nextPlanId + 2) } } as const;
     default: {
-      // Mostly on the oldest plan, so work piles up on one and plans complete within a run; often
-      // on one not begun, so payments drain inventories and their refusal is drawn too.
+      // Mostly on the oldest plan or a mark, so plans complete within a run: a blueprint only in
+      // creative mode, which the items fuzz switches on now and then, since no hero carries anything
+      // there; otherwise its `items.notEnough` is drawn.
       const oldest = state.plans[0];
-      const unbegun = state.plans.filter((p) => p.progress === 0);
+      const marks = state.plans.filter((p) => 'clear' in p);
       const pick = rng.below(8);
       const plan =
-        oldest && pick < 5
+        oldest && pick < 4
           ? oldest.id
-          : unbegun.length > 0 && pick < 7
-            ? (unbegun[rng.below(unbegun.length)]?.id ?? 0)
+          : marks.length > 0 && pick < 7
+            ? (marks[rng.below(marks.length)]?.id ?? 0)
             : rng.below(state.nextPlanId + 2);
       return { type: 'work', payload: { plan } } as const;
     }
