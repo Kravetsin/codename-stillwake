@@ -11,6 +11,7 @@ import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { createFigure, lookOf, type Figure } from './figure';
 import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship } from './hero';
+import { clipOf, drawTether } from './tether';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes, type SentHero } from './remote';
 import { poseOf } from './pose';
@@ -103,9 +104,11 @@ export const crewFeature: Feature = {
     let sendTo: { sendHero(state: unknown): void } | undefined;
     const sender = createHeroSender((hero) => sendTo?.sendHero(hero));
     const aimView = new Graphics();
+    // Every hero's tether, behind the heroes: unlit, a line to find the way back by in the dark.
+    const tethers = new Graphics();
     const view = new Container();
     const popups = createPickUpPopups();
-    view.addChild(aimView, others, ownView, popups.view);
+    view.addChild(aimView, tethers, others, ownView, popups.view);
     // Heroes are lit where they stand.
     for (const figures of [others, ownView]) lit(figures);
 
@@ -178,6 +181,7 @@ export const crewFeature: Feature = {
         for (const { from, state } of game.client.takeHeroes())
           remote.add(from, state as SentHero, clockMs);
         const heard = remote.at(clockMs);
+        tethers.clear();
         for (const [id, shown] of shownOthers) {
           shown.figure.view.visible = heard.some((h) => h.id === id);
         }
@@ -187,6 +191,7 @@ export const crewFeature: Feature = {
           shown.figure.view.visible = true;
           const otherOut = (sim.query(crew).hero(id)?.out ?? 0) > 0;
           show(shown.figure, other, ship, otherOut, elapsedMs);
+          if (other.anchor) drawTether(tethers, other.anchor, clipOf(other));
         }
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
@@ -199,6 +204,7 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
+        if (current.anchor) drawTether(tethers, current.anchor, clipOf({ x, y }));
         popups.update(elapsedMs, x, y);
         if (!keys.holdsLeft()) served.clear();
         const aim =

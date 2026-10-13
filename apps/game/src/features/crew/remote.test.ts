@@ -61,6 +61,14 @@ describe("others' heroes", () => {
     expect(heroes.at(2000 + BEHIND_MS - SEND_MS / 2)[0]?.hero.x).toBe(250);
   });
 
+  it('keep their tethers tied where they were, between samples too', () => {
+    const heroes = createRemoteHeroes();
+    const anchor = { x: 9000, y: 4000 };
+    heroes.add(2, { ...hero(0), anchor }, 1000);
+    heroes.add(2, { ...hero(1000), anchor }, 1050);
+    expect(heroes.at(1000 + BEHIND_MS + 25)[0]?.hero.anchor).toEqual(anchor);
+  });
+
   it('turn their heads between samples too', () => {
     const heroes = createRemoteHeroes();
     heroes.add(2, { ...hero(0), look: 0 }, 1000);
@@ -175,6 +183,17 @@ describe('sending the hero', () => {
     sender.step(SEND_MS, { ...hero(5), holds: 'plan' }, 0);
     sender.step(SEND_MS, hero(5), 0);
     expect(sent.map((h) => h.holds)).toEqual([undefined, 'plan', undefined]);
+  });
+
+  it('sends a hero standing still when its tether is tied or let go', () => {
+    const sent: Hero[] = [];
+    const sender = createHeroSender((h) => sent.push(h));
+    const anchor = { x: 500, y: 500 };
+    sender.step(SEND_MS, hero(5), 0);
+    sender.step(SEND_MS, { ...hero(5), anchor }, 0);
+    sender.step(SEND_MS, { ...hero(5), anchor: { ...anchor } }, 0);
+    sender.step(SEND_MS, hero(5), 0);
+    expect(sent.map((h) => h.anchor)).toEqual([undefined, anchor, undefined]);
   });
 
   it('sends a hero standing still only on the beat', () => {

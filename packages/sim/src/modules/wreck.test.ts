@@ -1,4 +1,4 @@
-import { CREW, ITEMS } from '@stillwake/content';
+import { CREW, HERO, ITEMS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { cellsOf } from '../core/layout';
 import { defineSim } from '../core/sim';
@@ -49,6 +49,8 @@ describe('the starting wreck', () => {
       wreck.height - 1 - Math.max(...ys),
     );
     expect(margin).toBeGreaterThanOrEqual(16);
+    // A hero on a tether from the hull, half a cell in, stays clear of the edge, all of its box.
+    expect((margin - 0.5) * 1000).toBeGreaterThan(HERO.tether + HERO.height / 2);
   });
 
   it('holds a panel cabled to a lamp, a generator and a furnace, a vent, an empty crate, three doorways', () => {

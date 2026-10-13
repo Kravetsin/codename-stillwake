@@ -143,6 +143,9 @@ export function createHeroSender(send: (hero: SentHero) => void) {
         (['x', 'y', 'vx', 'vy', 'facing', 'climbing', 'holds'] as const).some(
           (k) => sent?.[k] !== hero[k],
         ) ||
+        // A tether tied or let go is news even to a hero standing still.
+        sent.anchor?.x !== hero.anchor?.x ||
+        sent.anchor?.y !== hero.anchor?.y ||
         Math.abs((sent.look ?? 0) - (hero.look ?? 0)) > LOOK_STEP;
       if (!moved && sinceSent < BEAT_MS) return;
       send({ ...hero, at });

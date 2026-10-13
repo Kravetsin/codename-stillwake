@@ -41,6 +41,17 @@ export interface Hero {
   readonly look?: number;
   /** What the hands hold, the plan or nothing: only drawn, and sent like `look`. */
   readonly holds?: 'plan';
+  /**
+   * Out in space, where the tether is fixed: the middle of the last cell not in space the body left
+   * (0007). None aboard. Sent with the hero, so every peer draws every tether.
+   */
+  readonly anchor?: Point;
+}
+
+/** A point in thousandths of a cell. */
+export interface Point {
+  readonly x: number;
+  readonly y: number;
 }
 
 /**
@@ -77,9 +88,58 @@ export function bodyCell(hero: Hero, width: number): number {
 /**
  * One controller step. Walls, closed doors and the grid's edges block; floors and the tops of
  * ladders hold the hero up but let them through from below; ladders are climbed while held. With
- * the body in space there is no gravity: the hero swims where the keys point and stops with them.
+ * the body in space there is no gravity: the hero swims where the keys point and stops with them,
+ * on a tether that keeps the body's middle within `HERO.tether` of where it left the ship.
  */
 export function stepHero(hero: Hero, input: Input, ship: Ship): Hero {
+  return tethered(hero, move(hero, input, ship), ship);
+}
+
+/** The middle of the hero's body. */
+export function middleOf(hero: Hero): Point {
+  return { x: hero.x, y: hero.y - HERO.height / 2 };
+}
+
+/**
+ * `after`, a step from `before`, on its tether: anchored as the body leaves the ship, cleared as it
+ * comes aboard, and a move that would take the body's middle past the tether's length cut back to
+ * the limit, toward where it was going, so the hero slides along it. A step's own move carries no
+ * anchor: it is set here or not at all.
+ */
+function tethered(before: Hero, after: Hero, ship: Ship): Hero {
+  const cell = bodyCell(after, ship.width);
+  if (!ship.space(cell)) return after;
+  const left = bodyCell(before, ship.width);
+  const anchor =
+    before.anchor ??
+    (ship.space(left)
+      ? undefined
+      : {
+          x: (left % ship.width) * UNIT + UNIT / 2,
+          y: Math.floor(left / ship.width) * UNIT + UNIT / 2,
+        });
+  if (!anchor) return after;
+  const within = (x: number, y: number) =>
+    Math.hypot(x - anchor.x, y - HERO.height / 2 - anchor.y) <= HERO.tether;
+  if (within(after.x, after.y)) return { ...after, anchor };
+  // To the limit, the way the body was going; walls still stop it, and where a wall leaves it
+  // past the limit, only the part across or the part up or down, or no move at all.
+  const middle = middleOf(after);
+  const far = Math.hypot(middle.x - anchor.x, middle.y - anchor.y);
+  const from = middleOf(before);
+  const byX = anchor.x + Math.trunc(((middle.x - anchor.x) * HERO.tether) / far) - from.x;
+  const byY = anchor.y + Math.trunc(((middle.y - anchor.y) * HERO.tether) / far) - from.y;
+  const x = moveX(ship, before.x, before.y, byX);
+  const tries = [
+    { x, y: moveY(ship, x, before.y, byY, false) },
+    { x, y: before.y },
+    { x: before.x, y: moveY(ship, before.x, before.y, byY, false) },
+  ];
+  const to = tries.find((t) => within(t.x, t.y)) ?? before;
+  return { ...after, x: to.x, y: to.y, vx: to.x - before.x, vy: to.y - before.y, anchor };
+}
+
+function move(hero: Hero, input: Input, ship: Ship): Hero {
   const facing = input.face ?? (input.x === 0 ? hero.facing : input.x);
   if (ship.space(bodyCell(hero, ship.width))) return swim(ship, hero.x, hero.y, input, facing);
   const grab =

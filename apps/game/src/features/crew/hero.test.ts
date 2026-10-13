@@ -2,7 +2,17 @@ import { HERO } from '@stillwake/content';
 import { cellsOf, parseLayout, stillwake, STRUCTURE, wreck } from '@stillwake/sim';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { heroAt, shipOf, stepHero, UNIT, type Hero, type Input, type Ship } from './hero';
+import {
+  bodyCell,
+  heroAt,
+  middleOf,
+  shipOf,
+  stepHero,
+  UNIT,
+  type Hero,
+  type Input,
+  type Ship,
+} from './hero';
 
 const HALF = HERO.width / 2;
 
@@ -487,13 +497,15 @@ describe('hero controller', () => {
     if (spawn === undefined) throw new Error('the wreck has no S');
     const { width, height } = opened;
 
-    it('floats out through the airlock, swims four ways to the edges, and falls once back in', () => {
-      // Out through the airlock: past the outer doorway nothing pulls the hero down.
-      let h = settle(opened, heroAt(opened, spawn), right);
-      expect(h.x).toBe(width * UNIT - HALF);
-      expect(h.y).toBe(23 * UNIT);
+    /** A hero in open space far from the hull, put there rather than swum: on no tether. */
+    const adrift = heroAt(opened, 40 * width + 120);
+    /** How far the body's middle is from where its tether is fixed. */
+    const reachOf = (h: Hero) =>
+      h.anchor ? Math.hypot(middleOf(h).x - h.anchor.x, middleOf(h).y - h.anchor.y) : 0;
 
-      // Each way at the swimming speed, and stopped by the grid's edge like a wall.
+    it("swims four ways at its speed, on no tether, stopped by the grid's edge like a wall", () => {
+      let h = adrift;
+      expect(h.anchor).toBeUndefined();
       expect(stepHero(h, down, opened).y).toBe(h.y + HERO.swim);
       h = settle(opened, h, down);
       expect(h.y).toBe(height * UNIT);
@@ -502,28 +514,76 @@ describe('hero controller', () => {
       expect(stepHero(h, left, opened).x).toBe(h.x - HERO.swim);
       h = settle(opened, h, left);
       expect(h.x).toBe(HALF);
+      h = settle(opened, h, right);
+      expect(h.x).toBe(width * UNIT - HALF);
+      expect(h.anchor).toBeUndefined();
+    });
 
-      // Back in level with the doorway: inside the airlock gravity takes the hero to its floor.
-      h = { ...h, x: width * UNIT - HALF, y: 23 * UNIT };
-      h = stepHero(stepHero(h, up, opened), up, opened);
-      expect(h.y).toBe(23 * UNIT - 2 * HERO.swim);
+    it('floats out through the airlock on a tether tied where the body left it, and falls once back in', () => {
+      let h = heroAt(opened, spawn);
+      let aboard = bodyCell(h, width);
+      while (opened.space(aboard) || !opened.space(bodyCell(h, width))) {
+        aboard = bodyCell(h, width);
+        h = stepHero(h, right, opened);
+      }
+      // Past the outer doorway nothing pulls the hero down, and the tether is tied in the doorway.
+      expect(h.y).toBe(23 * UNIT);
+      expect(h.anchor).toEqual({
+        x: (aboard % width) * UNIT + UNIT / 2,
+        y: Math.floor(aboard / width) * UNIT + UNIT / 2,
+      });
+      // Back in: aboard, the tether is let go and gravity takes the hero to the airlock's floor.
       h = until(opened, h, left, (x) => column(x) === 56);
+      expect(h.anchor).toBeUndefined();
       h = settle(opened, h, still);
       expect(h.y).toBe(23 * UNIT);
       expect(h.vy).toBe(0);
     });
 
+    it('keeps the body within the tether, sliding along its limit, never through a wall', () => {
+      const out = until(opened, heroAt(opened, spawn), right, (h) => h.anchor !== undefined);
+      // Straight out until taut: stopped at the tether's length, level with where it is tied.
+      const taut = settle(opened, out, right);
+      expect(reachOf(taut)).toBeLessThanOrEqual(HERO.tether);
+      expect(reachOf(taut)).toBeGreaterThan(HERO.tether - HERO.swim);
+      // Pushing on out and up, the hero slides up along the limit rather than stopping.
+      const slid = stepHero(taut, { x: 1, y: -1, jump: false }, opened);
+      expect(slid.y).toBeLessThan(taut.y);
+      expect(reachOf(slid)).toBeLessThanOrEqual(HERO.tether);
+      const input = fc.record({
+        x: fc.constantFrom(-1 as const, 0 as const, 1 as const),
+        y: fc.constantFrom(-1 as const, 0 as const, 1 as const),
+        jump: fc.boolean(),
+      });
+      fc.assert(
+        fc.property(
+          fc.array(fc.tuple(input, fc.integer({ min: 1, max: 200 })), { maxLength: 30 }),
+          (moves) => {
+            let h = out;
+            for (const [keys, steps] of moves) {
+              for (let i = 0; i < steps; i++) {
+                h = stepHero(h, keys, opened);
+                expect(reachOf(h)).toBeLessThanOrEqual(HERO.tether);
+              }
+            }
+          },
+        ),
+        { numRuns: 60 },
+      );
+    });
+
     it('stops with the keys and stays put with nothing pressed, passed out too', () => {
-      const out = settle(opened, heroAt(opened, spawn), right);
+      const out = adrift;
       const moved = stepHero(out, { x: 1, y: -1, jump: false }, opened);
-      expect([moved.x, moved.y]).toEqual([out.x, out.y - HERO.swim]);
+      expect([moved.x, moved.y]).toEqual([out.x + HERO.swim, out.y - HERO.swim]);
       const away = stepHero(stepHero(out, { x: -1, y: -1, jump: true }, opened), still, opened);
       expect([away.x, away.y]).toEqual([out.x - HERO.swim, out.y - HERO.swim]);
       expect(stepHero(away, still, opened)).toEqual({ ...away, vx: 0, vy: 0 });
     });
 
-    it('wakes in the ship under gravity again', () => {
+    it('wakes in the ship under gravity again, on no tether', () => {
       const woke = heroAt(opened, spawn);
+      expect(woke.anchor).toBeUndefined();
       expect(stepHero(woke, up, opened).y).toBe(woke.y);
       expect(stepHero({ ...woke, y: woke.y - UNIT }, still, opened).vy).toBe(HERO.gravity);
     });
