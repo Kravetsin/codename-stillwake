@@ -1,14 +1,15 @@
 import { MACHINES, type MachineSpec } from '@stillwake/content';
-import { grid, power, rooms, type PowerNetwork, type Sim } from '@stillwake/sim';
-import { Container, Graphics } from 'pixi.js';
+import { grid, power, type PowerNetwork, type Sim } from '@stillwake/sim';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { t } from '../../i18n/en';
-import { middleOf, shapeOf, type Point } from '../../render/cable';
+import { middleOf } from '../../render/cable';
 import { CELL } from '../../render/camera';
 import { traceRope } from '../../render/rope';
 import { heroBodies, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
-import { createCableRopes } from './ropes';
+import { unpluggedTexture } from './art';
+import { createCableRopes, type CableRopes } from './ropes';
 
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
 const CABLE = 0x7c8794;
@@ -17,19 +18,17 @@ const CABLE_WIDTH = 1.25;
 const FED = 0x7fe08a;
 const SHORT = 0xf0b44c;
 const DARK = 0xe05555;
-/** A machine making or drawing power with no cable to it. */
+/** A cable on no network: none is, but a cable is drawn by its first node's. */
 const LOOSE = 0x9aa3ad;
-const OVERLAY_WIDTH = 2.5;
+/** What the overlay lays over the ship, so the cables stand out from it. */
+const DIM = { color: 0x05080d, alpha: 0.45 };
 const REFRESH_MS = 250;
 
 const stateColour = (n: PowerNetwork | undefined) =>
   !n ? LOOSE : n.satisfaction >= 1000 ? FED : n.satisfaction > 0 ? SHORT : DARK;
 
-function strokeCable(g: Graphics, points: readonly Point[]) {
-  points.forEach((p, i) =>
-    i === 0 ? g.moveTo(p.x * CELL, p.y * CELL) : g.lineTo(p.x * CELL, p.y * CELL),
-  );
-}
+/** The cables as ropes, shared by the layer that draws them and the overlay that colours them. */
+let ropes: CableRopes | undefined;
 
 /** Calls `draw` again only when the world has run a tick since, at most every `REFRESH_MS`. */
 function everyTick(draw: (sim: Sim) => void) {
@@ -52,47 +51,55 @@ function everyTick(draw: (sim: Sim) => void) {
 function cables(): Layer {
   const lines = new Graphics();
   lit(lines);
-  const ropes = createCableRopes();
-  const sync = everyTick((sim) => ropes.sync(sim));
+  const own = createCableRopes();
+  ropes = own;
+  const sync = everyTick((sim) => own.sync(sim));
   return {
     view: new Container(),
     behind: lines,
     update: ({ game, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
-      ropes.update(elapsedMs, heroBodies.get());
+      own.update(elapsedMs, heroBodies.get());
       lines.clear();
-      for (const { points } of ropes.lines()) traceRope(lines, points, CELL);
+      for (const { points } of own.lines()) traceRope(lines, points, CELL);
       lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
     },
   };
 }
 
 /**
- * Power brought in front of the ship: every cable coloured by how its network stands, every node
- * and anchor ringed the same, a machine on no network in grey; beside the pointer on a node, what
- * its network makes against what it would draw.
+ * Power brought out of the ship: the ship dimmed, and every cable over it in its network's state,
+ * the very ropes the cables hang as, glowing, a dot where each is plugged in; a plug hanging loose
+ * over each machine that makes or draws power with no cable to it. Beside the pointer on a node,
+ * what its network makes against what it would draw.
  */
 function powerOverlay(): Layer {
-  const view = new Graphics();
+  const view = new Container();
+  const dim = new Graphics();
+  const lines = new Graphics();
+  const plugs = new Container();
+  view.addChild(dim, lines, plugs);
+  let byNode = new Map<number, PowerNetwork>();
   const redraw = everyTick((sim) => {
-    const q = { grid: sim.query(grid), rooms: sim.query(rooms) };
+    const q = sim.query(grid);
     const wires = sim.query(power);
-    view.clear();
-    const byNode = new Map<number, PowerNetwork>();
+    byNode = new Map();
     for (const n of wires.networks()) for (const node of n.nodes) byNode.set(node, n);
-    for (const c of wires.cables()) {
-      strokeCable(view, shapeOf(q, c.a, c.b));
-      view.stroke({ width: OVERLAY_WIDTH, color: stateColour(byNode.get(c.a)), cap: 'round' });
-    }
-    const ring = (node: number, colour: number) => {
-      const m = middleOf(q.grid, node);
-      view.circle(m.x * CELL, m.y * CELL, CELL * 0.3).stroke({ width: 2, color: colour });
-    };
-    for (const [node, n] of byNode) ring(node, stateColour(n));
-    for (const m of q.grid.machines()) {
+    const { width, height } = q.size();
+    dim
+      .clear()
+      .rect(0, 0, width * CELL, height * CELL)
+      .fill(DIM);
+    for (const plug of plugs.removeChildren()) plug.destroy();
+    for (const m of q.machines()) {
       const spec: MachineSpec = MACHINES[m.kind];
       const powered = spec.makes !== undefined || spec.draws !== undefined;
-      if (powered && !byNode.has(m.cell)) ring(m.cell, LOOSE);
+      if (!powered || byNode.has(m.cell)) continue;
+      const plug = new Sprite(unpluggedTexture());
+      const at = middleOf(q, m.cell);
+      plug.anchor.set(0.5);
+      plug.position.set(at.x * CELL, at.y * CELL);
+      plugs.addChild(plug);
     }
   });
   return {
@@ -100,6 +107,17 @@ function powerOverlay(): Layer {
     update({ game, camera, elapsedMs }) {
       const { sim } = game.client;
       redraw(sim, elapsedMs);
+      lines.clear();
+      for (const { a, b, points } of ropes?.lines() ?? []) {
+        const colour = stateColour(byNode.get(a) ?? byNode.get(b));
+        traceRope(lines, points, CELL);
+        lines.stroke({ width: 3, color: colour, alpha: 0.25, cap: 'round', join: 'round' });
+        traceRope(lines, points, CELL);
+        lines.stroke({ width: 1.25, color: colour, cap: 'round', join: 'round' });
+        for (const end of [points[0], points[points.length - 1]]) {
+          if (end) lines.circle(end.x * CELL, end.y * CELL, 1.5).fill(colour);
+        }
+      }
       const pointer = camera.pointer();
       const { width, height } = sim.query(grid).size();
       const x = pointer ? Math.floor(pointer.x) : -1;
@@ -107,12 +125,12 @@ function powerOverlay(): Layer {
       const onGrid = x >= 0 && y >= 0 && x < width && y < height;
       const node = onGrid ? sim.query(power).nodeAt(y * width + x) : undefined;
       const network = node === undefined ? undefined : sim.query(power).networkOf(node);
-      const lines = network
+      const said = network
         ? [t('power.supply', { supply: network.supply, demand: network.demand })]
         : [];
       // Told only when it changes, as the air overlay does: the tip is React's.
-      if (lines.join('\n') !== (pointerTip.get().world ?? []).join('\n')) {
-        pointerTip.set({ ...pointerTip.get(), world: lines.length > 0 ? lines : undefined });
+      if (said.join('\n') !== (pointerTip.get().world ?? []).join('\n')) {
+        pointerTip.set({ ...pointerTip.get(), world: said.length > 0 ? said : undefined });
       }
     },
   };
