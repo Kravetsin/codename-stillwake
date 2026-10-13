@@ -40,7 +40,8 @@ const MOST_STEPS = 4;
 /** A step: the rope moves at 60 steps a second, whatever the frame rate. */
 export const ROPE_STEP_MS = 1000 / 60;
 
-interface Knot {
+/** A point of a rope, and where it was a step before. */
+export interface Knot {
   x: number;
   y: number;
   /** Where it was the step before: its speed, as a Verlet rope keeps it. */
@@ -52,7 +53,8 @@ interface Knot {
  * A rope between two ends: points carried on by their speed, pulled by gravity and nudged by a
  * slow drift, its links held to their length and its ends pinned; brushed along by bodies moving
  * through it.
- * It starts through `start` if given, else straight from `from` to `to`, and falls from there.
+ * It starts through `start` if given, moving on as its points were (`px`, `py`: where each was a
+ * step before), else straight from `from` to `to`, and falls from there.
  * Drawn only, never simulated: every peer moves its own.
  */
 export function createRope(
@@ -60,13 +62,14 @@ export function createRope(
   from: Point,
   to: Point,
   seed = 0,
-  start?: readonly Point[],
+  start?: readonly (Point & { readonly px?: number; readonly py?: number })[],
 ) {
   const { links } = style;
   const knots: Knot[] = Array.from({ length: links + 1 }, (_, i) => {
     const t = i / links;
     const at = start?.[i] ?? { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-    return { x: at.x, y: at.y, px: at.x, py: at.y };
+    const was = start?.[i];
+    return { x: at.x, y: at.y, px: was?.px ?? at.x, py: was?.py ?? at.y };
   });
   // Neighbours drift nearly alike, a wave along the rope: it bends in long curves, never kinks.
   const phases = knots.map((_, i) => seed * 1.7 + i * style.wave);
@@ -147,7 +150,7 @@ export function createRope(
       if (steps === MOST_STEPS) owed = 0;
       pin(a, b);
     },
-    points: (): readonly Point[] => knots,
+    points: (): readonly Readonly<Knot>[] => knots,
   };
 }
 

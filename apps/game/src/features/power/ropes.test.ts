@@ -126,8 +126,11 @@ describe('cables as drawn', () => {
     ropes.land(10 + 8, { node: 20 + 8, at: lamp });
     run(ropes, 1);
     expect(pointsOf(ropes).at(-1)).toMatchObject(lamp);
-    // The world has it there: it starts in its hang.
+    // The world has it there: it goes on as the same rope, not a jump to another shape, and hangs.
+    const carried = pointsOf(ropes).map(({ x, y }) => ({ x, y }));
     ropes.sync(sim);
+    expect(pointsOf(ropes).map(({ x, y }) => ({ x, y }))).toEqual(carried);
+    run(ropes, 10);
     expect(offRest(ropes)).toBeLessThan(0.15);
   });
 

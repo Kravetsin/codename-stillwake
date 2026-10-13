@@ -69,28 +69,56 @@ export function createCableRopes() {
   let held: Held | undefined;
   /** An end let go on `node`, kept where it was let go until the world has the cable there. */
   let landing: { node: number; end: Held; ms: number } | undefined;
+  /**
+   * The points of the one-piece cable `c` was carried from, from its node `a` to `b`: the cable
+   * between its other end and the node the hand took it from, its rope's points, moving as they
+   * were, turned to run as `c` does. Nothing when that cable is not one rope.
+   */
+  const carriedPoints = (
+    c: { readonly a: number; readonly b: number },
+    to: { readonly node: number; readonly end: Held },
+  ): (Point & { px: number; py: number })[] | undefined => {
+    const other = c.a === to.node ? c.b : c.a;
+    const was = to.end.node;
+    const old = cables.get(`${other}:${was}`) ?? cables.get(`${was}:${other}`);
+    const rope = old?.stretches.length === 1 ? old.stretches[0]?.rope : undefined;
+    if (!rope) return undefined;
+    // Where each point is and was a step before, so it swings on as it did.
+    const points = rope.points().map(({ x, y, px, py }) => ({ x, y, px, py }));
+    // The old rope ran from its own `a`; the new one runs from `c.a`.
+    const fromOther = cables.has(`${other}:${was}`);
+    return fromOther === (c.a === other) ? points : points.reverse();
+  };
   return {
     /** Takes the cables as the world has them now: new ones in, gone ones out. */
     sync(sim: Sim) {
       const q = { grid: sim.query(grid), rooms: sim.query(rooms) };
       const seen = new Set<string>();
+      let landed = false;
       for (const c of sim.query(power).cables()) {
         const key = `${c.a}:${c.b}`;
         seen.add(key);
         const { pieces, feeds } = piecesOf(q, c.a, c.b);
         const shape = JSON.stringify(pieces);
         if (cables.get(key)?.shape === shape) continue;
-        const landed = landing !== undefined && (c.a === landing.node || c.b === landing.node);
-        if (landed) landing = undefined;
+        const lands = landing !== undefined && (c.a === landing.node || c.b === landing.node);
+        landed ||= lands;
+        // A cable carried here goes on as the very rope that was carried, from where it hangs now.
+        const carried = lands && landing ? carriedPoints(c, landing) : undefined;
         const stretches = pieces.map((piece, i) => {
           const style = piece.hangs ? HANGING : FLOATING;
           const rest =
-            started && !landed ? undefined : cablePoints(piece.from, piece.to, piece.hangs);
+            carried && pieces.length === 1
+              ? carried
+              : started && !lands
+                ? undefined
+                : cablePoints(piece.from, piece.to, piece.hangs);
           const rope = createRope(style, piece.from, piece.to, c.a + c.b + i, rest);
           return { piece, rope };
         });
         cables.set(key, { stretches, feeds, shape });
       }
+      if (landed) landing = undefined;
       for (const key of cables.keys()) if (!seen.has(key)) cables.delete(key);
       started = true;
     },
