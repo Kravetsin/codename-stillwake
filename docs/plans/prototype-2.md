@@ -418,6 +418,55 @@ wheel, L turned off), the filter by overlay, the pipette's card for a cell, and 
 overlay; e2e: B opens the menu, a thumbnail picks a card, the right button drags a removal, the
 middle button picks a wall's card; P2-14's e2e moved off the right button.
 
+**P2-20 · Items in pixel art** · S · client render, items · after P2-19
+Every item drawn as a 16×16 ASCII picture like the machines (`render/item-art.ts`), shown in the
+inventory, the hotbar, cost rows and on the floor; the SVG icons and their credits go. Each later
+task draws its own new items.
+Done when: a test that every item has a picture of the right size and only known colours; the `?art`
+gallery shows them.
+
+**P2-21 · Cargo crates** · S · sim `debris`, `items`, content, client · after P2-20, ADR 0023
+Debris that opens when caught: an item with `loot` (`{ item, min, max, oneIn? }` drawn in order by
+`ctx.rng` as the grab applies) goes into the inventory as its contents, through `giveOrDrop`. A cargo
+crate gives planks; a supply pod gives its canister and scrap. Costs take any item (`BuildCost` by
+`ItemId`); the crate costs planks and iron. The wreck's crate goes.
+Done when: scenarios for loot within its bounds, two grabs of one crate, a full inventory dropping
+loot; content tests; planks drawn.
+
+**P2-22 · The furnace burns fuel** · M · sim `furnace`, `items`, `atmosphere`, `power`, content,
+client · after P2-21, ADR 0023
+Input, fuel and three outputs; lit with smeltable salvage, fuel and air, burning a fuel's `burnTicks`
+down a tick a tick, breathing its room's air; out of air, out, the rest of the fuel lost. No power,
+no pipe; built from scrap chunks and hull plates; shift-click sends fuel to its slot. `power`: a
+machine with slots draws only while its first holds something. `atmosphere.draw`, `oxygenFor` and
+items' `oxygen` go. The wreck's furnace and its pipe go.
+Done when: scenarios — lights only with salvage, fuel and air; smelts in `smeltTicks`; burns down
+with nothing to smelt; breathes every `breathEvery`; goes out in vacuum, its fuel lost; full outputs
+wait; on the wreck, catch, build a furnace, smelt; `SAVE_FORMAT` bumped; the panel shows the flame
+and why it stands.
+
+**P2-23 · Knowledge and the analyzer** · L · sim `research` (new), `building`, `items`, `debris`,
+content, client · after P2-22, ADR 0024
+`research` keeps the known blueprints (sorted) and each analyzer's progress; a powered analyzer with
+something to teach in its slot learns it in `RESEARCH.ticks` scaled by satisfaction: a material its
+`UNLOCKS`, keeping it; a schematic the next of `SCHEMATICS`, used up; nothing new — `research.nothingNew`.
+`blueprintOf(placement)` names blueprints; `placePlan` refuses `building.unknown`; creative knows all;
+`Layout.known` sets a map's start, absent meaning all. Schematics drop from cargo crates and pods.
+Client: unknown cards and empty tabs hidden, the pipette skips them; the analyzer opened with E (slot,
+bar, why it stands); the new blueprints' pictures shown when the list grows. The wreck still knows
+everything.
+Done when: scenarios for learning a material and a schematic, nothing new, slower when short and
+stalled unpowered, `building.unknown`, creative; invariants: known only grows and holds real ids;
+`SAVE_FORMAT` bumped; an e2e analyses iron and sees the iron wall's card appear.
+
+**P2-24 · The torn wreck** · M · content, wreck tests, concept · after P2-23
+Room B torn half away, open to space, the analyzer surviving in it uncabled; the wreck knows the
+furnace, the analyzer, the crate, scrap walls and back walls; balance for the way in: closing B and
+cabling the analyzer through a peg.
+Done when: scenarios on the wreck — B is space, its analyzer unpowered; walls and back walls make it a
+room; cables power it; analysing scrap unlocks its list; one solo session from waking to the first
+unlock in about ten minutes; the concept updated.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says
