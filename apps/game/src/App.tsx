@@ -122,7 +122,13 @@ export function App() {
       app.ticker.add((ticker) => {
         time.frame();
         created.drawn(ticker.deltaMS);
-        const frame = { game: created, screen: app.screen, camera, elapsedMs: ticker.deltaMS };
+        const frame = {
+          game: created,
+          screen: app.screen,
+          camera,
+          elapsedMs: ticker.deltaMS,
+          renderer: app.renderer,
+        };
         for (const layer of layers) layer.update(frame);
         for (const { id, layer } of overlayLayers) {
           layer.view.visible = switched.active() === id;

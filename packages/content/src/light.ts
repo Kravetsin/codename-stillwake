@@ -1,14 +1,13 @@
 /**
- * Light, drawn only: a level per cell from 0, dark, to `full`. A lamp shines at `lamp` at full power
- * and less as it gets less; every open cell with no back wall, space included, at `star`. Light
- * loses `falloff` a cell it spreads, a diagonal step `diagonal`; walls and closed doors take it but
- * pass none on. With no light a cell is covered by `darkest` thousandths of black.
+ * Light, drawn only (ADR 0018). It is worked out over the screen and `margin` cells around it, at
+ * `perCell` pixels a cell; what gives off light shines at `emit` times its colour, a lamp in
+ * proportion to the power it gets. What is shown is 1 - e^-(light × `exposure`), over `ambient` everywhere so no corner is quite
+ * black.
  */
 export const LIGHT = {
-  full: 255,
-  star: 255,
-  lamp: 255,
-  falloff: 24,
-  diagonal: 34,
-  darkest: 880,
+  perCell: 8,
+  margin: 24,
+  emit: 64,
+  exposure: 1.8,
+  ambient: [0.1, 0.11, 0.14],
 } as const;

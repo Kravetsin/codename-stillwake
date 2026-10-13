@@ -302,11 +302,14 @@ change, uploaded as one texel per cell with linear filtering. Overlays, gauges a
 it. The wreck's room A gets a lamp on the panel's network.
 Done when: unit tests for blocking, starlight, dimming and the helmet; a lamp's draw counted; the
 reference world rebuilds its light in under 2 ms.
-Built without the helmet lamp, which comes later as equipment. Light is client-only (`light`
-feature, `LIGHT` in content): rebuilt when the structure, back walls or a lamp's level change,
-looked for ten times a second; a lit lamp also glows warm. The atmosphere's pulse and gauges, plans
-and particles are drawn over the dark. Measured: 1.2 ms with every cell of the reference world
-starlit, 0.8 ms with a lamp in every sixth cell.
+Built without the helmet lamp, which comes later as equipment. Then reworked after a look at it:
+light by cells was too plain, so light is now worked out by radiance cascades (ADR 0018) — it
+fills rooms round corners, machines and heroes cast soft shadows of their real shapes, a working
+furnace and glowing particles light what is around them — in the world over the screen and a
+margin, laid on by filters per layer.
+Done when, reworked: unit tests for the light's area and the mask's runs; the wreck seen lit in
+the running game, its dark rooms dark and no light through walls; the GPU's time on screen in
+development.
 
 **P2-12 · Blueprints and delivery** · M · sim `building`, `items`, content, client `crew`,
 `building` · after P2-10, asked for by both developers

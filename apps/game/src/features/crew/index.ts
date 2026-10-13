@@ -4,7 +4,8 @@ import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
-import { aimedPiece, buildMode, heroDrawnAt, heroSpot, openCrate } from '../../session/ui';
+import { lightAs, lighting } from '../../render/lighting';
+import { aimedPiece, buildMode, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -105,6 +106,11 @@ export const crewFeature: Feature = {
     const view = new Container();
     const popups = createPickUpPopups();
     view.addChild(aimView, others, ownView, popups.view);
+    // Heroes are lit where they stand, and cast shadows of their own shape.
+    for (const figures of [others, ownView]) {
+      lightAs(figures, 'things');
+      lighting.casting.add(figures);
+    }
 
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
@@ -196,7 +202,6 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
-        heroDrawnAt.set({ x: x / UNIT, y: y / UNIT });
         popups.update(elapsedMs, x, y);
         if (!keys.holdsLeft()) served.clear();
         const aim =
@@ -239,6 +244,8 @@ export const crewFeature: Feature = {
         openCrate.set(undefined);
         shownPrompt.set(undefined);
         aimedPiece.set(undefined);
+        lighting.casting.delete(others);
+        lighting.casting.delete(ownView);
       },
     };
   },

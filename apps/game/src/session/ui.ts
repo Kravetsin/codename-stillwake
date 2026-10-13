@@ -30,14 +30,6 @@ export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1
 );
 
 /**
- * Where this player's hero is drawn this frame, its feet in cells: what casts its shadow in the
- * light pass under trial (`?rc`). Set by `crew` every frame.
- */
-export const heroDrawnAt = createStore<{ readonly x: number; readonly y: number } | undefined>(
-  undefined,
-);
-
-/**
  * Which overlay is on, by its feature's id, or none: switched by its key (`overlays/switch`), and
  * by `building` while a tool that needs one is out.
  */

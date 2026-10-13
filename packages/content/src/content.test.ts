@@ -242,14 +242,13 @@ describe('crew', () => {
 });
 
 describe('light', () => {
-  it('is in whole levels within full, falling off faster on a diagonal, never quite black', () => {
-    for (const level of [LIGHT.star, LIGHT.lamp]) {
-      expect(Number.isSafeInteger(level) && level > 0 && level <= LIGHT.full).toBe(true);
+  it('is worked out at whole pixels a cell over a whole margin, and never leaves a corner black', () => {
+    expect(Number.isSafeInteger(LIGHT.perCell) && LIGHT.perCell >= 2).toBe(true);
+    expect(Number.isSafeInteger(LIGHT.margin) && LIGHT.margin >= 0).toBe(true);
+    for (const n of [LIGHT.emit, LIGHT.exposure]) expect(n).toBeGreaterThan(0);
+    for (const n of LIGHT.ambient) {
+      expect(n).toBeGreaterThan(0);
+      expect(n).toBeLessThan(1);
     }
-    expect(LIGHT.falloff).toBeGreaterThan(0);
-    expect(LIGHT.diagonal).toBeGreaterThan(LIGHT.falloff);
-    expect(LIGHT.diagonal).toBeLessThan(2 * LIGHT.falloff);
-    expect(LIGHT.darkest).toBeGreaterThan(0);
-    expect(LIGHT.darkest).toBeLessThan(1000);
   });
 });
