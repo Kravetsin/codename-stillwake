@@ -36,6 +36,26 @@ export function headTurn(dx: number, dy: number): number {
   return Math.max(-HEAD.up, Math.min(HEAD.down, Math.atan2(dy, Math.abs(dx))));
 }
 
+/**
+ * Radians both arms are raised to hold the plan before the chest, looking straight ahead; the far
+ * one higher by `farArm`; and how much of the head's turn the arms follow.
+ */
+export const HOLD = { arm: 1, farArm: 0.15, perLook: 0.8 };
+
+/**
+ * The limbs of a hero holding the plan in `pose`: both arms raised before it and turned with the
+ * head, the far one a little higher to reach the sheet's far edge; the rest as `limbs`. Climbing,
+ * the hands are on the ladder, and down, they hold nothing: `limbs` as they are, and no sheet.
+ */
+export function holdingPlan(pose: Pose, limbs: Limbs, look: number): Limbs | undefined {
+  if (pose === 'climb' || pose === 'lie' || pose === 'tumble') return undefined;
+  return {
+    ...limbs,
+    frontArm: HOLD.arm - look * HOLD.perLook,
+    backArm: HOLD.arm + HOLD.farArm - look * HOLD.perLook,
+  };
+}
+
 /** The pose of `hero`: its body in space or not, passed out or not. */
 export function poseOf(hero: Hero, inSpace: boolean, out: boolean): Pose {
   if (inSpace) return out ? 'tumble' : 'float';

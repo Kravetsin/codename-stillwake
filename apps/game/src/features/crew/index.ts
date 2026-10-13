@@ -142,7 +142,11 @@ export const crewFeature: Feature = {
           steps += 1;
         }
         const { previous } = hero;
-        const current = { ...hero.current, look: out ? 0 : lookOf(hero.current, pointed) };
+        const current = {
+          ...hero.current,
+          look: out ? 0 : lookOf(hero.current, pointed),
+          ...(buildMode.get() && !out ? { holds: 'plan' as const } : {}),
+        };
 
         // Where a stack let go over the world is thrown from, and which way; and what the hero walks
         // over, it picks up, saying so over its head at once.

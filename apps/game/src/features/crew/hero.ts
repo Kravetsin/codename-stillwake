@@ -39,6 +39,8 @@ export interface Hero {
    * hero so others see where it looks. The controller never reads it.
    */
   readonly look?: number;
+  /** What the hands hold, the plan or nothing: only drawn, and sent like `look`. */
+  readonly holds?: 'plan';
 }
 
 /**

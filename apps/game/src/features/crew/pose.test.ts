@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Hero } from './hero';
-import { HEAD, headTurn, limbsOf, poseOf, STRIDE } from './pose';
+import { HEAD, headTurn, HOLD, holdingPlan, limbsOf, poseOf, STRIDE } from './pose';
 
 const standing: Hero = { x: 5500, y: 10000, vx: 0, vy: 0, climbing: false, facing: 1 };
 
@@ -61,6 +61,27 @@ describe('limbsOf', () => {
     const across = limbsOf('float', { ...standing, vx: 120 }, 1, 0).tilt;
     const up = limbsOf('float', { ...standing, vy: -120 }, 1, 0).tilt;
     expect(across).toBeGreaterThan(up);
+  });
+});
+
+describe('holdingPlan', () => {
+  it('raises both arms before the chest, the far one higher, and turns them with the head', () => {
+    const walking = limbsOf('walk', { ...standing, vx: 240 }, STRIDE.walk / 4, 0);
+    const ahead = holdingPlan('walk', walking, 0);
+    expect(ahead?.frontArm).toBe(HOLD.arm);
+    expect(ahead?.backArm).toBeGreaterThan(HOLD.arm);
+    // The legs walk on under the sheet.
+    expect(ahead?.frontLeg).toBe(walking.frontLeg);
+    const down = holdingPlan('stand', limbsOf('stand', standing, 0, 0), HEAD.down);
+    const up = holdingPlan('stand', limbsOf('stand', standing, 0, 0), -HEAD.up);
+    expect(down?.frontArm).toBeLessThan(HOLD.arm);
+    expect(up?.frontArm).toBeGreaterThan(HOLD.arm);
+  });
+
+  it('holds nothing climbing, lying or tumbling', () => {
+    for (const pose of ['climb', 'lie', 'tumble'] as const) {
+      expect(holdingPlan(pose, limbsOf(pose, standing, 0, 0), 0)).toBeUndefined();
+    }
   });
 });
 

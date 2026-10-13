@@ -140,7 +140,7 @@ export function createHeroSender(send: (hero: SentHero) => void) {
       const moved =
         !sent ||
         // Speed too: a hero that stops is sent standing, not left mid-stride until the beat.
-        (['x', 'y', 'vx', 'vy', 'facing', 'climbing'] as const).some(
+        (['x', 'y', 'vx', 'vy', 'facing', 'climbing', 'holds'] as const).some(
           (k) => sent?.[k] !== hero[k],
         ) ||
         Math.abs((sent.look ?? 0) - (hero.look ?? 0)) > LOOK_STEP;

@@ -168,6 +168,15 @@ describe('sending the hero', () => {
     expect(sent.map((h) => h.look)).toEqual([0, 0.3]);
   });
 
+  it('sends a hero standing still when it takes the plan out or puts it away', () => {
+    const sent: Hero[] = [];
+    const sender = createHeroSender((h) => sent.push(h));
+    sender.step(SEND_MS, hero(5), 0);
+    sender.step(SEND_MS, { ...hero(5), holds: 'plan' }, 0);
+    sender.step(SEND_MS, hero(5), 0);
+    expect(sent.map((h) => h.holds)).toEqual([undefined, 'plan', undefined]);
+  });
+
   it('sends a hero standing still only on the beat', () => {
     const sent: Hero[] = [];
     const sender = createHeroSender((h) => sent.push(h));
