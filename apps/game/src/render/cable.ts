@@ -8,9 +8,9 @@ export interface Point {
 }
 
 /** How deep a cable hangs inside the ship, as a share of its length. */
-const SAG = 0.12;
-/** Points a drawn cable is made of, ends included. */
-const STEPS = 16;
+export const SAG = 0.12;
+/** Links a drawn cable is made of. */
+export const STEPS = 16;
 
 /**
  * Where a cable meets node `node` coming from `toward`: an anchor's middle, or the point of a
@@ -79,9 +79,23 @@ interface Queries {
 /** Whether a cable ending at `cell` hangs there: anywhere but out in space, where nothing pulls it. */
 export const hangsAt = (q: Queries, cell: number) => q.rooms.roomAt(cell) !== 'space';
 
-/** The points of the cable between nodes `a` and `b`, each end where it meets its node. */
-export function shapeOf(q: Queries, a: number, b: number): Point[] {
+/** Where the cable between nodes `a` and `b` meets each, and whether it hangs: inside at both. */
+export function endsOf(
+  q: Queries,
+  a: number,
+  b: number,
+): { from: Point; to: Point; hangs: boolean } {
   const toA = middleOf(q.grid, a);
   const toB = middleOf(q.grid, b);
-  return cablePoints(endOf(q.grid, a, toB), endOf(q.grid, b, toA), hangsAt(q, a) && hangsAt(q, b));
+  return {
+    from: endOf(q.grid, a, toB),
+    to: endOf(q.grid, b, toA),
+    hangs: hangsAt(q, a) && hangsAt(q, b),
+  };
+}
+
+/** The points of the cable between nodes `a` and `b` at rest, each end where it meets its node. */
+export function shapeOf(q: Queries, a: number, b: number): Point[] {
+  const { from, to, hangs } = endsOf(q, a, b);
+  return cablePoints(from, to, hangs);
 }

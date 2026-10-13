@@ -4,9 +4,11 @@ import { Container, Graphics } from 'pixi.js';
 import { t } from '../../i18n/en';
 import { middleOf, shapeOf, type Point } from '../../render/cable';
 import { CELL } from '../../render/camera';
-import { pointerTip } from '../../session/ui';
+import { traceRope } from '../../render/rope';
+import { heroBodies, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
+import { createCableRopes } from './ropes';
 
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
 const CABLE = 0x7c8794;
@@ -43,22 +45,25 @@ function everyTick(draw: (sim: Sim) => void) {
 }
 
 /**
- * Cables out of the overlay: thin lines hanging between their nodes inside the ship and taut out in
- * space, drawn behind the ship's structure, so a wall or a machine they pass is in front of them.
+ * Cables out of the overlay: thin ropes hanging between their nodes inside the ship, swinging out of
+ * a hero's way, and drifting loose out in space (`./ropes`), drawn behind the ship's structure, so a
+ * wall or a machine they pass is in front of them.
  */
 function cables(): Layer {
   const lines = new Graphics();
   lit(lines);
-  const redraw = everyTick((sim) => {
-    const q = { grid: sim.query(grid), rooms: sim.query(rooms) };
-    lines.clear();
-    for (const c of sim.query(power).cables()) strokeCable(lines, shapeOf(q, c.a, c.b));
-    lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
-  });
+  const ropes = createCableRopes();
+  const sync = everyTick((sim) => ropes.sync(sim));
   return {
     view: new Container(),
     behind: lines,
-    update: ({ game, elapsedMs }) => redraw(game.client.sim, elapsedMs),
+    update: ({ game, elapsedMs }) => {
+      sync(game.client.sim, elapsedMs);
+      ropes.update(elapsedMs, heroBodies.get());
+      lines.clear();
+      for (const { points } of ropes.lines()) traceRope(lines, points, CELL);
+      lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
+    },
   };
 }
 

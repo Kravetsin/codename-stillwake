@@ -5,7 +5,7 @@ import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
-import { aimedPiece, buildMode, heroSpot, openCrate } from '../../session/ui';
+import { aimedPiece, buildMode, heroBodies, heroSpot, openCrate } from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -85,6 +85,18 @@ function faceOf(pointer: { x: number } | undefined, hero: Hero): -1 | 1 | undefi
   const dx = pointer.x - hero.x / UNIT;
   if (Math.abs(dx) < FACE_DEADZONE) return hero.facing;
   return dx < 0 ? -1 : 1;
+}
+
+/** The box `hero`'s body fills and how far it moves a step, in cells: what brushes a cable. */
+function bodyOf(hero: Pick<Hero, 'x' | 'y' | 'vx' | 'vy'>) {
+  return {
+    vx: hero.vx / UNIT,
+    vy: hero.vy / UNIT,
+    left: (hero.x - HERO.width / 2) / UNIT,
+    right: (hero.x + HERO.width / 2) / UNIT,
+    top: (hero.y - HERO.height) / UNIT,
+    bottom: hero.y / UNIT,
+  };
 }
 
 /** Shows `hero` as `figure`, posed by how it moves, where its body is and whether it is out. */
@@ -236,6 +248,7 @@ export const crewFeature: Feature = {
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
         tie('own', current.anchor, clipOf({ x, y }), elapsedMs);
+        heroBodies.set([...heard.map(({ hero: h }) => bodyOf(h)), bodyOf({ ...current, x, y })]);
         popups.update(elapsedMs, x, y);
         if (!keys.holdsLeft()) served.clear();
         const aim =

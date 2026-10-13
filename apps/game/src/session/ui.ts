@@ -1,4 +1,5 @@
 import type { CostLine } from '../render/CostRow';
+import type { Body } from '../render/rope';
 import { createStore } from './store';
 
 /**
@@ -28,6 +29,12 @@ export const buildMode = createStore(false);
 export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1 | 1 } | undefined>(
   undefined,
 );
+
+/**
+ * Every hero's body as drawn this frame, in cells, and how far it moves a step: `crew` sets it,
+ * and cables hanging in the ship sway as a hero walks through them.
+ */
+export const heroBodies = createStore<readonly Body[]>([]);
 
 /**
  * Which overlay is on, by its feature's id, or none: switched by its key (`overlays/switch`), and
