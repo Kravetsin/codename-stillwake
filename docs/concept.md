@@ -24,9 +24,10 @@ A living document: what is decided about the game and what is still open. Techni
 - **Characters** are assembled from parts with simple keyframed movement; the parts exist mainly for
   customization ([0003](decisions/0003-character-rig.md)).
 - **Pixel art,** a pixel of art a pixel of the world, sixteen to a cell, on trial until the team
-  settles the style: walls, doors, pipes and machines are tiles and pictures drawn as text in
-  `features/grid/art.ts`, the hero's parts likewise, moved and turned smoothly by its rig. `?art` in
-  development shows them all.
+  settles the style: doors, pipes and machines are tiles and pictures drawn as text in
+  `features/grid/art.ts`; a wall is cut from its material's one picture where it stands, so walls
+  side by side make one surface; the hero's parts are pictures too, moved and turned smoothly by
+  its rig. `?art` in development shows them all.
 - **Look: simple textures carried by light.** Light also tells the ship's state: an unpowered room is
   dark but for helmet lamps, a venting room flashes red, starlight comes in through windows.
 - **Oxygen works like a power grid.** A pipe network holds one pool of oxygen; a vent of a network

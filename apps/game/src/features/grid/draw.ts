@@ -9,6 +9,7 @@ import {
   pipeTexture,
   SIDE,
   valveTexture,
+  wallEdgeTexture,
   wallTexture,
 } from './art';
 
@@ -51,7 +52,10 @@ export function drawStructure(g: Graphics, cells: Cells, cell: number): void {
   switch (cells.structure[cell]) {
     case STRUCTURE.wall: {
       const walled = sidesOf(cells, cell, (n) => cells.structure[n] === STRUCTURE.wall);
-      tile(g, wallTexture(cells.material[cell] ?? 0, ~walled & 0b1111, cell), x, y);
+      const code = cells.material[cell] ?? 0;
+      tile(g, wallTexture(code, x / CELL, y / CELL), x, y);
+      const open = ~walled & 0b1111;
+      if (open !== 0) tile(g, wallEdgeTexture(code, open), x, y);
       break;
     }
     case STRUCTURE.floor:

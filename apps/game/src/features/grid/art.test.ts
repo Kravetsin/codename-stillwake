@@ -1,7 +1,7 @@
-import { MACHINES, type MachineKind } from '@stillwake/content';
+import { MACHINES, type MachineKind, type MaterialId } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { CELL } from '../../render/camera';
-import { GEAR, MACHINE_ART } from './art';
+import { GEAR, MACHINE_ART, PIECES, WALL } from './art';
 
 describe('machine art', () => {
   it.each(Object.keys(MACHINES) as MachineKind[])(
@@ -13,6 +13,20 @@ describe('machine art', () => {
         expect(row).toHaveLength(MACHINES[kind].width * CELL);
         for (const char of row) if (char !== '.') expect(GEAR).toHaveProperty(char);
       }
+    },
+  );
+});
+
+describe('wall art', () => {
+  it.each(Object.keys(WALL) as MaterialId[])(
+    '%s is whole cells, a row as long as the next',
+    (id) => {
+      const rows = WALL[id];
+      const width = rows[0]?.length ?? 0;
+      expect(width % CELL).toBe(0);
+      expect(rows.length % CELL).toBe(0);
+      expect((width / CELL) * (rows.length / CELL)).toBeLessThanOrEqual(PIECES);
+      for (const row of rows) expect(row).toHaveLength(width);
     },
   );
 });

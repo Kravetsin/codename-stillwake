@@ -1,114 +1,153 @@
 import { MATERIALS, type MachineKind, type MaterialId } from '@stillwake/content';
-import type { Texture } from 'pixi.js';
+import { Rectangle, Texture } from 'pixi.js';
+import { CELL } from '../../render/camera';
 import { pixelTexture, shade, type Palette } from '../../render/pixel-art';
 
 /**
  * The ship drawn as pixel art, a pixel of art a pixel of the world, a cell sixteen pixels across.
- * Walls, floors, ladders, doors, back walls and pipes are tiles a cell each; a machine is one picture
- * over its whole footprint. A wall's tile is outlined on each side that faces no wall, and rounded
- * where two such sides meet, so a hull reads as one solid shape.
+ * Floors, ladders, doors, back walls and pipes are tiles a cell each; walls are cut from their
+ * material's picture where they stand; a machine is one picture over its whole footprint. A wall is
+ * outlined on each side that faces no wall, so a hull reads as one solid shape.
  */
 
 /**
- * Wall plating in a few looks, one picked by the cell: `l` lit, `m` its own, `d` shade, `o` seam,
- * `x` rivet, `r` and `R` rust; `n` and `N` a second, darker sheet. Scrap is sheets of what was
- * found, patched and welded with no seam where the next cell's is, so a wall of it reads as junk, not
- * as bricks.
+ * Each wall material as one seamless picture several cells across, laid over the whole world: a wall's
+ * cell shows the part of it under the cell, so walls side by side make one surface and its sheets,
+ * seams and patches run on across cells. `l` lit, `m` its own, `d` shade, `o` seam, `x` rivet,
+ * `r` and `R` rust, `n` and `N` a second, darker sheet.
  */
-const WALL: Record<MaterialId, readonly (readonly string[])[]> = {
+export const WALL: Record<MaterialId, readonly string[]> = {
   scrap: [
-    [
-      'lmmdlmmdlmmdlmmd',
-      'lmmdlmmdlmmdlmmd',
-      'lmmdlmmdlmmdlmmd',
-      'lmmdlmmdlmmdRmmd',
-      'lmmdlmmdlmmdrmmd',
-      'lmmdlmmdlmmdrmmd',
-      'looooooooomdrmmd',
-      'lommmmmmmomdlmmd',
-      'lomxnnxnNomdlmmd',
-      'lomnnnnnNomdlmmd',
-      'lomnnnnnNomdlmmd',
-      'lomxnnxnNomdlmmd',
-      'loNNNNNNNomdlmmd',
-      'looooooooomdlmmd',
-      'lmmdRmmdlmmdlmmd',
-      'lmmdrmmdlmmdlmmd',
-    ],
-    [
-      'mmmmmmmmmmmmmmmm',
-      'mmmmmmmmmmmmxmmm',
-      'mmmxmmmmllllmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mmlllmmmmmmmmxmm',
-      'mmmmmmmmmmmmmooo',
-      'mmmmmmmmmmxooNNN',
-      'mmmmmmmxmooNNnnn',
-      'mmmmxmoooNNnnnnn',
-      'mmmmooNNNnnRnnnn',
-      'mxooNNnnnnnrnnnn',
-      'ooNNnnnnnnnrnnnn',
-      'NNnnRnnnnnnnnlnn',
-      'nnnnrnnnnnnnnddn',
-      'nnnnrnnnnnnnnnnn',
-      'nnnnrnnnnnnnnnnn',
-    ],
-    [
-      'mmmmmmmmmmmmmmmm',
-      'mlllmmmmmmmmmmmm',
-      'mmmmmddmmmmmRmmm',
-      'mmmmdmmlmmmmrmmm',
-      'mmmmmllmmmmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'oooooooooooooooo',
-      'mmxmmmmxmmmmxmmm',
-      'NNNNNNNNNNNNNNNN',
-      'oooooooooooooooo',
-      'mmmRmmmmooooooom',
-      'mmmrmmmmommmmmom',
-      'mmmrmmmmomxnnNom',
-      'mmmrmmmmoNNNNNom',
-      'mmmrmmmmooooooom',
-      'mmmmmmmmmmmmmmmm',
-    ],
-    [
-      'mmmmmmmmmmmmmmmm',
-      'mmxmmmmmmmmmmmxm',
-      'mmmmmmmmmxmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mmmmmmmmllmmmmmm',
-      'mmmmmmllmmmmRmmm',
-      'mmmmllmdmmmmrmmm',
-      'mmmmmdmmmmmmrmmm',
-      'mmmmmmmmmmmmrmmm',
-      'mmmmmmmmmmmmmmmm',
-      'mdmmmmmmmmmmmmmm',
-      'mmdmmmmmmmmmmmmm',
-      'mmmmmmmmmmmmmmmm',
-    ],
+    'oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo',
+    'ollllllllllllllllllllllllllollllllllllllllllllllllllllllllllllllolllllllllllllllllllommmmmmmmmmmmmmmmmmmmmolllllllllllllllllllll',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlmmdlmmddolmmmmmmmmmmmmmmmmmdomnnRnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmxmmmxmmmxmmmxmmmxmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlmmdlmmddolmxmmmxmmmxmmmxmmmdomnxrnnnxnnnnxnnnnxnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlooooooooolmmmmooooooooommmmdomnnrnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlommmmmmmolmmmmommmmmmmommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmoooooooooommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmomnnnnnNommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmxmmommmmmmmmommmmmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnxnnnxolmxmmomnxnnnNomxmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmomnnnnnnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmomnnnnnNommmmdomnxnnnnnnnnnnnnnnxnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmomnxnnxnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmmmmoNNNNNNNommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmomnxnnxnNommmmmmmmmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnxnnnxolmmmmooooooooommmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmxmmomnnnnnnNommmmmmmxmmdolmdlmmdlmmdlmmdlmmdlmmdlmmdlomnnnnnnolmxmmmmmmRmmmmmxmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmoNNNNNNNNommmmmmmmmmdoddddddddddddddddddddddddddddoNNNNNNNolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNolmdlmmdlmmdlmmdlmmdld',
+    'olmmmmoooooooooommmmmmmmmmdoooooooooooooooooooooooooooooooooooooolmxmmmxmmrxmmmxmmmdomnxnnnnnnnnnnnnnnxnnNoddddddddddddddddddddd',
+    'olmmmmmmmRmmmmmmmmmmmmmmmmdommmmmmmmmmmmmmmmmmmollllllllllllRlllolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNoooooooooooooooooooooo',
+    'olmxmmmmmrmmmmmmmmmmmmmxmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmrmmdolmmmmmmmmrmmmmmmmmdomnnnnnnnnnnnnnnnnnnnNolllllllllllllllllllll',
+    'olmmmmmmmrmmmmmmmmmmmmmmmmdomnxnnnxnnnxnnnxnnnNolmxmmmxmmmxmrmmdodddddddddddddddddddomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmxmrmxmmmxmmmxmmmxmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmrmmdooooooooooooooooooooomnnnnnnnnnnnnnnnnnnnNolmxmmmmmxmmmmmxmmmmmd',
+    'olmmmmmmmrmmmmmmmmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolllllllllllllllllllomnxnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmd',
+    'oddddddddddddddddddddddddddomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdomnxnnnnxnnnnxnnnnxnnNolmmmmmmmmmmmmmmmmRmmd',
+    'oooooooooooooooooooooooooooomRnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmrmmd',
+    'ommmmmmmmmmmmmmolllllllllllomrnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdomnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmrmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomrnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdoNNNNNNNNNNNNNNNNNNNNNolmxmmmmmmmmmmmmmmrmmd',
+    'omnxnnnnxnnnnnNolmxmmmxmmmdomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdooooooooooooooooooooooolmmmmmmmmmmmmmmmmrmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolllllllllllllllllllllolmmmmmmmmmmmmmmmmrmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmxmmmxmmmxmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+    'omnnnnnnnnnnnnNolmxmmmmxmmdomnxnnnnnnnnnnnnxnnNolmxmmmmmmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+    'omnxnnnnnnnxnnNolmmmmmmmmmdomnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmmmmmmdolmxmmmmmmmmmmmmmmxmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnoooooooooooooommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmooooooooooolmxmmmmmxmmmmmxmmmmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnxnnnxnnnxnollllllllllllommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmmmmmmolllllllllolmmmmmmmmmmmmmmmmmmmd',
+    'omnnnnnnnnnnnnNolmxmmmxmmmdomnnnnnnnnnnnolmmmmmmmmmmdommmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdolmmmmmmmmmmmmmmmmmmmd',
+    'omnnnnnnnnnnnnNolmmmmmmmmmdomnnnnnnnnnnnolmxmmmmxmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmxmmmxmdoddddddddddddddddddddd',
+    'omnxnnnnnnnxnnNolmmmmmmmmmdoNNNNNNNNNNNNolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdoooooooooooooooooooooo',
+    'omnnnnnnnnnnnnNodddddddddddmmmmooooRooooolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmmmmmmolmxmmmxmdommmmmmmmmmmmmmmmmmmmm',
+    'omnnnnnnnnnnnnNmoommmmmmmmmmmmmolllrllllolmxmmmmxmmmdommmmmmxmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmolmmmmmmmdomnnnnnnnnnnnnnnnnnnnN',
+    'omnnRnnnnnnnnnNmlloommmmmmmmmmmolmmrmmmmolmmmmmmmmmmdommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmodddddddddomnxnnnxnnnxnnnxnnnnnN',
+    'omnnrnnnnnnnnnNmmmlloommmmmmmmmolmxrmmmmoddddddddddddommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmxmmmxmmmxooooooooooomnxnnnxnnnxnnnxnnnnnN',
+    'omnxrnnnnnnxnnNmmmmmlloommmmmmmolmmrmmmmoooooooooooooommmmmmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmRmmmmdomnnnnnnnnnnnnnnnnnnnN',
+    'omnnrnnnnnnnnnNmmmmmmmlloommmmmolmmrmmmmmmmmmmdolmxmRmxmmmxmmmmdolmdlmmdlmmdlmmdlmmdolmmmmmmmmmmmmmmrmmmmdomnnnnnnnnnnnnnnnnnnnN',
+    'omnnrnnnnnnnnnNmmmmmmmmmllmmmmmolmmmmmmmmmmmmmdolmmmrmmmmmmmmmmdodddddddddddddddddddodddddddddddddddrdddddoNNNNNNNNNNNNNNNNNNNNN',
+    'omnnrnnnnnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdolmmmrmmmmmmmmmmdoooooooooooooooooooooooooooooooooooorooooooooooooooooooooooooooo',
+    'omnxrnnnxnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdoddddddddddddddddommmmmmmmmmmmmmmmmmmmmmmmmolllllllllllllllllllllllllllllllllllll',
+    'omnnnnnnnnnnnnNmmmmmmmmmmmmmmmmolmxmmmmmmmmxmmdoooooooooooooooooomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'omnnnnnnnnnnnnNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdommmmmmmmmmmmmmmmomnxnnnxnnnxnnnxnnnxnnnnnNolmxmmmmxmmmmxmmmmxmmmmxmmmmxmmmmxmmmd',
+    'oNNNNNNNNNNNNNNmmmmmmmmmmmmmmmmolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'oooooooooooooooooooooooooooooooolmmmmmmmmmmmmmdomnxnnnxnnnxnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'ollllllllllllllllllllllllllllllolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmoooooooooommmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmmommmmmmmmommmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmxmmmmmmmmxmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmxmmmmmmmmmmmmmmmmmmomnnnnnnNommxmmd',
+    'olmdlmmdlmmdlmmdlmmdlmmdlmmdlmdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnxnnxnNommmmmd',
+    'olmdlmmdlmmdlmmdlmmdooooooooomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnnnnnnNommmmmd',
+    'olmdlmmdlmmdlmmdlmmdommmmmmmomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmmmmmmmmmmmmmmmmomnxnnxnNommmmmd',
+    'olmdlmmdlmmdlmmdlmmdomnnnnnNomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmomnnnnnnNommmmmd',
+    'olmdlmmdlmmdlmmdlmmdomnxnnnNomdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmxmmmmmmmmmooommmmmmoNNNNNNNNommxmmd',
+    'olmdlmmdlmmdlmmdlmmdomnnnnnNomdolmxmmmmmmmmxmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmooolllmmmmmmoooooooooommmmmd',
+    'olmdlmmdlmmdlmmdlmmdoNNNNNNNomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnxnnnnnnnnnnnnnnnnnnxnnNolmmmmmooolllmmmmmmmmmmmmmmRmmmmmmmmmd',
+    'olmdlmmdlmmdlmmdlmmdooooooooomdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmooolllmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmRdlmmdlmdolmmmmmmmmmmmmmdomnxnnnnnnnnnxnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmlllmmmmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmxmmmmmxmmmmmdomnxnnnxnnnxnnnnNomnxnnnxnnnxnnnxnnnxnnnnnNolmxmmmmxmmmmxmmmmxmmmmxmmmrxmmmmxmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmrmmmmmmmmmd',
+    'olmdlmmdlmmdlmmdlmmdlmrdlmmdlmdolmmmmmmmmmmmmmdomnnnnnnnnnnnnnnNomnnnnnnnnnnnnnnnnnnnnnnnNolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'oddddddddddddddddddddddddddddddodddddddddddddddoNNNNNNNNNNNNNNNNoNNNNNNNNNNNNNNNNNNNNNNNNNoddddddddddddddddddddddddddddddddddddd',
   ],
   steel: [
-    [
-      'lllllllllllllllm',
-      'lxmmmmmmmmmmmmxd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmoooooooooooomd',
-      'lmllllllllllllmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lmmmmmmmmmmmmmmd',
-      'lxmmmmmmmmmmmmxd',
-      'mddddddddddddddd',
-    ],
+    'oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo',
+    'olllllllllllllllllllllllllllllllolllllllllllllllllllllllllllllll',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmxmmmxmmolmmmxmmmxmmmxmmmdolmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdolmxmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdolmxmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdoddddddddddddddddddddddddddddddd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdoooooooooooooooooooooooooooooooo',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolllllllllllllllllllllllllllllll',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdolmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdolmxmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmolmmmmmmmmmmmmxmmdolmxmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmxmmmxmmmxmmolmmmxmmmxmmmxmmmdolmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmolmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmdolmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'odddddddddddddddddddddddddddddddoddddddddddddddddddddddddddddddd',
+    'oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo',
+    'olllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'oloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooomd',
+    'olllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmxmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmxmmd',
+    'olmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmxmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'olmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmd',
+    'oddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
   ],
 };
 
@@ -478,31 +517,16 @@ function keptBy(make: (n: number) => Texture): (n: number) => Texture {
 /** Which sides of a wall face no wall: up, right, down, left, a bit each. */
 export const SIDE = { up: 1, right: 2, down: 4, left: 8 } as const;
 
-/** `rows` outlined on each side in `open`, and rounded where two outlined sides meet. */
-function edged(rows: readonly string[], open: number): string[] {
-  const grid = rows.map((row) => [...row]);
-  const last = grid.length - 1;
-  const set = (x: number, y: number, c: string) => {
-    const row = grid[y];
-    if (row) row[x] = c;
-  };
-  for (let i = 0; i <= last; i++) {
-    if (open & SIDE.up) set(i, 0, 'O');
-    if (open & SIDE.down) set(i, last, 'O');
-    if (open & SIDE.left) set(0, i, 'O');
-    if (open & SIDE.right) set(last, i, 'O');
-  }
-  if (open & SIDE.up) for (let i = 1; i < last; i++) set(i, 1, 'L');
-  const corner = (side: number, other: number, x: number, y: number, ix: number, iy: number) => {
-    if ((open & side) === 0 || (open & other) === 0) return;
-    set(x, y, '.');
-    set(ix, iy, 'O');
-  };
-  corner(SIDE.up, SIDE.left, 0, 0, 1, 1);
-  corner(SIDE.up, SIDE.right, last, 0, last - 1, 1);
-  corner(SIDE.down, SIDE.left, 0, last, 1, last - 1);
-  corner(SIDE.down, SIDE.right, last, last, last - 1, last - 1);
-  return grid.map((row) => row.join(''));
+/** An outline over a wall's cell on each side in `open`, lit along the top. */
+function edgeRows(open: number): string[] {
+  const last = CELL - 1;
+  return Array.from({ length: CELL }, (_, y) =>
+    Array.from({ length: CELL }, (_, x) => {
+      if ((open & SIDE.up && y === 0) || (open & SIDE.down && y === last)) return 'O';
+      if ((open & SIDE.left && x === 0) || (open & SIDE.right && x === last)) return 'O';
+      return open & SIDE.up && y === 1 ? 'L' : '.';
+    }).join(''),
+  );
 }
 
 /** A number for `cell` that looks random, the same every time: which look a tile takes there. */
@@ -513,30 +537,58 @@ function hashOf(cell: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-/**
- * The wall at `cell`, of the material coded `code` (scrap for a code unknown), outlined on the
- * `open` sides.
- */
-export function wallTexture(code: number, open: number, cell: number): Texture {
-  const looks = WALL[MATERIAL_BY_CODE.get(code) ?? 'scrap'].length;
-  return walls((code * 4 + (hashOf(cell) % looks)) * 16 + open);
+function materialOf(code: number): MaterialId {
+  return MATERIAL_BY_CODE.get(code) ?? 'scrap';
 }
 
-const walls = keptBy((n) => {
-  const code = Math.floor(n / 64);
-  const look = Math.floor(n / 16) % 4;
-  const open = n % 16;
-  const id = MATERIAL_BY_CODE.get(code) ?? 'scrap';
+const patterns = keptBy((code) => {
+  const id = materialOf(code);
   const colour = MATERIAL_COLOUR[id];
-  const rows = WALL[id][look] ?? WALL[id][0] ?? [];
-  return pixelTexture(`wall:${id}:${look}:${open}`, edged(rows, open), {
+  return pixelTexture(`wall:${id}`, WALL[id], {
     ...shadesOf(colour),
     x: shade(colour, -0.45),
     n: shade(colour, 0.84),
     N: shade(colour, 0.7),
+    ...RUST,
+  });
+});
+
+/** The most cells a material's picture may have: its pieces are kept under numbers this far apart. */
+export const PIECES = 64;
+
+/** The wall at column `x` and row `y` of the grid, of the material coded `code` (scrap for a code unknown). */
+export function wallTexture(code: number, x: number, y: number): Texture {
+  const rows = WALL[materialOf(code)];
+  const across = (rows[0]?.length ?? CELL) / CELL;
+  const down = rows.length / CELL;
+  return pieces(code * PIECES + (y % down) * across + (x % across));
+}
+
+const pieces = keptBy((n) => {
+  const code = Math.floor(n / PIECES);
+  const pattern = patterns(code);
+  const across = pattern.width / CELL;
+  const piece = n % PIECES;
+  const frame = new Rectangle(
+    (piece % across) * CELL,
+    Math.floor(piece / across) * CELL,
+    CELL,
+    CELL,
+  );
+  return new Texture({ source: pattern.source, frame });
+});
+
+/** The outline over a wall of the material coded `code` on the `open` sides, which use `SIDE`'s bits. */
+export function wallEdgeTexture(code: number, open: number): Texture {
+  return edges(code * 16 + open);
+}
+
+const edges = keptBy((n) => {
+  const id = materialOf(Math.floor(n / 16));
+  const colour = MATERIAL_COLOUR[id];
+  return pixelTexture(`wall-edge:${id}:${n % 16}`, edgeRows(n % 16), {
     O: shade(colour, 0.3),
     L: shade(colour, -0.35),
-    ...RUST,
   });
 });
 
