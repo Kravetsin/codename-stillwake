@@ -35,10 +35,39 @@ out vec4 finalColor;
 
 uniform sampler2D uTexture;
 uniform sampler2D uLightTexture;
+uniform vec2 uLightSize;
+
+// A cell's light, its alpha the cell's side: whole for a wall, a little less for the open. Read at
+// the texel's middle from a texture that is not filtered: that texel and no other.
+vec4 cell(vec2 texel) {
+  return texture(uLightTexture, (clamp(texel, vec2(0.0), uLightSize - 1.0) + 0.5) / uLightSize);
+}
+
+// What one of the four cells round a point adds, weighed by w, if it is on the given side.
+void add(vec4 near, float w, bool side, inout vec3 sum, inout float weight) {
+  if ((near.a > 0.99) == side) {
+    sum += near.rgb * w;
+    weight += w;
+  }
+}
 
 void main(void) {
   vec4 colour = texture(uTexture, vTextureCoord);
-  finalColor = vec4(colour.rgb * texture(uLightTexture, vLightUv).rgb, colour.a);
+  // Blended between the four cells round this point, those of this cell's side only: smooth
+  // light in a room and along a wall, and no blending across a wall's face.
+  vec2 at = vLightUv * uLightSize - 0.5;
+  vec2 corner = floor(at);
+  vec2 f = at - corner;
+  vec4 own = cell(floor(vLightUv * uLightSize));
+  bool side = own.a > 0.99;
+  vec3 sum = vec3(0.0);
+  float weight = 0.0;
+  add(cell(corner), (1.0 - f.x) * (1.0 - f.y), side, sum, weight);
+  add(cell(corner + vec2(1.0, 0.0)), f.x * (1.0 - f.y), side, sum, weight);
+  add(cell(corner + vec2(0.0, 1.0)), (1.0 - f.x) * f.y, side, sum, weight);
+  add(cell(corner + vec2(1.0, 1.0)), f.x * f.y, side, sum, weight);
+  vec3 light = weight > 0.0 ? sum / weight : own.rgb;
+  finalColor = vec4(colour.rgb * light, colour.a);
 }
 `;
 
@@ -53,6 +82,7 @@ class LitFilter extends Filter {
       resources: {
         litUniforms: new UniformGroup({
           uLightMatrix: { value: new Matrix(), type: 'mat3x3<f32>' },
+          uLightSize: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
         }),
         uLightTexture: Texture.WHITE.source,
         uLightSampler: Texture.WHITE.source.style,
@@ -74,14 +104,7 @@ class LitFilter extends Filter {
   }
 }
 
-/**
- * How light falls on what it lights: `smooth`, blended between cells, on what stands in front of
- * the back walls and on them; `cell`, a whole cell alike, on walls, floors, ladders and doors, so
- * each block keeps its edges.
- */
-export type Falls = 'smooth' | 'cell';
-
-const filters: Record<Falls, LitFilter> = { smooth: new LitFilter(), cell: new LitFilter() };
+const filter = new LitFilter();
 
 /**
  * The light, shared as the particles are: one per page. The `light` feature works it out into a
@@ -90,17 +113,21 @@ const filters: Record<Falls, LitFilter> = { smooth: new LitFilter(), cell: new L
  */
 export const lighting = {
   sprite: Object.assign(new Sprite(Texture.WHITE), { renderable: false }),
-  /** Lights with the same light read two ways, laid where `sprite` lies. */
-  show(textures: Record<Falls, Texture>) {
-    lighting.sprite.texture = textures.smooth;
-    for (const falls of ['smooth', 'cell'] as const) {
-      filters[falls].resources.uLightTexture = textures[falls].source;
-      filters[falls].resources.uLightSampler = textures[falls].source.style;
-    }
+  /** Lights with `texture`, a texel a cell, laid where `sprite` lies. */
+  show(texture: Texture) {
+    lighting.sprite.texture = texture;
+    filter.resources.uLightTexture = texture.source;
+    filter.resources.uLightSampler = texture.source.style;
+    const uniforms = (filter.resources.litUniforms as UniformGroup).uniforms as {
+      uLightSize: Float32Array;
+    };
+    uniforms.uLightSize[0] = texture.source.width;
+    uniforms.uLightSize[1] = texture.source.height;
+    (filter.resources.litUniforms as UniformGroup).update();
   },
 };
 
-/** Lights `view` from now on, light falling on it as `falls`. */
-export function lit(view: Container, falls: Falls = 'smooth'): void {
-  view.filters = [filters[falls]];
+/** Lights `view` from now on: back walls, walls, pipes, cables, machines, heroes, items. */
+export function lit(view: Container): void {
+  view.filters = [filter];
 }

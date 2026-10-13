@@ -245,7 +245,7 @@ describe('light', () => {
   it('fades in air, more through machines, and a cell-thick wall lets next to none through', () => {
     expect(Number.isSafeInteger(LIGHT.margin) && LIGHT.margin >= 0).toBe(true);
     expect(Number.isSafeInteger(LIGHT.rounds) && LIGHT.rounds >= 1).toBe(true);
-    for (const keep of [LIGHT.air, LIGHT.machine, LIGHT.wallIn, LIGHT.wallOut]) {
+    for (const keep of [LIGHT.air, LIGHT.machine, LIGHT.wallIn, LIGHT.wallDeep, LIGHT.wallOut]) {
       expect(keep).toBeGreaterThan(0);
       expect(keep).toBeLessThan(1);
     }

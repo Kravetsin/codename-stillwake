@@ -28,11 +28,17 @@ does not need a hero's shadow for now.
 - **What gives off light:** the stars in every open cell with no back wall and past the grid's
   edge, lamps by the power they get, a working furnace's fire along its bottom, and each glowing
   particle, an ember or a spark, in its own cell.
-- **Drawn as a texture of a texel a cell,** laid in the world by `lighting.sprite` and smoothed
-  between cells by its filtering, and laid on by one filter (`render/lighting`) that each feature
-  sets on what it draws: back walls, walls, pipes, cables, machines, heroes, items. Gauges, plans,
-  overlays, particles and the space behind the ship are not lit. A lit lamp also glows.
-- **Back walls are a mid grey:** the light, not the paint, says how dark a room is.
+- **Drawn as a texture of a texel a cell,** laid in the world by `lighting.sprite` and laid on by
+  one filter (`render/lighting`) that each feature sets on what it draws: back walls, walls,
+  pipes, cables, machines, heroes, items. The filter blends a point's light from the four cells
+  round it, those of its own cell's side only — walls with walls, the open with the open — so light
+  is smooth in a room and along a wall, and a wall's face keeps its edge. A cell's side rides in the
+  texture's alpha, a wall whole and the open a little less, so it survives being multiplied in.
+  Pixi builds filters as GLSL ES 1.00: no `texelFetch`, no integer `%`. Gauges, plans, overlays,
+  particles and the space behind the ship are not lit. A lit lamp also glows.
+- **Back walls are darker than any wall,** so walls stand out from them in any light.
+- **Finer light cells were tried and dropped:** four a cell across cost ten times the time on the
+  CPU for what blending by sides gives at no cost.
 
 ## Consequences
 

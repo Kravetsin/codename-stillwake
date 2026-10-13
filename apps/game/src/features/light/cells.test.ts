@@ -1,6 +1,6 @@
 import { LIGHT } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
-import { bytesOf, KIND, lightOf, type Cells } from './cells';
+import { bytesOf, KIND, lightOf, OPEN, type Cells } from './cells';
 
 /**
  * Cells from rows: '.' air, '#' a wall, 'M' a machine, '*' air giving off white light, a whole
@@ -33,11 +33,13 @@ describe('light by cells', () => {
     expect(red(light, 5, 0, 2)).toBeCloseTo(LIGHT.air ** 10);
   });
 
-  it('lights a wall it falls on and lets next to none through it', () => {
-    const light = lightOf(cellsOf(['*.#..']));
-    expect(red(light, 5, 2, 0)).toBeCloseTo(LIGHT.air * LIGHT.wallIn);
-    expect(red(light, 5, 3, 0)).toBeCloseTo(LIGHT.air * LIGHT.wallIn * LIGHT.wallOut * LIGHT.air);
-    expect(red(light, 5, 3, 0)).toBeLessThan(0.1);
+  it('lights a wall it falls on, darker deeper in, and lets next to none through it', () => {
+    const light = lightOf(cellsOf(['*.##..']));
+    expect(red(light, 6, 2, 0)).toBeCloseTo(LIGHT.air * LIGHT.wallIn);
+    expect(red(light, 6, 3, 0)).toBeCloseTo(LIGHT.air * LIGHT.wallIn * LIGHT.wallDeep);
+    expect(red(light, 6, 4, 0)).toBeLessThan(0.02);
+    // A wall a cell thick too.
+    expect(red(lightOf(cellsOf(['*.#.'])), 4, 3, 0)).toBeLessThan(0.1);
   });
 
   it('dims through a machine more than through air', () => {
@@ -55,10 +57,11 @@ describe('light by cells', () => {
     expect(light[0 * 3 + 2]).toBeCloseTo(LIGHT.air ** 4);
   });
 
-  it('shows as bytes with the ambient light added, up to white', () => {
+  it('shows as bytes with the ambient light added, up to white, a wall marked in the alpha', () => {
     const bytes = new Uint8Array(8);
-    bytesOf(Float32Array.from([0, 0, 0, 2, 2, 2]), bytes);
-    expect(bytes[0]).toBe(Math.round(LIGHT.ambient[0] * 255));
+    bytesOf(Float32Array.from([0, 0, 0, 2, 2, 2]), Uint8Array.from([KIND.air, KIND.wall]), bytes);
+    expect(bytes[0]).toBe(Math.floor(LIGHT.ambient[0] * 255));
+    expect(bytes[3]).toBe(OPEN);
     expect([...bytes.slice(4, 8)]).toEqual([255, 255, 255, 255]);
   });
 });

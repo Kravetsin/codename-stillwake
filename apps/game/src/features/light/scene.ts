@@ -11,10 +11,10 @@ function give(gives: Float32Array, i: number, colour: readonly number[], share: 
 }
 
 /**
- * The cells of `area` as light sees them on `sim`'s ship now: walls and closed doors as walls,
- * machines' cells as machines; what gives off light — the stars through every open cell with no
- * back wall and everywhere past the grid's edge, lamps by the power they get, working furnaces,
- * glowing particles.
+ * The cells of `area` as light sees `sim`'s ship now: walls and closed doors as walls, machines'
+ * cells as machines; what gives off light — the stars through every open cell with no back wall
+ * and everywhere past the grid's edge, a lamp by the power it gets, a working furnace's fire along
+ * its bottom, glowing particles.
  */
 export function cellsOf(sim: Sim, area: Area, into?: Cells): Cells {
   const { width, height } = area;
@@ -32,12 +32,11 @@ export function cellsOf(sim: Sim, area: Area, into?: Cells): Cells {
       : undefined;
 
   for (let y = 0; y < height; y++) {
+    const gy = area.y + y;
     for (let x = 0; x < width; x++) {
       const gx = area.x + x;
-      const gy = area.y + y;
       const i = y * width + x;
-      const inside = gx >= 0 && gy >= 0 && gx < layers.width && gy < layers.height;
-      if (!inside) {
+      if (gx < 0 || gy < 0 || gx >= layers.width || gy >= layers.height) {
         give(cells.gives, i, LIGHT.star, 1);
         continue;
       }

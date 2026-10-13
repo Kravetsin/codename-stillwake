@@ -30,8 +30,7 @@ export const gridFeature: Feature = {
     const conduitLayer = new Container();
     behind.addChild(backLayer, conduitLayer);
     view.addChild(chunkLayer, machineLayer);
-    for (const layer of [backLayer, conduitLayer, machineLayer]) lit(layer);
-    lit(chunkLayer, 'cell');
+    for (const layer of [backLayer, conduitLayer, chunkLayer, machineLayer]) lit(layer);
 
     let backChunks: Graphics[] = [];
     let chunks: Graphics[] = [];

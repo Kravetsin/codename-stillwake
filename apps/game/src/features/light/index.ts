@@ -2,7 +2,7 @@ import { grid, power } from '@stillwake/sim';
 import { BufferImageSource, Container, Sprite, Texture } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { GLOW, glowTexture } from '../../render/glow';
-import { lighting, type Falls } from '../../render/lighting';
+import { lighting } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { areaOf } from './area';
 import { bytesOf, lightOf, type Cells } from './cells';
@@ -28,9 +28,7 @@ export const lightFeature: Feature = {
     view.addChild(lighting.sprite, glows);
     const glow = glowTexture();
     const readout = import.meta.env.DEV ? createReadout() : undefined;
-    let shown:
-      | { bytes: Uint8Array; sources: BufferImageSource[]; textures: Record<Falls, Texture> }
-      | undefined;
+    let shown: { bytes: Uint8Array; source: BufferImageSource; texture: Texture } | undefined;
     let cells: Cells | undefined;
     let lampsKey = '';
 
@@ -42,37 +40,24 @@ export const lightFeature: Feature = {
         const area = areaOf(camera.view(screen));
         cells = cellsOf(sim, area, cells);
         const light = lightOf(cells);
-        if (
-          !shown ||
-          shown.textures.smooth.width !== area.width ||
-          shown.textures.smooth.height !== area.height
-        ) {
+        if (!shown || shown.source.width !== cells.width || shown.source.height !== cells.height) {
           const old = shown;
-          const bytes = new Uint8Array(area.width * area.height * 4);
-          // One light read two ways: blended between cells, or a cell alike.
-          const read = (scaleMode: 'linear' | 'nearest') =>
-            new BufferImageSource({
-              resource: bytes,
-              width: area.width,
-              height: area.height,
-              scaleMode,
-            });
-          const smooth = read('linear');
-          const cell = read('nearest');
-          shown = {
-            bytes,
-            sources: [smooth, cell],
-            textures: {
-              smooth: new Texture({ source: smooth }),
-              cell: new Texture({ source: cell }),
-            },
-          };
-          lighting.show(shown.textures);
-          for (const t of old ? [old.textures.smooth, old.textures.cell] : []) t.destroy(true);
+          const bytes = new Uint8Array(cells.width * cells.height * 4);
+          const source = new BufferImageSource({
+            resource: bytes,
+            width: cells.width,
+            height: cells.height,
+            // Read texel by texel: the filter blends cells itself, by their sides.
+            scaleMode: 'nearest',
+            alphaMode: 'no-premultiply-alpha',
+          });
+          shown = { bytes, source, texture: new Texture({ source }) };
+          lighting.show(shown.texture);
+          old?.texture.destroy(true);
         }
-        bytesOf(light, shown.bytes);
-        for (const source of shown.sources) source.update();
-        // A texel a cell, its middle on the cell's: smoothed between cells as it is drawn.
+        bytesOf(light, cells.kind, shown.bytes);
+        shown.source.update();
+        // A texel a cell, laid over the cells it lights.
         lighting.sprite.position.set(area.x * CELL, area.y * CELL);
         lighting.sprite.width = area.width * CELL;
         lighting.sprite.height = area.height * CELL;
@@ -103,12 +88,12 @@ export const lightFeature: Feature = {
         }
       },
       destroy() {
-        lighting.show({ smooth: Texture.WHITE, cell: Texture.WHITE });
+        lighting.show(Texture.WHITE);
         // The sprite outlives this game: taken out before the scene it is in is destroyed.
         view.removeChild(lighting.sprite);
         readout?.destroy();
         glow.destroy(true);
-        for (const t of shown ? [shown.textures.smooth, shown.textures.cell] : []) t.destroy(true);
+        shown?.texture.destroy(true);
       },
     };
   },
