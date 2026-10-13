@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AIR } from './air';
-import { BUILDS } from './builds';
+import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { CREW } from './crew';
 import { HERO } from './hero';
 import { MACHINES } from './machines';
@@ -21,7 +21,7 @@ describe('materials', () => {
 
   it('have positive whole-number stats', () => {
     for (const m of all) {
-      for (const value of [m.strength, m.leak, m.cost]) {
+      for (const value of [m.strength, m.leak, m.cost, m.buildTicks]) {
         expect(Number.isSafeInteger(value) && value > 0).toBe(true);
       }
     }
@@ -190,7 +190,14 @@ describe('builds', () => {
         expect(Number.isSafeInteger(amount)).toBe(true);
         expect(amount).toBeGreaterThan(0);
       }
+      expect(Number.isSafeInteger(build.buildTicks)).toBe(true);
+      expect(build.buildTicks).toBeGreaterThan(0);
     }
+  });
+
+  it('come apart faster than they go up, by a whole factor', () => {
+    expect(Number.isSafeInteger(DECONSTRUCT_SPEEDUP)).toBe(true);
+    expect(DECONSTRUCT_SPEEDUP).toBeGreaterThan(1);
   });
 });
 

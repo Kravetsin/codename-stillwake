@@ -109,8 +109,9 @@ export const crewFeature: Feature = {
     const keys = createKeys(window);
     const clock = createClock(STEP_MS);
     let hero: { previous: Hero; current: Hero } | undefined;
-    /** The plans E has served in this hold: a sweep serves each it passes once. */
+    /** The blueprints E has delivered to in this hold: a sweep delivers to each it passes once. */
     const served = new Set<number>();
+    let workedOnTick = -1;
     let steps = 0;
     let wasOut = false;
 
@@ -215,7 +216,8 @@ export const crewFeature: Feature = {
         const e = out
           ? { pressed: false, held: false }
           : { pressed: pressed || grab, held: keys.holdsUse() };
-        const uses = usesOf(aim, e);
+        const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
+        workedOnTick = uses.workedOnTick;
         if (uses.served !== undefined) served.add(uses.served);
         for (const c of uses.commands) game.client.send(c);
         if (uses.open !== undefined) openCrate.set(uses.open);

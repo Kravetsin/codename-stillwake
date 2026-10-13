@@ -1,6 +1,6 @@
 import type { QueryApi } from '../../core/module';
 import type { GridModule, Layer } from '../grid';
-import type { ItemsModule } from '../items';
+import type { Cost, ItemsModule } from '../items';
 import type { PowerModule } from '../power';
 import { buildOf, lacking } from './costs';
 import type { Action, Plan } from './state';
@@ -110,9 +110,19 @@ export function planProblem(
 }
 
 /**
- * Why E on plan `id` by peer `peer` is refused: the plan is gone; it is a blueprint and the hero
- * carries none of what it lacks (never in creative mode, which builds it as it is); or it is a mark
- * on a crate that holds something or a machine a cable ends on.
+ * What blueprint `plan` still lacks before work on it may begin; nothing in creative mode, where
+ * it is built as it is, nor for a mark.
+ */
+export function lackOf(items: Items, plan: Plan): Cost {
+  return 'place' in plan && !items.creative()
+    ? lacking(buildOf(plan.place).cost, plan.delivered)
+    : {};
+}
+
+/**
+ * Why E on plan `id` by peer `peer` is refused: the plan is gone; it is a blueprint still lacking
+ * something and the hero carries none of it; or it is a mark on a crate that holds something or a
+ * machine a cable ends on.
  */
 export function workProblem(
   grid: Grid,
@@ -125,9 +135,9 @@ export function workProblem(
   const plan = plans.find((p) => p.id === id);
   if (!plan) return 'building.noPlan';
   if ('clear' in plan) return inUse(grid, items, power, plan.cell, plan.clear);
-  if (items.creative()) return undefined;
+  const due = lackOf(items, plan);
+  if (Object.keys(due).length === 0) return undefined;
   const carried = items.totals(peer);
-  const due = lacking(buildOf(plan.place).cost, plan.delivered);
   const any = Object.keys(due).some((item) => (carried[item as keyof typeof carried] ?? 0) > 0);
   return any ? undefined : 'items.notEnough';
 }

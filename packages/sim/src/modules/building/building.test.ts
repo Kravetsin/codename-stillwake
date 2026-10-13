@@ -26,9 +26,15 @@ const OPEN = `
 const at = (x: number, y: number) => y * 9 + x;
 
 /** A blueprint as `plans()` shows it before anything is delivered. */
-const placed = (id: number, cell: number, place: Placement) => ({ id, cell, place, delivered: {} });
+const placed = (id: number, cell: number, place: Placement) => ({
+  id,
+  cell,
+  progress: 0,
+  place,
+  delivered: {},
+});
 /** A mark as `plans()` shows it. */
-const marked = (id: number, cell: number, clear: Layer) => ({ id, cell, clear });
+const marked = (id: number, cell: number, clear: Layer) => ({ id, cell, progress: 0, clear });
 
 describe('building', () => {
   it('plans every kind of thing the toolbar offers', () => {

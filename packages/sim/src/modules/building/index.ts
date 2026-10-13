@@ -2,9 +2,9 @@ import { defineModule, refuse, withFuzz, type Ctx } from '../../core/module';
 import type { GridModule, Layer, Placement } from '../grid';
 import type { Cost, ItemsModule } from '../items';
 import type { PowerModule } from '../power';
-import { buildOf, builtAt, lacking } from './costs';
+import { buildOf, builtAt, ticksFor } from './costs';
 import { fuzzBuilding } from './fuzz';
-import { clearAt, covers, markedCell, planProblem, workProblem } from './rules';
+import { clearAt, covers, lackOf, markedCell, planProblem, workProblem } from './rules';
 import type { Action, BuildingState, Plan } from './state';
 
 export type { Action, BuildingState, Plan } from './state';
@@ -63,6 +63,16 @@ const buildingModule = defineModule<Deps>()({
         id,
         peer,
       ),
+    /** What blueprint `id` still lacks before work on it may begin: none for a mark or no plan. */
+    lacking: (ctx, id: number) => {
+      const plan = ctx.state.plans.find((p) => p.id === id);
+      return plan ? lackOf(ctx.deps.items.query, plan) : {};
+    },
+    /** Ticks of work plan `id` takes in all, for its bar. */
+    ticksFor: (ctx, id: number) => {
+      const plan = ctx.state.plans.find((p) => p.id === id);
+      return plan && ticksFor(ctx.deps.grid.query, plan);
+    },
     /** What blueprint `id` costs in all, for its tray and bar; nothing for a mark or no plan. */
     costOf: (ctx, id: number) => {
       const plan = ctx.state.plans.find((p) => p.id === id);
@@ -87,7 +97,7 @@ const buildingModule = defineModule<Deps>()({
       },
       apply(ctx, p: { cell: number; placement: Placement }) {
         const id = ctx.state.nextPlanId;
-        ctx.state.plans.push({ id, cell: p.cell, place: p.placement, delivered: {} });
+        ctx.state.plans.push({ id, cell: p.cell, progress: 0, place: p.placement, delivered: {} });
         ctx.state.nextPlanId += 1;
       },
     },
@@ -107,7 +117,7 @@ const buildingModule = defineModule<Deps>()({
       },
       apply(ctx, p: { cell: number; layer: Layer }) {
         const cell = markedCell(ctx.deps.grid.query, p.cell, p.layer) ?? p.cell;
-        ctx.state.plans.push({ id: ctx.state.nextPlanId, cell, clear: p.layer });
+        ctx.state.plans.push({ id: ctx.state.nextPlanId, cell, progress: 0, clear: p.layer });
         ctx.state.nextPlanId += 1;
       },
     },
@@ -123,9 +133,10 @@ const buildingModule = defineModule<Deps>()({
       },
     },
     /**
-     * E on a plan. A blueprint takes from the sender, item by item, the lesser of what it lacks and
-     * what the sender carries, and is built once it has everything; in creative mode it is built as
-     * it is. A mark takes its thing apart at once.
+     * E on a plan. A blueprint still lacking something takes from the sender, item by item, the
+     * lesser of what it lacks and what the sender carries. Otherwise it is one tick of a hero's work,
+     * sent every tick the player holds E on it within reach: the last builds the blueprint or takes
+     * apart what the mark names.
      */
     work: {
       validate(ctx, p: { plan: number }) {
@@ -143,20 +154,23 @@ const buildingModule = defineModule<Deps>()({
         const { items } = ctx.deps;
         const at = ctx.state.plans.findIndex((each) => each.id === p.plan);
         const plan = ctx.state.plans[at] as Plan;
-        if (!('place' in plan) || items.query.creative()) return complete(ctx, plan, ctx.from);
-        const carried = items.query.totals(ctx.from);
-        const due = lacking(buildOf(plan.place).cost, plan.delivered);
-        const delivered: Partial<Record<keyof Cost, number>> = { ...plan.delivered };
-        for (const [item, n] of Object.entries(due) as [keyof Cost, number][]) {
-          const given = Math.min(n, carried[item] ?? 0);
-          if (given === 0) continue;
-          items.op.take(ctx.from, { [item]: given });
-          delivered[item] = (delivered[item] ?? 0) + given;
+        const due = lackOf(items.query, plan);
+        if ('place' in plan && Object.keys(due).length > 0) {
+          const carried = items.query.totals(ctx.from);
+          const delivered: Partial<Record<keyof Cost, number>> = { ...plan.delivered };
+          for (const [item, n] of Object.entries(due) as [keyof Cost, number][]) {
+            const given = Math.min(n, carried[item] ?? 0);
+            if (given === 0) continue;
+            items.op.take(ctx.from, { [item]: given });
+            delivered[item] = (delivered[item] ?? 0) + given;
+          }
+          ctx.state.plans[at] = { ...plan, delivered };
+          return;
         }
-        const now = { ...plan, delivered };
-        ctx.state.plans[at] = now;
-        if (Object.keys(lacking(buildOf(plan.place).cost, delivered)).length === 0) {
-          complete(ctx, now, ctx.from);
+        const worked = { ...plan, progress: plan.progress + 1 };
+        ctx.state.plans[at] = worked;
+        if (worked.progress >= ticksFor(ctx.deps.grid.query, worked)) {
+          complete(ctx, worked, ctx.from);
         }
       },
     },

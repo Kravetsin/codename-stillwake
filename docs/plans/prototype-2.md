@@ -320,6 +320,10 @@ two heroes finish a door; every refusal; cancel drops what was delivered; E on a
 the floor when full; creative completes; invariants — items conserved across inventories, floor and
 blueprints, `delivered` never past the cost; fuzz draws `work` and `cancelPlan`; `SAVE_FORMAT`
 bumped; a sweep delivers in two windows.
+Reworked after a look at it: building at once took the point out of going out and of putting a ship
+together. Delivery stays, by the sweep; then a blueprint with all it costs is built by held E over
+its `buildTicks`, a mark taken apart over its share of them (`DECONSTRUCT_SPEEDUP`), as before. The
+bar shows the share delivered in amber, then the work done.
 
 **P2-13 · The build menu** · M · client `building`, i18n · after P2-12
 B opens a menu replacing the row of buttons: tabs Structure, Air, Power, Production, Storage; each

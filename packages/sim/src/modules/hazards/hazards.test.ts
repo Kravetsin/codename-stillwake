@@ -1,4 +1,4 @@
-import { AIR } from '@stillwake/content';
+import { AIR, MATERIALS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { defineSim } from '../../core/sim';
 import { builder } from '../../testing/builder';
@@ -65,7 +65,8 @@ describe('meteors', () => {
     const wall = { layer: 'structure', kind: 'wall', material: 'scrap' } as const;
     w.do(building, 'placePlan', { cell: at(8, 2), placement: wall }).run();
     const plan = w.query(building).plans()[0]?.id ?? 0;
-    w.do(building, 'work', { plan }).run();
+    // Its scrap delivered, then the wall built.
+    for (let i = 0; i <= MATERIALS.scrap.buildTicks; i++) w.do(building, 'work', { plan }).run();
     expect(w.query(grid).structureAt(at(8, 2)).kind).toBe('wall');
     expect(w.query(rooms).rooms()[0]?.openings).toEqual([]);
     // The build took long enough to vent the tank dry: a fresh canister fills the room again.

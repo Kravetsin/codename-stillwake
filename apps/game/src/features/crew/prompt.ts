@@ -28,7 +28,8 @@ export function promptOf(
       .query(building)
       .plans()
       .find((p) => p.id === aim.work?.plan);
-    const action = plan && 'clear' in plan ? 'use.takeApart' : 'use.build';
+    const action =
+      plan && 'clear' in plan ? 'use.takeApart' : aim.work.delivers ? 'use.deliver' : 'use.build';
     return { action, problem: aim.work.problem };
   }
   if (aim.crate !== undefined) return { action: 'use.openCrate', problem: undefined };

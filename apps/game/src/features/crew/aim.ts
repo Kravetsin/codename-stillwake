@@ -28,7 +28,12 @@ export interface Aim {
   readonly cell: number;
   readonly inReach: boolean;
   readonly press?: Use;
-  readonly work?: { readonly plan: number; readonly problem: string | undefined };
+  /** A plan E works on; `delivers` while it still lacks something, rather than building. */
+  readonly work?: {
+    readonly plan: number;
+    readonly problem: string | undefined;
+    readonly delivers?: boolean;
+  };
   readonly crate?: number;
   readonly piece?: number;
 }
@@ -77,10 +82,16 @@ export function aimAt(
   const inReach = reaches(hero, cell, cells.width);
 
   const plans = sim.query(building);
+  const delivers = (id: number) => Object.keys(plans.lacking(id)).length > 0;
   const here = plans
     .plansAt(cell)
-    .filter((p) => !served.has(p.id))
-    .map((p) => ({ plan: p.id, problem: plans.workProblem(p.id, peer) }));
+    // A sweep delivers to each blueprint once; one with all it needs is built while E stays on it.
+    .filter((p) => !(served.has(p.id) && delivers(p.id)))
+    .map((p) => ({
+      plan: p.id,
+      problem: plans.workProblem(p.id, peer),
+      ...(delivers(p.id) ? { delivers: true } : {}),
+    }));
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
   const machine = sim.query(grid).machineAt(cell);
@@ -144,28 +155,47 @@ function pressOf(sim: Sim, peer: number, cell: number): Use | undefined {
   return undefined;
 }
 
-/** What E sends this frame, the crate it opens if any, and the plan it served if any. */
+/**
+ * What E sends this frame, the crate it opens if any, the blueprint it delivered to if any, and the
+ * tick work was last sent on: -1 when none is under way.
+ */
 export interface Uses {
   readonly commands: readonly Command[];
   readonly open?: number;
   readonly served?: number;
+  readonly workedOnTick: number;
 }
+
+/** How many ticks of work one frame sends at most, after a stall. */
+const MAX_WORK_PER_FRAME = 5;
 
 /**
  * What E does this frame. A press within reach sends what is pressed, unless the sim would refuse
- * it. Held on a plan the sim would take, it sends one `work` for it: delivering to a blueprint,
- * taking apart a mark. The caller keeps the plans served in this hold and passes them to `aimAt`,
- * so sweeping the pointer serves each plan it passes once.
+ * it. Held on a blueprint still lacking something, it delivers once: the caller keeps the blueprints
+ * served in this hold and passes them to `aimAt`, so sweeping the pointer delivers to each it passes.
+ * Held on a plan with all it needs, or a mark, it sends one `work` for every tick released since the
+ * last it sent for, so a peer drawing fewer frames than the ticks it runs builds as fast as any other;
+ * a hold just begun sends one. `tick` is the client's world tick.
  */
 export function usesOf(
   aim: Aim | undefined,
   e: { readonly pressed: boolean; readonly held: boolean },
+  tick: number,
+  workedOnTick: number,
 ): Uses {
-  if (!aim?.inReach) return { commands: [] };
-  if (e.pressed && aim.crate !== undefined) return { commands: [], open: aim.crate };
+  if (!aim?.inReach) return { commands: [], workedOnTick: -1 };
+  if (e.pressed && aim.crate !== undefined) {
+    return { commands: [], open: aim.crate, workedOnTick: -1 };
+  }
   const commands: Command[] = [];
   if (e.pressed && aim.press && !aim.press.problem) commands.push(aim.press.command);
-  if (!aim.work || aim.work.problem || !e.held) return { commands };
-  commands.push(command(building, 'work', { plan: aim.work.plan }));
-  return { commands, served: aim.work.plan };
+  if (!aim.work || aim.work.problem || !e.held) return { commands, workedOnTick: -1 };
+  const work = command(building, 'work', { plan: aim.work.plan });
+  if (aim.work.delivers)
+    return { commands: [...commands, work], served: aim.work.plan, workedOnTick: -1 };
+  // A hold just begun sends one; so does a load that took the world's tick back.
+  const fresh = workedOnTick < 0 || tick < workedOnTick;
+  const due = fresh ? 1 : Math.min(tick - workedOnTick, MAX_WORK_PER_FRAME);
+  for (let i = 0; i < due; i++) commands.push(work);
+  return { commands, workedOnTick: due > 0 ? tick : workedOnTick };
 }

@@ -23,6 +23,8 @@ const MARK = 0xe05555;
 const FITS = 0x7fe08a;
 const REFUSED = 0xe05555;
 const BAR = 0xf2f5fa;
+/** The bar of a blueprint still being delivered to: what it has, in the colour of materials. */
+const DELIVERED = 0xe8b04a;
 const BAR_BACK = 0x0b0f17;
 const GRID_LINE = 0x9fb4c8;
 /** How near a Deconstruct click must be to a cable, in cells, to cut it. */
@@ -71,11 +73,11 @@ export const buildingFeature: Feature = {
 
         const plans = q.building.plans();
         // Ids alone would miss a load that brings other plans under the same ids.
-        // What was delivered is in the key, so bars grow as deliveries land.
+        // What was delivered and the work done are in the key, so bars grow as they go on.
         const key = plans.map((p) =>
           'place' in p
-            ? `${p.id}:${p.cell}:${p.place.kind}:${JSON.stringify(p.delivered)}`
-            : `${p.id}:${p.cell}:${p.clear}`,
+            ? `${p.id}:${p.cell}:${p.place.kind}:${JSON.stringify(p.delivered)}:${p.progress}`
+            : `${p.id}:${p.cell}:${p.clear}:${p.progress}`,
         );
         if (key.join() !== drawn) {
           drawn = key.join();
@@ -229,7 +231,8 @@ function boxOf(cells: readonly number[], width: number) {
 
 /**
  * Plans as translucent shapes by layer, marks as red crosses over what they take out, and a bar
- * along the bottom of each blueprint with the share of its cost delivered.
+ * along the bottom of each plan: a blueprint's share delivered while it lacks something, in amber,
+ * then the work done, in white.
  */
 function drawPlans(
   g: Graphics,
@@ -261,14 +264,18 @@ function drawPlans(
         .fill({ color: PLAN, alpha: p.place.layer === 'machine' ? 0.15 : 0.25 })
         .stroke({ width: p.place.layer === 'machine' ? 2 : 1, color: PLAN });
     }
-    // A blueprint's bar: the share of its cost delivered so far, counted in units of any item.
-    const cost = 'place' in p ? q.building.costOf(p.id) : undefined;
-    const total = cost ? Object.values(cost).reduce((sum: number, n) => sum + (n ?? 0), 0) : 0;
-    const got =
-      'place' in p ? Object.values(p.delivered).reduce((sum: number, n) => sum + (n ?? 0), 0) : 0;
-    if (got > 0 && total > 0) {
+    // A blueprint still lacking something shows the share delivered; then, as any plan, the work
+    // done.
+    const lacks = 'place' in p && Object.keys(q.building.lacking(p.id)).length > 0;
+    const cost = lacks ? q.building.costOf(p.id) : undefined;
+    const sum = (c: Partial<Record<string, number>>) =>
+      Object.values(c).reduce((total: number, n) => total + (n ?? 0), 0);
+    const share = lacks
+      ? sum('place' in p ? p.delivered : {}) / Math.max(1, sum(cost ?? {}))
+      : p.progress / (q.building.ticksFor(p.id) ?? 1);
+    if (share > 0) {
       g.rect(x + 2, y + h - 5, w - 4, 3).fill({ color: BAR_BACK });
-      g.rect(x + 2, y + h - 5, ((w - 4) * got) / total, 3).fill({ color: BAR });
+      g.rect(x + 2, y + h - 5, (w - 4) * share, 3).fill({ color: lacks ? DELIVERED : BAR });
     }
   }
 }

@@ -1,4 +1,4 @@
-import { AIR, BUILDS } from '@stillwake/content';
+import { AIR, BUILDS, DECONSTRUCT_SPEEDUP } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { parseLayout, type Layout } from '../../core/layout';
 import { defineSim } from '../../core/sim';
@@ -79,7 +79,7 @@ describe('back walls', () => {
     expect(statusOf(w)).toBe('venting');
     giveItems(w, 0, BUILDS.backWall.cost);
     w.do(building, 'placePlan', { cell: at(5, 2), placement: backWall }).run();
-    work(w, 1);
+    work(w, 1 + BUILDS.backWall.buildTicks);
     expect(w.query(grid).layers().back[at(5, 2)]).toBe(1);
     w.do(atmosphere, 'loadCanister', { tank }).run();
     expect(statusOf(w)).toBe('filling');
@@ -92,7 +92,7 @@ describe('back walls', () => {
     w.run((w.query(rooms).room(room)?.volume ?? 0) * AIR.ticksPerCell + 1);
     expect(statusOf(w)).toBe('aired');
     w.do(building, 'deconstruct', { cell: at(5, 2), layer: 'back' }).run();
-    work(w, 1);
+    work(w, Math.ceil(BUILDS.backWall.buildTicks / DECONSTRUCT_SPEEDUP));
     expect(statusOf(w)).toBe('venting');
     expect(
       w

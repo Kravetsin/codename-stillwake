@@ -245,7 +245,8 @@ describe('rooms', () => {
     const wall = { layer: 'structure', kind: 'wall', material: 'scrap' } as const;
     giveItems(w, 0, { scrap: MATERIALS.scrap.cost });
     w.do(building, 'placePlan', { cell: at(5, 2), placement: wall }).run();
-    w.do(building, 'work', { plan: 1 }).run();
+    // Its scrap delivered, then the wall built.
+    for (let i = 0; i <= MATERIALS.scrap.buildTicks; i++) w.do(building, 'work', { plan: 1 }).run();
     expect(w.query(rooms).room(at(2, 2))).toMatchObject({ volume: 3, openings: [] });
     expect(w.query(rooms).roomAt(at(5, 2))).toBeUndefined();
   });
