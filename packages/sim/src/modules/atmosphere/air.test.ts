@@ -9,6 +9,8 @@ import type { Placement } from '../grid';
 import { atmosphere, crew, grid, MODULES, rooms, items } from '../index';
 import { orderRooms } from './order';
 
+/** A minute of ticks: leaks are counted over ten. */
+const MINUTE = 60 * 20;
 const world = defineSim([...MODULES, builder]);
 const pipe: Placement = { layer: 'conduit', kind: 'pipe' };
 const wall: Placement = { layer: 'structure', kind: 'wall', material: 'scrap' };
@@ -184,7 +186,7 @@ describe('air', () => {
     expect(status(w, room)).toBe('filling');
   });
 
-  it('leaks through its hull and back walls by their materials and a door by its own, over a minute', () => {
+  it('leaks through its hull and back walls by their materials and a door by its own, over a period', () => {
     // The right wall's middle cell is a closed door, and the left wall is iron: of the twenty hull
     // cells, one leaks as a door, three as iron, the rest as scrap; each cell's scrap back wall
     // leaks too, but not the one behind the door, which touches no air.
@@ -206,7 +208,7 @@ describe('air', () => {
     const before = oxygen(w, tanks[0] as number);
     const leak =
       (HULL - 4 + VOLUME) * MATERIALS.scrap.leak + 3 * MATERIALS.iron.leak + AIR.doorLeak;
-    // Spread over the minute, paid by the tank: about half by half way, all of it by its end.
+    // Spread over the period, paid by the tank: about half by half way, all of it by its end.
     w.run(AIR.leakEvery / 2);
     expect(before - oxygen(w, tanks[0] as number)).toBeGreaterThanOrEqual(Math.floor(leak / 2));
     expect(before - oxygen(w, tanks[0] as number)).toBeLessThanOrEqual(Math.ceil(leak / 2));
@@ -221,7 +223,7 @@ describe('air', () => {
     airUp(w, room, 2000);
     dryOut(w, tanks[0] as number, 40000);
     const held = air(w).aired.length;
-    w.run(AIR.leakEvery / 20);
+    w.run(MINUTE / 20);
     const left = air(w).aired.length;
     expect(left).toBeLessThan(held);
     expect(left).toBeGreaterThan(0);
@@ -374,7 +376,7 @@ describe('air', () => {
       expect(status(w, shut)).toBe('aired');
       airUp(w, left);
       // No tank pays the right room's leak: it takes the room's own air, a cell at a time.
-      w.run(AIR.leakEvery / 8);
+      w.run(MINUTE / 8);
       expect(airedIn(w, shut).length).toBeLessThan(w.query(rooms).room(shut)?.volume ?? -1);
       expect(airedIn(w, shut).length).toBeGreaterThan(0);
     });

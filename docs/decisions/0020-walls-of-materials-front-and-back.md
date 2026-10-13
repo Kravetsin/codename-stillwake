@@ -23,9 +23,14 @@ than smelting; iron comes first.
   space in `DEFAULT_HULL`.
 - **A room loses air through what its air touches:** the back walls behind its cells, and the
   walls and closed doors round it that have space beyond (its hull, as before). Each leaks its
-  material's `leak` a minute, a door `AIR.doorLeak`. So a back wall behind a wall or a closed door
+  material's `leak`, a door `AIR.doorLeak`. So a back wall behind a wall or a closed door
   touches no air and leaks nothing; behind an open door, a floor, a ladder or a machine, it is
   behind the room and leaks.
+- **Leaks are counted every ten minutes** (`AIR.leakEvery`), the generator's rate with them, so
+  a material may leak a tenth of a unit a minute and its numbers stay whole. A room's air stays
+  whole cells.
+- **Materials of one kind differ by about a fifth;** one that stands out does so by far, on one
+  property only. Iron leaks a fifth less than scrap.
 - **A room cell without a back wall is an opening,** as in 0010: the room vents.
 - **Strength stays unread** until meteors count hits (the next task); meteors hit walls only, never
   back walls.
@@ -42,7 +47,8 @@ than smelting; iron comes first.
 
 - A room's leak grows with its size, not only with its outline: the starting room loses about
   three times what it did, and `AIR.generatorRate` grows to hold two heroes breathing in it.
-- An iron back wall is worth building behind a large room: it leaks a third of scrap's.
+- An iron back wall is worth building behind a large room, a little at a time: it leaks a fifth
+  less than scrap.
 - A wall two cells thick still leaks nothing, whatever it is made of: it has no space beyond the
   cell the air touches. When materials that seal well arrive, a stack of walls is to leak what its
   tightest layer lets through, so layering means something.

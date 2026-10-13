@@ -362,18 +362,18 @@ function leakOf(world: World, room: Room): number {
   return leaks.get(room) ?? 0;
 }
 
-/** A tick's share of `perMinute`, spread over each `AIR.leakEvery` ticks so a minute's total is exact. */
-function dueAt(perMinute: number, clock: number): number {
+/** A tick's share of `perPeriod`, spread over each `AIR.leakEvery` ticks so a period's total is exact. */
+function dueAt(perPeriod: number, clock: number): number {
   const beat = clock % AIR.leakEvery;
-  const dueBy = (ticks: number) => Math.floor((perMinute * ticks) / AIR.leakEvery);
+  const dueBy = (ticks: number) => Math.floor((perPeriod * ticks) / AIR.leakEvery);
   return dueBy(beat + 1) - dueBy(beat);
 }
 
 /**
  * Each generator, in id order, works toward its next unit by `AIR.generatorRate` × its power's
  * satisfaction, and puts each unit it finishes into its own store, up to `AIR.generatorStore`; what
- * does not fit is lost. A store emptied leaves the list, as a tank's. At full power a minute makes
- * exactly the rate; the fraction carries over in `making`.
+ * does not fit is lost. A store emptied leaves the list, as a tank's. At full power each
+ * `AIR.leakEvery` ticks make exactly the rate; the fraction carries over in `making`.
  */
 function produce(air: Air, world: World): void {
   const unit = AIR.leakEvery * 1000;

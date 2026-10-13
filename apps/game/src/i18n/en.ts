@@ -44,10 +44,10 @@ export const EN: Readonly<Record<string, string>> = {
   'build.tab.production': 'Production',
   'build.tab.storage': 'Storage',
   'tool.wallScrap.about': 'A cheap hull wall. Leaks air a little.',
-  'tool.wallIron.about': 'A strong hull wall. Leaks a third of what scrap does.',
+  'tool.wallIron.about': 'A strong hull wall. Leaks a fifth less than scrap.',
   'tool.backWallScrap.about':
     'A cheap wall behind a room, leaking as a scrap wall does. Without one, the room is open to space.',
-  'tool.backWallIron.about': 'A wall behind a room that leaks a third of what scrap does.',
+  'tool.backWallIron.about': 'A wall behind a room that leaks a fifth less than scrap.',
   'tool.floor.about': 'A platform to stand on, climbed through from below.',
   'tool.ladder.about': 'Climbs between decks.',
   'tool.door.about': 'Opens with E. Closed, it holds air.',

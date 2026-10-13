@@ -10,17 +10,22 @@ export function span(ticks: number): string {
     : t('time.minutes', { n: Math.floor(seconds / 60) });
 }
 
-/** What `breathers` heroes breathe a minute, a breath a unit. */
+/** What `breathers` heroes breathe every `AIR.leakEvery` ticks, a breath a unit: rates are counted so. */
 const breathing = (breathers: number) => (breathers * AIR.leakEvery) / CREW.breathEvery;
 
 /**
- * How long `units` of oxygen last a room leaking `leak` a minute with `breathers` heroes breathing in
+ * How long `units` of oxygen last a room leaking `leak` every `AIR.leakEvery` ticks with `breathers` heroes breathing in
  * it, a breath a unit; `∞` when nothing draws. A forecast for the player, not a rule: a suit's refill
  * and other rooms on the same pipes are left out.
  */
 function lasting(units: number, leak: number, breathers: number): string {
-  const perMinute = leak + breathing(breathers);
-  return perMinute > 0 ? span(Math.floor((units * AIR.leakEvery) / perMinute)) : '∞';
+  const perPeriod = leak + breathing(breathers);
+  return perPeriod > 0 ? span(Math.floor((units * AIR.leakEvery) / perPeriod)) : '∞';
+}
+
+/** A rate counted every `AIR.leakEvery` ticks, as a player reads it: a minute's, to a tenth. */
+function perMinute(perPeriod: number): number {
+  return Math.floor((perPeriod * 60 * TICKS_PER_SECOND * 10) / AIR.leakEvery) / 10;
 }
 
 /**
@@ -30,7 +35,7 @@ function lasting(units: number, leak: number, breathers: number): string {
 function generated(air: RoomAir, breathers: number): string {
   const spare = air.made - air.leak - breathing(breathers);
   return spare >= 0
-    ? t('air.keepsUp', { n: Math.floor(spare) })
+    ? t('air.keepsUp', { n: perMinute(spare) })
     : t('air.fallsShort', { time: lasting(air.oxygen + air.aired, -spare, 0) });
 }
 

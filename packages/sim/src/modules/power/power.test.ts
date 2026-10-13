@@ -149,7 +149,9 @@ describe('power', () => {
     // Unpiped, the second keeps all it makes: 187.5 a minute, thirty units in 192 ticks.
     const ticks = 192;
     w.run(ticks);
-    expect(store(w, SECOND)).toBe(Math.floor((ticks * AIR.generatorRate * 625) / 1000 / 1200));
+    expect(store(w, SECOND)).toBe(
+      Math.floor((ticks * AIR.generatorRate * 625) / 1000 / AIR.leakEvery),
+    );
     expect(store(w, SECOND)).toBe(30);
   });
 

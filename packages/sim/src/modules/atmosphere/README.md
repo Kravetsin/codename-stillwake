@@ -39,7 +39,7 @@ vents into space.
   a store of its own in `tanks` holding up to `AIR.generatorStore`; what does not fit is lost. Each
   tick a generator adds the rate times its power's satisfaction (thousandths) to its remainder in
   `making`, saved, and makes a unit each time that reaches `AIR.leakEvery × 1000`: exactly the rate a
-  minute in full, proportionally less when short, nothing unpowered. Draws take from a store as from a
+  period in full, proportionally less when short, nothing unpowered. Draws take from a store as from a
   tank. A vent on a network with a powered generator counts as supplied: its room is filling, not dry,
   while the store sits empty between units.
 - **A tick of air,** in the simulation phase, in this order:
@@ -54,8 +54,8 @@ vents into space.
      it faster.
   5. Every other room holding air uses its leak, through what its air touches (0020) — the material
      `leak` of the back wall behind each of its cells and of each hull cell, or `AIR.doorLeak` for a
-     closed door, every `AIR.leakEvery` ticks — spread over the minute: on each tick what is due by
-     its end less what was by its start, so a minute's total is exact. A back wall behind a wall or a
+     closed door, every `AIR.leakEvery` ticks (ten minutes, so rates take tenths) — spread over the
+     period: on each tick what is due by its end less what was by its start, so its total is exact. A back wall behind a wall or a
      closed door touches no air and leaks nothing. Leaks are found once per room object, every room's
      in one pass over the cells: rooms are new objects whenever walls or back walls change.
 - **Draws** go tank by tank in tank id order along the network.
@@ -72,7 +72,7 @@ vents into space.
   aired cell, sorted, live; `roomsAir()` — every room's status, aired cells, leak, the oxygen on its
   vents' networks (each counted once), how many ticks that lasts at what the room alone draws (its
   leak if aired, its vents' drain if venting; none when a generator feeds it), what the generators on
-  those networks make a minute, and why a room in vacuum gets no air
+  those networks make a period (`AIR.leakEvery` ticks), and why a room in vacuum gets no air
   (`atmosphere.noVent`, `notPiped`, `unpowered` — only unpowered generators behind it — or `dry`). One survey for all rooms, so the air overlay reads it
   four times a second, never every tick. It counts neither breathing nor other rooms on the same
   network.

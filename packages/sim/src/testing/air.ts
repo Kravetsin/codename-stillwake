@@ -1,8 +1,8 @@
 import { AIR } from '@stillwake/content';
 
 /**
- * What a room leaking `leak` a minute uses on the air ticks after clock `from`, up to `to`: the
- * leak is spread over the minute, what is due by the end of a tick less what was by its start.
+ * What a room leaking `leak` every `AIR.leakEvery` ticks uses on the air ticks after clock `from`, up
+ * to `to`: the leak is spread over the period, what is due by the end of a tick less what was by its start.
  */
 export function leaked(leak: number, from: number, to: number): number {
   let sum = 0;
