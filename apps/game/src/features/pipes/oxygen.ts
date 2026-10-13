@@ -5,11 +5,3 @@ export const PALETTE = [
 
 /** The overlay colour of the `index`-th network in `networks()` order. */
 export const colourOf = (index: number) => PALETTE[index % PALETTE.length] ?? 0xffffff;
-
-/** The networks with a machine that `feeds` them oxygen: the pipes drawn lit. */
-export function litNetworks<N extends { readonly machines: readonly number[] }>(
-  networks: readonly N[],
-  feeds: (machine: number) => boolean,
-): N[] {
-  return networks.filter((n) => n.machines.some(feeds));
-}
