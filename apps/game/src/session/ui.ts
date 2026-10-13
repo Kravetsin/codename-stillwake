@@ -18,12 +18,12 @@ export const aimedPiece = createStore<
 
 /**
  * What the hand holds (0022), one thing at a time: `free` — nothing or a hotbar item; `plan` — the
- * build menu open or a build card; `cable` — the cable card, even with the menu open. `building`
- * sets it with the card; `items` frees it when a hotbar slot is picked or the inventory opens, and
+ * plan out with no card chosen; `card` — a build card; `cable` — the cable card. `building` sets it
+ * with the card; `items` frees it when a hotbar slot is picked or the inventory opens, and
  * `building` then puts the plan away. With anything but a free hand, `crew` leaves the pointer and
  * the left button to the card.
  */
-export const hand = createStore<'free' | 'plan' | 'cable'>('free');
+export const hand = createStore<'free' | 'plan' | 'card' | 'cable'>('free');
 
 /**
  * Where this player's hero is, its cell and the way it faces, as `crew` last moved it: where `items`

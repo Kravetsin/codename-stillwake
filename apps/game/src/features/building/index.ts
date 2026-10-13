@@ -126,8 +126,10 @@ export const buildingFeature: Feature = {
           send(drag.act, drag.from, spotAt(size, button.at));
           drag = undefined;
         };
-        // The left button is the card's, but for the cable, which the power feature lays.
-        for (const button of holds === 'cable' ? [] : camera.takeLeft()) {
+        // The left button is the card's, but for the cable, which the power feature lays, and but
+        // for the plan out with no card under the power overlay, where it carries pegs and plugs.
+        const wiring = holds === 'cable' || (holds === 'plan' && overlay === POWER);
+        for (const button of wiring ? [] : camera.takeLeft()) {
           if (tool?.kind !== 'place') continue;
           dragWith(button, tool, 'left');
         }

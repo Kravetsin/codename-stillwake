@@ -20,19 +20,22 @@ mouse.
 
 ## Decision
 
-- **The hand holds one thing:** nothing or a hotbar item (`free`), the plan — out with a build card
-  or none (`plan`) — or the cable card (`cable`). One store, `hand`, replaces `buildMode` and
+- **The hand holds one thing:** nothing or a hotbar item (`free`), the plan out with no card
+  (`plan`), a build card (`card`) or the cable card (`cable`). One store, `hand`, replaces `buildMode` and
   `cableInHand`. The wheel or 1–9 picks a hotbar slot and puts the plan away.
 - **Overlays show and filter.** P, L and O change no button; they choose what removal and the
   pipette take: with none or O, machines, structure and back walls; with P, pipes and valves; with
-  L, cables. A drag begun on a plan cancels plans whatever the overlay. The cable card turns L on
-  and puts it back when put away, as a pipe card does P; turning L off puts the cable card away.
-  Any other card works under any overlay. The menu opens on the overlay's tab.
+  L, cables. A drag begun on a plan cancels plans whatever the overlay. Each card picked shows
+  its overlay, or none: P for pipes, valves and machines with ports, L for the cable and machines
+  with a socket and no ports, none for the rest; the plan put away gives back the overlay before it.
+  An overlay switched by hand then stays; turning L off puts the cable card away. The menu opens on
+  the overlay's tab.
 - **The mouse:**
   - left: what the card does — places along a drag line; with the cable card, lays from a node or
     a peg and on past one cable's reach through pegs (0021). With an empty hand, as before: grabs
     debris, works a plan held on;
-  - Shift + left with the cable card: moves a peg or a plug, its cables following (0021's `move`);
+  - Shift + left with the cable card, or left with the plan out and no card under L: moves a peg or
+    a plug, its cables following (0021's `move`);
   - right, with the plan or the cable in hand: removes in the overlay's layer — a drag cancels
     plans or marks what is built; in L, a press cuts the nearest cable. With an empty hand, nothing:
     one hand, and a stray right click marks no door;

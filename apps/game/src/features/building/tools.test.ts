@@ -8,6 +8,7 @@ import {
   cardAt,
   costOf,
   layersFor,
+  overlayFor,
   planOut,
   POWER,
   putPlanAway,
@@ -86,7 +87,7 @@ describe('the hand', () => {
     planOut.set(true);
     expect(hand.get()).toBe('plan');
     selected.set(card('floor'));
-    expect(hand.get()).toBe('plan');
+    expect(hand.get()).toBe('card');
     selected.set(undefined);
     expect([hand.get(), planOut.get()]).toEqual(['plan', true]);
     selected.set(card('cable'));
@@ -98,7 +99,7 @@ describe('the hand', () => {
   it('takes the plan out with a card picked while it is away, as the middle button does', () => {
     putPlanAway();
     selected.set(card('lamp'));
-    expect([hand.get(), planOut.get()]).toEqual(['plan', true]);
+    expect([hand.get(), planOut.get()]).toEqual(['card', true]);
     putPlanAway();
   });
 
@@ -108,22 +109,42 @@ describe('the hand', () => {
     expect([hand.get(), planOut.get(), selected.get()]).toEqual(['free', false, undefined]);
   });
 
-  it('turns on the overlay a card lays in, and gives back the one before once put away', () => {
+  it("shows each card's overlay, or none, and gives back the one before once the plan is away", () => {
+    const shown = (kind: string) => {
+      const each = card(kind);
+      return each && overlayFor(each);
+    };
+    expect(['wall:iron', 'floor', 'door', 'crate'].map(shown)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(['pipe', 'valve', 'vent', 'tank', 'generator', 'furnace'].map(shown)).toEqual(
+      Array(6).fill('pipes'),
+    );
+    expect(['cable', 'lamp', 'solarPanel'].map(shown)).toEqual(Array(3).fill(POWER));
+
+    putPlanAway();
     overlayOn.set('atmosphere');
     selected.set(card('pipe'));
     expect(overlayOn.get()).toBe('pipes');
     selected.set(card('floor'));
-    expect(overlayOn.get()).toBe('atmosphere');
-    selected.set(card('valve'));
+    expect(overlayOn.get()).toBeUndefined();
+    selected.set(card('lamp'));
+    expect(overlayOn.get()).toBe(POWER);
+    // A card let go keeps what is shown while the plan is out; the plan away gives back the one before.
     selected.set(undefined);
+    expect(overlayOn.get()).toBe(POWER);
+    putPlanAway();
     expect(overlayOn.get()).toBe('atmosphere');
     overlayOn.set(undefined);
   });
 
   it('keeps any card but the cable under any overlay; the cable goes with the power overlay', () => {
-    selected.set(card('lamp'));
+    selected.set(card('wall:iron'));
     overlayOn.set(POWER);
-    expect(what(selected.get())).toBe('lamp');
+    expect(what(selected.get())).toBe('wall:iron');
     selected.set(card('cable'));
     expect(overlayOn.get()).toBe(POWER);
     // Another overlay, or none, puts the cable away and stays; the plan stays out.

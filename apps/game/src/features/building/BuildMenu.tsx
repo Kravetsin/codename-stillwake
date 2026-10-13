@@ -5,7 +5,7 @@ import { CostRow, costLines } from '../../render/CostRow';
 import type { Game } from '../../session/game';
 import { overlayOn } from '../../session/ui';
 import { thumbOf } from './blueprint';
-import { costOf, planOut, putPlanAway, selected, tabFor, TABS, type Tool } from './tools';
+import { costOf, planOut, POWER, putPlanAway, selected, tabFor, TABS, type Tool } from './tools';
 
 /** The inventory's counts are read this often while the menu is open: a panel reads on a timer. */
 const REFRESH_MS = 250;
@@ -33,6 +33,7 @@ function Thumb({ tool, size }: { readonly tool: Tool; readonly size: string }) {
 export function BuildMenu({ game }: { readonly game: Game }) {
   const tool = useSyncExternalStore(selected.subscribe, selected.get);
   const open = useSyncExternalStore(planOut.subscribe, planOut.get);
+  const wiring = useSyncExternalStore(overlayOn.subscribe, overlayOn.get) === POWER;
   const [tab, setTab] = useState(TABS[0]?.id ?? '');
   const [hovered, setHovered] = useState<Tool>();
   const [carried, setCarried] = useState<Cost>({});
@@ -127,7 +128,7 @@ export function BuildMenu({ game }: { readonly game: Game }) {
             </span>
           </>
         ) : (
-          t('build.close')
+          t(wiring ? 'hand.wires' : 'build.close')
         )}
       </p>
     </div>

@@ -1,4 +1,10 @@
-import { CABLE_COST, MATERIALS, type MaterialId } from '@stillwake/content';
+import {
+  CABLE_COST,
+  MACHINES,
+  MATERIALS,
+  type MachineSpec,
+  type MaterialId,
+} from '@stillwake/content';
 import type { building, Cost, grid, Layer, Placement, power, QueryApi } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
@@ -102,10 +108,16 @@ planOut.subscribe(() => {
   if (!planOut.get()) selected.set(undefined);
 });
 
-// The hand holds the cable, the plan while it is out, or neither; freed from elsewhere — a hotbar
-// slot picked — it puts the plan away.
+// The hand holds the cable, another card, the plan out with none, or nothing; freed from elsewhere
+// — a hotbar slot picked — it puts the plan away.
 const holding = () =>
-  selected.get()?.kind === 'cable' ? 'cable' : planOut.get() ? 'plan' : 'free';
+  selected.get()?.kind === 'cable'
+    ? 'cable'
+    : selected.get()
+      ? 'card'
+      : planOut.get()
+        ? 'plan'
+        : 'free';
 selected.subscribe(() => hand.set(holding()));
 planOut.subscribe(() => hand.set(holding()));
 hand.subscribe(() => {
@@ -117,27 +129,39 @@ export const POWER = 'power';
 const PIPES = 'pipes';
 const AIR = 'atmosphere';
 
-/** The overlay a card is used in, where what it lays is in sight: by the overlay's feature id. */
-export function overlayFor(tool: Tool | undefined): string | undefined {
-  if (tool?.kind === 'cable') return POWER;
-  if (tool?.kind === 'place' && tool.placement.layer === 'conduit') return PIPES;
-  return undefined;
+/**
+ * The overlay a card is used in, where what it joins is in sight, by the overlay's feature id: pipes
+ * for a pipe, a valve and a machine with ports; power for the cable and a machine with a socket and
+ * no ports; none for the rest.
+ */
+export function overlayFor(tool: Tool): string | undefined {
+  if (tool.kind === 'cable') return POWER;
+  const { placement } = tool;
+  if (placement.layer === 'conduit') return PIPES;
+  if (placement.layer !== 'machine') return undefined;
+  const spec: MachineSpec = MACHINES[placement.kind];
+  return spec.ports.length > 0 ? PIPES : spec.plug ? POWER : undefined;
 }
 
-// A card that needs an overlay turns it on; put away, the overlay that was on before comes back.
+// Each card picked shows its overlay, or none; the plan put away gives back the one before it.
 let before: string | undefined;
-let forced: string | undefined;
-selected.subscribe(() => {
-  const wanted = overlayFor(selected.get());
-  if (wanted === forced) return;
-  if (forced === undefined) before = overlayOn.get();
-  forced = wanted;
-  overlayOn.set(wanted ?? before);
-});
+let chose = false;
+const showFor = () => {
+  const tool = selected.get();
+  if (tool) {
+    if (!chose) before = overlayOn.get();
+    chose = true;
+    overlayOn.set(overlayFor(tool));
+  } else if (chose && !planOut.get()) {
+    chose = false;
+    overlayOn.set(before);
+  }
+};
+selected.subscribe(showFor);
+planOut.subscribe(showFor);
 // The cable is laid in the power overlay: another overlay, or none, puts it away and stays.
 overlayOn.subscribe(() => {
   if (selected.get()?.kind !== 'cable' || overlayOn.get() === POWER) return;
-  forced = undefined;
   selected.set(undefined);
 });
 

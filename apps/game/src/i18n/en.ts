@@ -39,6 +39,7 @@ export const EN: Readonly<Record<string, string>> = {
   'hand.cable': 'drag to lay · Shift+drag moves a peg or plug · right cuts · B leaves',
   'build.open': '[B] Plan',
   'build.close': 'Pick a card · right drag removes · middle picks · B leaves the plan',
+  'hand.wires': 'Pick a card · drag a peg or plug to move it · right cuts · B leaves the plan',
   'build.tab.structure': 'Structure',
   'build.tab.air': 'Air',
   'build.tab.power': 'Power',

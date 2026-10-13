@@ -19,8 +19,8 @@ const CUT_REACH = 0.35;
 /**
  * The hands at work on cables in the power overlay (0021, 0022): with the cable in hand, a press on a
  * node lays a cable from it, led on past its reach through supports at the anchors on its way, and a
- * press with Shift on a support, or on a cable's end at a machine, carries it; a release lays or
- * moves there. With the cable or the plan in hand, a right press cuts the cable under it. While
+ * press with Shift on a support, or on a cable's end at a machine, carries it, as a plain press does
+ * with the plan out and no card; a release lays or moves there. With the cable or the plan in hand, a right press cuts the cable under it. While
  * dragging, each powered machine's socket is lit by whether the cable reaches it, and the ghost runs
  * to the pointer in the colour of what the sim would say, its reason beside it.
  */
@@ -67,25 +67,28 @@ export function createPowerMode() {
         if (best) game.client.send(command(power, 'cut', { a: best.line.a, b: best.line.b }));
       }
 
-      // The left button is the cable's: any other card's, or an empty hand's, is the building's.
-      if (holds !== 'cable') {
+      // The left button is the cable's, and the plan's with no card: it carries pegs and plugs.
+      // Another card's, or an empty hand's, is the building's.
+      const wiring = holds === 'cable' || holds === 'plan';
+      if (!wiring) {
         grip = undefined;
         from = undefined;
       }
-      for (const button of holds === 'cable' ? camera.takeLeft() : []) {
+      for (const button of wiring ? camera.takeLeft() : []) {
         const cell = cellAt(button.at);
         if (button.down) {
           const node = cell < 0 ? undefined : wires.nodeAt(cell);
-          // Laid from whatever node is pressed, a peg too; with Shift held at the press, a peg or a
-          // plug is carried and nothing is laid.
+          // With the cable, laid from whatever node is pressed, a peg too; with Shift held at the
+          // press, or with no card, a peg or a plug is carried and nothing is laid.
           const held = gripAt(button.at, lines, node, isMachine);
-          grip = !button.shift
-            ? node === undefined
-              ? undefined
-              : { kind: 'lay', node }
-            : held?.kind === 'lay'
-              ? undefined
-              : held;
+          grip =
+            holds === 'cable' && !button.shift
+              ? node === undefined
+                ? undefined
+                : { kind: 'lay', node }
+              : held?.kind === 'lay'
+                ? undefined
+                : held;
           from = grip?.node;
           continue;
         }
