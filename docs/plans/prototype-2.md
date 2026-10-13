@@ -303,6 +303,33 @@ it. The wreck's room A gets a lamp on the panel's network.
 Done when: unit tests for blocking, starlight, dimming and the helmet; a lamp's draw counted; the
 reference world rebuilds its light in under 2 ms.
 
+**P2-12 · Blueprints and delivery** · M · sim `building`, `items`, content, client `crew`,
+`building` · after P2-10, asked for by both developers
+A plan to place is a blueprint costing nothing: `{ id, cell, place, delivered }`. `work { plan }` is
+E on a plan: on a blueprint it takes from the sender, item by item, the lesser of what it lacks and
+what the sender carries (`items.totals`, `items.take`), and once `delivered` equals the cost it is
+built at once; on a mark it takes the thing apart at once, refunding through `items.giveOrDrop` at
+the mark's cell. Refused with `building.noPlan`, `items.notEnough` (carrying none of what is
+lacking; never in creative mode, where `work` takes nothing and completes), `building.notEmpty`,
+`building.cabled`. `cancelPlan` drops what was delivered on the floor at the blueprint
+(`items.dropAt`, which `giveOrDrop` reuses for its leftover). Hand work goes: `progress`,
+`buildTicks`, `DECONSTRUCT_SPEEDUP`, the client's work catch-up. Client: holding E sweeps, one `work`
+per plan per hold, refused ones skipped; a blueprint's bar shows the share delivered.
+Done when: scenarios — placing costs nothing; partial and full delivery, a machine's whole footprint;
+two heroes finish a door; every refusal; cancel drops what was delivered; E on a mark refunds, onto
+the floor when full; creative completes; invariants — items conserved across inventories, floor and
+blueprints, `delivered` never past the cost; fuzz draws `work` and `cancelPlan`; `SAVE_FORMAT`
+bumped; a sweep delivers in two windows.
+
+**P2-13 · The build menu** · M · client `building`, i18n · after P2-12
+B opens a menu replacing the row of buttons: tabs Structure, Air, Power, Production, Storage; each
+card a name and its cost as item icons with "have / need" from the inventory, short ones red, a
+description on hover; Deconstruct and Cancel in the menu's header. Picking a card picks the tool as
+today; with the menu closed the tool's name and hint stay at the bottom. Pointing at a blueprint
+shows its tray of delivered/needed icons, sharing one cost row with the cards. Tabs and their order
+live in `tools.ts`; text under `tool.<id>`, `tool.<id>.about`, `build.tab.<id>`.
+Done when: unit tests for have/need; an e2e opens the menu with B, picks a card and sees the ghost.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says
