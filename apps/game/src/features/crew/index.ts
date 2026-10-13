@@ -10,8 +10,18 @@ import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
 import { createFigure, lookOf, type Figure } from './figure';
-import { bodyCell, heroAt, shipOf, STEP_MS, stepHero, UNIT, type Hero, type Ship } from './hero';
-import { clipOf, drawTether } from './tether';
+import {
+  bodyCell,
+  heroAt,
+  shipOf,
+  STEP_MS,
+  stepHero,
+  UNIT,
+  type Hero,
+  type Point,
+  type Ship,
+} from './hero';
+import { clipOf, createTether, drawTether, type Tether } from './tether';
 import { createKeys } from './keys';
 import { createHeroSender, createRemoteHeroes, type SentHero } from './remote';
 import { poseOf } from './pose';
@@ -106,6 +116,26 @@ export const crewFeature: Feature = {
     const aimView = new Graphics();
     // Every hero's tether, behind the heroes: unlit, a line to find the way back by in the dark.
     const tethers = new Graphics();
+    /** Each tether's line by its hero, `own` for this machine's: tied anew wherever it is tied. */
+    const lines = new Map<number | 'own', Tether>();
+    const tie = (
+      who: number | 'own',
+      anchor: Point | undefined,
+      clip: Point,
+      elapsedMs: number,
+    ) => {
+      if (!anchor) {
+        lines.delete(who);
+        return;
+      }
+      let line = lines.get(who);
+      if (line?.anchor.x !== anchor.x || line.anchor.y !== anchor.y) {
+        line = createTether(anchor, clip, who === 'own' ? 0 : who);
+        lines.set(who, line);
+      }
+      line.update(anchor, clip, elapsedMs);
+      drawTether(tethers, line);
+    };
     const view = new Container();
     const popups = createPickUpPopups();
     view.addChild(aimView, tethers, others, ownView, popups.view);
@@ -184,6 +214,7 @@ export const crewFeature: Feature = {
         tethers.clear();
         for (const [id, shown] of shownOthers) {
           shown.figure.view.visible = heard.some((h) => h.id === id);
+          if (!shown.figure.view.visible) lines.delete(id);
         }
         for (const { id, hero: other } of heard) {
           const shown = wear(shownOthers.get(id), suitOf(sim, id), others);
@@ -191,7 +222,7 @@ export const crewFeature: Feature = {
           shown.figure.view.visible = true;
           const otherOut = (sim.query(crew).hero(id)?.out ?? 0) > 0;
           show(shown.figure, other, ship, otherOut, elapsedMs);
-          if (other.anchor) drawTether(tethers, other.anchor, clipOf(other));
+          tie(id, other.anchor, clipOf(other), elapsedMs);
         }
 
         // Drawn between the last two steps, so the hero moves smoothly at any refresh rate.
@@ -204,7 +235,7 @@ export const crewFeature: Feature = {
         const pointer = camera.pointer();
         own = wear(own, suitOf(sim, game.client.id), ownView);
         show(own.figure, { ...current, x, y }, ship, out, elapsedMs);
-        if (current.anchor) drawTether(tethers, current.anchor, clipOf({ x, y }));
+        tie('own', current.anchor, clipOf({ x, y }), elapsedMs);
         popups.update(elapsedMs, x, y);
         if (!keys.holdsLeft()) served.clear();
         const aim =
