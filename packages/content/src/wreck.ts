@@ -1,6 +1,7 @@
 /**
  * The starting wreck: one deck of a broken-off ship section in open space. The hero wakes in room A,
- * small, aired by a generator piped to its vent and cabled to a solar panel on the roof above; a crate beside them holds the starting store. Behind
+ * small, aired by a generator piped to its vent and cabled to a solar panel on the roof above,
+ * which also runs a furnace beside the vent; the crate beside them is empty. Behind
  * a closed doorway on the left is room B, a hole one cell tall in its hull: open the door and A's air
  * is gone. An airlock off A's right end, a closet between two closed doorways, is the way outside.
  * Rows are read as written and padded with space to the first, the widest: the space around the
@@ -28,8 +29,8 @@ export const WRECK: readonly string[] = [
   '                              #########################                                         ',
   '                              #..............#........####                                      ',
   '                              #..............D........D..D                                      ',
-  '                               ..............DGG......D..D                                      ',
-  '                              #..............DGGV.S.KKD..D                                      ',
+  '                               ..............DGG.FF...D..D                                      ',
+  '                              #..............DGGVFFSKKD..D                                      ',
   '                              ############################                                      ',
   '                                                                                                ',
   '                                                                                                ',
@@ -105,7 +106,7 @@ export const WRECK: readonly string[] = [
   '',
 ];
 
-/** Under the wreck: a pipe from the generator's port to the vent, and the starting store in the crate. */
+/** Under the wreck: a pipe from the generator's port past the vent to the furnace's. */
 export const WRECK_UNDER: readonly string[] = [
   '',
   '',
@@ -129,12 +130,12 @@ export const WRECK_UNDER: readonly string[] = [
   '',
   '',
   '',
-  '                                              ---   s',
+  '                                              ----',
 ];
 
 /**
  * The wreck's cables, as the cells of their two ends: the solar panel on the roof to the generator in
- * room A, through the roof.
+ * room A, through the roof, and on to the furnace.
  */
 export const WRECK_CABLES: readonly (readonly [
   { readonly x: number; readonly y: number },
@@ -143,5 +144,9 @@ export const WRECK_CABLES: readonly (readonly [
   [
     { x: 50, y: 17 },
     { x: 46, y: 21 },
+  ],
+  [
+    { x: 46, y: 21 },
+    { x: 49, y: 21 },
   ],
 ];

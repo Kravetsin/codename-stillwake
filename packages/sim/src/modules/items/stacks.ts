@@ -1,12 +1,11 @@
-import { CRATE, INVENTORY, ITEMS } from '@stillwake/content';
+import { INVENTORY, ITEMS } from '@stillwake/content';
 import type { DeepReadonly } from '../../core/module';
 import type { Cost, Item, ItemsState, Place, Slot, Target } from './state';
 
 export type Slots = DeepReadonly<Slot[]>;
 
-const emptySlots = (n: number): Slot[] => Array.from({ length: n }, () => null);
+export const emptySlots = (n: number): Slot[] => Array.from({ length: n }, () => null);
 const NO_INVENTORY: Slots = emptySlots(INVENTORY.slots);
-const NO_CRATE: Slots = emptySlots(CRATE.slots);
 
 /** The items of `cost` with their amounts; a broken amount is a caller's bug. */
 export function entries(cost: Cost): [Item, number][] {
@@ -28,9 +27,9 @@ export function inventoryOf(state: DeepReadonly<ItemsState>, peer: number): Slot
   return state.inventories.find((inv) => inv.peer === peer)?.slots ?? NO_INVENTORY;
 }
 
-/** What crate `id` holds: all empty when it holds nothing. */
-export function crateOf(state: DeepReadonly<ItemsState>, id: number): Slots {
-  return state.crates.find((c) => c.crate === id)?.slots ?? NO_CRATE;
+/** What machine `id`, of `slots` slots, holds: all empty when it holds nothing. */
+export function crateOf(state: DeepReadonly<ItemsState>, id: number, slots: number): Slots {
+  return state.crates.find((c) => c.crate === id)?.slots ?? emptySlots(slots);
 }
 
 /** Replaces `peer`'s inventory, keeping the inventories in peer order. */

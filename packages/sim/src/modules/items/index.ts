@@ -1,5 +1,11 @@
-import { CRATE, FLOOR, STARTING_CRATE } from '@stillwake/content';
-import { cellsOf, machinesOf, type Layout } from '../../core/layout';
+import {
+  FLOOR,
+  ITEMS,
+  MACHINES,
+  type ItemSpec,
+  type MachineSpec,
+  type Yields,
+} from '@stillwake/content';
 import {
   defineModule,
   refuse,
@@ -26,35 +32,53 @@ import {
   type MoveSides,
   type Slots,
 } from './stacks';
-import type { Cost, FloorStack, ItemsState, Place, Slot, Target } from './state';
+import type { Cost, FloorStack, Item, ItemsState, Place, Slot, Target } from './state';
 
 export type { Cost, FloorStack, Item, ItemsState, Place, Slot, Stack, Target } from './state';
 
 type Grid = QueryApi<GridModule>;
 
-/**
- * The crates the map under the map fills: `STARTING_CRATE` in each crate drawn over an `s`. Ids are
- * found as `grid` gives them, in the order `machinesOf` lists a map's machines.
- */
-function startingCrates(layout: Layout): ItemsState['crates'] {
-  const marked = new Set(cellsOf(layout, 's', true));
-  const crates = machinesOf(layout).flatMap((m, i) =>
-    m.kind === 'crate' && m.cells.some((c) => marked.has(c)) ? [{ crate: i + 1, ...m }] : [],
-  );
-  const filled = new Set(crates.flatMap((c) => c.cells));
-  const stray = [...marked].find((c) => !filled.has(c));
-  if (stray !== undefined) throw new Error(`Map cell ${stray} under: 's' is under no crate.`);
-  const store = placed(Array<Slot>(CRATE.slots).fill(null), STARTING_CRATE);
-  if (!store) throw new Error('items: STARTING_CRATE does not fit a crate');
-  return crates.map((c) => ({ crate: c.crate, slots: store.map((s) => s && { ...s }) }));
+/** What machine `id` is, when it holds items: a crate, a furnace. */
+function holderOf(grid: Grid, id: number): MachineSpec | undefined {
+  const machine = grid.machines().find((m) => m.id === id);
+  const spec: MachineSpec | undefined = machine && MACHINES[machine.kind];
+  return spec?.slots === undefined ? undefined : spec;
 }
 
-const isCrate = (grid: Grid, id: number) =>
-  grid.machines().some((m) => m.id === id && m.kind === 'crate');
+const isCrate = (grid: Grid, id: number) => holderOf(grid, id) !== undefined;
 
-/** The slots of one side of a move: crate `crate`, or `peer`'s inventory when there is none. */
-function sideOf(state: DeepReadonly<ItemsState>, peer: number, side: Target): Slots {
-  return side.crate === undefined ? inventoryOf(state, peer) : crateOf(state, side.crate);
+/** What machine `id` holds; none for a machine holding no items. */
+function slotsOf(state: DeepReadonly<ItemsState>, grid: Grid, id: number): Slots {
+  return crateOf(state, id, holderOf(grid, id)?.slots ?? 0);
+}
+
+/** The slots of one side of a move: machine `crate`, or `peer`'s inventory when there is none. */
+function sideOf(state: DeepReadonly<ItemsState>, grid: Grid, peer: number, side: Target): Slots {
+  return side.crate === undefined ? inventoryOf(state, peer) : slotsOf(state, grid, side.crate);
+}
+
+/**
+ * Where a move puts what it moves: into a machine with inputs, its first slot when none is named,
+ * and never past its inputs. A refusal key for a slot only taken from.
+ */
+function into(grid: Grid, dst: Target): Target | string {
+  const inputs = dst.crate === undefined ? undefined : holderOf(grid, dst.crate)?.inputs;
+  if (inputs === undefined) return dst;
+  if (dst.slot === undefined) return { ...dst, slot: 0 };
+  return dst.slot >= inputs ? 'items.takeOnly' : dst;
+}
+
+/** A furnace's input and outputs: its first slot, and the rest. */
+function smelted(
+  slots: Slots,
+  inputs: number,
+): { item: Item; yields: Yields; out: Slot[] } | undefined {
+  const input = slots[0];
+  const spec: ItemSpec | undefined = input ? ITEMS[input.item] : undefined;
+  const yields = spec?.yields;
+  if (!input || !yields) return undefined;
+  const out = placed(slots.slice(inputs), yields);
+  return out && { item: input.item, yields, out };
 }
 
 /** A stack move, as `afterMoves` takes the ones a client has in flight. */
@@ -134,9 +158,9 @@ function setSide(state: ItemsState, peer: number, side: Target, slots: Slot[]): 
 const itemsModule = defineModule<[GridModule, RoomsModule]>()({
   id: 'items',
   dependsOn: ['grid', 'rooms'],
-  init: (layout): ItemsState => ({
+  init: (): ItemsState => ({
     inventories: [],
-    crates: startingCrates(layout),
+    crates: [],
     creative: false,
     floor: [],
     nextFloorId: 1,
@@ -146,8 +170,14 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
   queries: {
     /** `peer`'s slots in order, each a stack or `null`; live and read-only. */
     inventory: (ctx, peer: number) => inventoryOf(ctx.state, peer),
-    /** What crate `id` holds, slot by slot; live and read-only. */
-    crate: (ctx, id: number) => crateOf(ctx.state, id),
+    /** What machine `id` holds, slot by slot: a crate, a furnace; live and read-only. */
+    crate: (ctx, id: number) => slotsOf(ctx.state, ctx.deps.grid.query, id),
+    /** Whether furnace `id` has salvage in its input whose yields fit its outputs. */
+    canSmelt(ctx, id: number) {
+      const spec = holderOf(ctx.deps.grid.query, id);
+      const slots = slotsOf(ctx.state, ctx.deps.grid.query, id);
+      return spec?.inputs !== undefined && smelted(slots, spec.inputs) !== undefined;
+    },
     creative: (ctx) => ctx.state.creative,
     /** `items.notEnough` when `peer` cannot pay `cost`; never in creative mode. */
     shortOf(ctx, peer: number, cost: Cost) {
@@ -173,17 +203,21 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
      */
     afterMoves(ctx, peer: number, moves: readonly (Move | Drop)[]) {
       const shown = new Map<number | undefined, Slots>();
-      const slotsOf = (side: Target) => shown.get(side.crate) ?? sideOf(ctx.state, peer, side);
+      const grid = ctx.deps.grid.query;
+      const slotsOf = (side: Target) =>
+        shown.get(side.crate) ?? sideOf(ctx.state, grid, peer, side);
       for (const m of moves) {
         if ('cell' in m) {
-          const slots = dropSide(slotsOf, ctx.deps.grid.query, m.src);
+          const slots = dropSide(slotsOf, grid, m.src);
           const done =
             typeof slots === 'string' ? undefined : takenFrom(slots, m.src.slot, m.count);
           if (done && !('refused' in done)) shown.set(m.src.crate, done.slots);
           continue;
         }
-        const sides = moveSides(slotsOf, ctx.deps.grid.query, m.src, m.dst);
-        const done = 'refused' in sides ? sides : moved(sides, m.src, m.dst, m.count);
+        const dst = into(grid, m.dst);
+        if (typeof dst === 'string') continue;
+        const sides = moveSides(slotsOf, grid, m.src, dst);
+        const done = 'refused' in sides ? sides : moved(sides, m.src, dst, m.count);
         if ('refused' in done) continue;
         shown.set(m.src.crate, done.from);
         shown.set(m.dst.crate, done.to);
@@ -217,6 +251,20 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
       if (!more) throw new Error('items.give: no room; check fullFor first');
       setInventory(ctx.state, peer, more);
     },
+    /**
+     * Turns one of what furnace `id` holds in its input into its yields, put into its outputs. The
+     * caller checks `canSmelt` first.
+     */
+    smelt(ctx, id: number): void {
+      const grid = ctx.deps.grid.query;
+      const inputs = holderOf(grid, id)?.inputs ?? 0;
+      const slots = slotsOf(ctx.state, grid, id);
+      const done = smelted(slots, inputs);
+      const left = takenFrom(slots, 0, 1);
+      if (!done || 'refused' in left)
+        throw new Error('items.smelt: nothing to smelt; check canSmelt');
+      setCrate(ctx.state, id, [...left.slots.slice(0, inputs), ...done.out]);
+    },
     /** Gives `peer` as much of `cost` as fits; the rest falls on cell `cell`, as if `peer` dropped it. */
     giveOrDrop(ctx, peer: number, cost: Cost, cell: number): void {
       if (isNothing(cost)) return;
@@ -236,8 +284,8 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
      */
     drop: {
       validate(ctx, p: { src: Place; count: number; cell: number; facing: number }) {
-        const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
-        const slots = dropSide(slotsOf, ctx.deps.grid.query, p.src);
+        const grid = ctx.deps.grid.query;
+        const slots = dropSide((side) => sideOf(ctx.state, grid, ctx.from, side), grid, p.src);
         if (typeof slots === 'string') return refuse(slots);
         const done = takenFrom(slots, p.src.slot, p.count);
         if ('refused' in done) return refuse(done.refused);
@@ -247,7 +295,11 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
         }
       },
       apply(ctx, p: { src: Place; count: number; cell: number; facing: number }) {
-        const done = takenFrom(sideOf(ctx.state, ctx.from, p.src), p.src.slot, p.count);
+        const done = takenFrom(
+          sideOf(ctx.state, ctx.deps.grid.query, ctx.from, p.src),
+          p.src.slot,
+          p.count,
+        );
         if ('refused' in done) throw new Error('items.drop: refused in apply');
         setSide(ctx.state, ctx.from, p.src, done.slots);
         const vx = Math.sign(p.facing) * FLOOR.throwSpeed;
@@ -287,20 +339,26 @@ const itemsModule = defineModule<[GridModule, RoomsModule]>()({
      */
     move: {
       validate(ctx, p: { src: Place; dst: Target; count: number }) {
-        const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
-        const sides = moveSides(slotsOf, ctx.deps.grid.query, p.src, p.dst);
+        const grid = ctx.deps.grid.query;
+        const slotsOf = (side: Target) => sideOf(ctx.state, grid, ctx.from, side);
+        const dst = into(grid, p.dst);
+        if (typeof dst === 'string') return refuse(dst);
+        const sides = moveSides(slotsOf, grid, p.src, dst);
         if ('refused' in sides) return refuse(sides.refused);
-        const done = moved(sides, p.src, p.dst, p.count);
+        const done = moved(sides, p.src, dst, p.count);
         if ('refused' in done) return refuse(done.refused);
       },
       apply(ctx, p: { src: Place; dst: Target; count: number }) {
-        const slotsOf = (side: Target) => sideOf(ctx.state, ctx.from, side);
-        const sides = moveSides(slotsOf, ctx.deps.grid.query, p.src, p.dst);
-        const done = 'refused' in sides ? sides : moved(sides, p.src, p.dst, p.count);
+        const grid = ctx.deps.grid.query;
+        const slotsOf = (side: Target) => sideOf(ctx.state, grid, ctx.from, side);
+        const dst = into(grid, p.dst);
+        if (typeof dst === 'string') throw new Error('items.move: refused in apply');
+        const sides = moveSides(slotsOf, grid, p.src, dst);
+        const done = 'refused' in sides ? sides : moved(sides, p.src, dst, p.count);
         if ('refused' in done || 'refused' in sides)
           throw new Error('items.move: refused in apply');
         setSide(ctx.state, ctx.from, p.src, done.from);
-        setSide(ctx.state, ctx.from, p.dst, done.to);
+        setSide(ctx.state, ctx.from, dst, done.to);
       },
     },
   },

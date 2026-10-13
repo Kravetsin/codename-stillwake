@@ -1,7 +1,7 @@
 import { CABLE_COST, MACHINES, type MachineSpec } from '@stillwake/content';
 import { machinesOf, type Layout } from '../../core/layout';
 import { defineModule, refuse, withFuzz, type QueryApi } from '../../core/module';
-import type { GridModule } from '../grid';
+import type { GridModule, Machine } from '../grid';
 import type { ItemsModule } from '../items';
 import type { RoomsModule } from '../rooms';
 import { fuzzPower } from './fuzz';
@@ -68,6 +68,10 @@ function layProblem(
   return items.shortOf(from, CABLE_COST);
 }
 
+/** Whether a user draws now: a furnace only while it has salvage to smelt and room for what it makes. */
+const drawing = (items: QueryApi<ItemsModule>) => (m: Machine) =>
+  (MACHINES[m.kind] as MachineSpec).inputs === undefined || items.canSmelt(m.id);
+
 const powerModule = defineModule<Deps>()({
   id: 'power',
   dependsOn: ['grid', 'rooms', 'items'],
@@ -82,7 +86,12 @@ const powerModule = defineModule<Deps>()({
     rebuild(ctx) {
       Object.assign(
         ctx.state,
-        findNetworks(ctx.deps.grid.query, ctx.deps.rooms.query, ctx.state.cables),
+        findNetworks(
+          ctx.deps.grid.query,
+          ctx.deps.rooms.query,
+          ctx.state.cables,
+          drawing(ctx.deps.items.query),
+        ),
       );
     },
   },
@@ -148,7 +157,12 @@ const powerModule = defineModule<Deps>()({
       run(ctx) {
         Object.assign(
           ctx.state,
-          findNetworks(ctx.deps.grid.query, ctx.deps.rooms.query, ctx.state.cables),
+          findNetworks(
+            ctx.deps.grid.query,
+            ctx.deps.rooms.query,
+            ctx.state.cables,
+            drawing(ctx.deps.items.query),
+          ),
         );
       },
     },

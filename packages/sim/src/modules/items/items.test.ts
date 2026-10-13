@@ -1,4 +1,4 @@
-import { CRATE, INVENTORY, ITEMS, STARTING_CRATE } from '@stillwake/content';
+import { INVENTORY, ITEMS, MACHINES } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { parseLayout } from '../../core/layout';
@@ -73,7 +73,11 @@ const stocked = () => giveItems(scenario(world), 0, { scrap: SCRAP, steel: STEEL
 /** Two crates, machines 1 and 2: the first holds scrap, steel and canisters, the second nothing. */
 const crates = () => {
   const w = scenario(world, parseLayout(['#KK.KK#']));
-  const slots = placed(empty(CRATE.slots), { scrap: SCRAP, steel: STEEL, canister: CANISTERS });
+  const slots = placed(empty(MACHINES.crate.slots), {
+    scrap: SCRAP,
+    steel: STEEL,
+    canister: CANISTERS,
+  });
   if (!slots) throw new Error('no room');
   setCrate(w.sim.world.slices.items as ItemsState, 1, slots);
   return w;
@@ -245,24 +249,11 @@ describe('items', () => {
   });
 
   describe('crates', () => {
-    it('start with the store in a crate drawn over an s, and nothing in the rest', () => {
-      const w = scenario(world, parseLayout(['#KK.KK#'], [' s']));
-      expect(
-        w
-          .query(grid)
-          .machines()
-          .map((m) => [m.id, m.kind]),
-      ).toEqual([
-        [1, 'crate'],
-        [2, 'crate'],
-      ]);
-      const store = Object.entries(STARTING_CRATE).map(([item, count]) => ({ item, count }));
-      expect(crate(w, 1)).toEqual([...store, ...empty(CRATE.slots - store.length)]);
-      expect(crate(w, 2)).toEqual(empty(CRATE.slots));
-      expect(stored(w).crates).toEqual([1]);
-      expect(() => world.create(1, parseLayout(['#KK.'], ['   s']))).toThrow(
-        "'s' is under no crate",
-      );
+    it('start empty, every slot of a machine that holds items, and none of one that holds none', () => {
+      const w = scenario(world, parseLayout(['#KK.TT#', '#...TT#']));
+      expect(crate(w, 1)).toEqual(empty(MACHINES.crate.slots));
+      expect(crate(w, 2)).toEqual([]);
+      expect(stored(w).crates).toEqual([]);
     });
 
     it('give a whole stack or part of one to a slot of an inventory, and take some back', () => {
@@ -350,7 +341,7 @@ describe('items', () => {
 
       move(w, { slot: -1 }, { slot: 1 }, 1);
       move(w, { slot: INVENTORY.slots }, { crate: 1 }, 1);
-      move(w, { slot: 0 }, { crate: 1, slot: CRATE.slots }, 1);
+      move(w, { slot: 0 }, { crate: 1, slot: MACHINES.crate.slots }, 1);
       move(w, { slot: 0 }, { slot: 0 }, 1);
       move(w, { slot: 0 }, {}, 1);
       expect(w.refusals.slice(4)).toEqual(Array(5).fill('items.noSlot'));

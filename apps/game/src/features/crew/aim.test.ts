@@ -1,4 +1,4 @@
-import { DEBRIS, HERO, MACHINES, MATERIALS, STARTING_CRATE } from '@stillwake/content';
+import { DEBRIS, HERO, MACHINES, MATERIALS, INVENTORY } from '@stillwake/content';
 import { localSession } from '@stillwake/net';
 import {
   atmosphere,
@@ -23,21 +23,20 @@ function worldFrom(map: string): Sim {
   return stillwake.create(1, parseLayout(map));
 }
 
-/** `map` with a crate drawn below it, whose starting store peer 0 has taken in full. */
+/** What peer 0 carries in `withStore`. */
+const STORE = { scrap: 360, steel: 60 } as const;
+
+/** `map` with a crate drawn below it, and peer 0 carrying `STORE`. */
 function withStore(map: string): Sim {
   const rows = parseLayout(map).rows;
-  const sim = stillwake.create(1, parseLayout([...rows, 'KK'], [...rows.map(() => ''), 's']));
-  const crate = sim
-    .query(grid)
-    .machines()
-    .find((m) => m.kind === 'crate');
-  if (!crate) throw new Error('no crate');
-  const slots = sim.query(items).crate(crate.id).length;
-  sim.step(
-    Array.from({ length: slots }, (_, slot) =>
-      command(items, 'move', { src: { crate: crate.id, slot }, dst: {}, count: 999 }),
-    ),
-  );
+  const sim = stillwake.create(1, parseLayout([...rows, 'KK']));
+  // No command makes items out of nothing: put straight into the world, as the sim's own tests do.
+  const slots = [
+    { item: 'scrap', count: STORE.scrap },
+    { item: 'steel', count: STORE.steel },
+    ...Array<null>(INVENTORY.slots - 2).fill(null),
+  ];
+  (sim.world.slices.items as { inventories: unknown[] }).inventories = [{ peer: 0, slots }];
   return sim;
 }
 
@@ -151,8 +150,8 @@ describe('aiming', () => {
   });
 
   it("carries the sim's reason when work on a plan would be refused", () => {
-    // One steel wall more than the starting steel begins, laid row by row in a hall nine wide.
-    const affordable = Math.floor(STARTING_CRATE.steel / MATERIALS.steel.cost);
+    // One steel wall more than the steel carried begins, laid row by row in a hall nine wide.
+    const affordable = Math.floor(STORE.steel / MATERIALS.steel.cost);
     const poor = withStore(hall(affordable + 1));
     for (let i = 0; i <= affordable; i++) {
       poor.step([command(building, 'placePlan', { cell: inside(i), placement: steelWall })]);
@@ -170,8 +169,7 @@ describe('aiming', () => {
   it('works a plan the hero can pay for before an older one it cannot', () => {
     // Nine wide. A tank is planned over a pipe, and the pipe is marked: two plans in cell 15.
     // Below the tank's rows, enough steel walls are begun to leave too little steel for it.
-    const walls =
-      Math.floor((STARTING_CRATE.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
+    const walls = Math.floor((STORE.steel - MACHINES.tank.cost.steel) / MATERIALS.steel.cost) + 1;
     const tight = withStore(`#########\n#.....-.#\n#.......#\n${hall(walls).slice(10)}`);
     for (let i = 0; i < walls; i++) {
       tight.step([command(building, 'placePlan', { cell: 18 + inside(i), placement: steelWall })]);

@@ -401,6 +401,7 @@ describe('invariants', () => {
             tank: [0, 1, 5, 6],
             generator: [0, 1, 5, 6],
             solarPanel: [0, 1, 2],
+            furnace: [0, 1, 5, 6],
             vent: [0],
             crate: [0, 1],
           }[m.kind];

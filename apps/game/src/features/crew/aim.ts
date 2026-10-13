@@ -1,4 +1,4 @@
-import { DEBRIS, HERO } from '@stillwake/content';
+import { DEBRIS, HERO, MACHINES, type MachineKind, type MachineSpec } from '@stillwake/content';
 import {
   atmosphere,
   building,
@@ -40,10 +40,13 @@ export function reaches(hero: Hero, cell: number, width: number): boolean {
   return dx * dx + dy * dy <= HERO.reach * HERO.reach;
 }
 
-/** Whether crate `id` still stands with a cell of it within the hero's reach. */
+/** Whether a machine of `kind` holds items, opened with E: a crate, a furnace. */
+const holdsItems = (kind: MachineKind) => (MACHINES[kind] as MachineSpec).slots !== undefined;
+
+/** Whether crate or furnace `id` still stands with a cell of it within the hero's reach. */
 export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
   const q = sim.query(grid);
-  const crate = q.machines().find((m) => m.id === id && m.kind === 'crate');
+  const crate = q.machines().find((m) => m.id === id && holdsItems(m.kind));
   const cells = crate ? (q.footprint(crate.kind, crate.cell) ?? []) : [];
   return cells.some((cell) => reaches(hero, cell, q.size().width));
 }
@@ -52,7 +55,7 @@ export function crateInReach(sim: Sim, hero: Hero, id: number): boolean {
  * What the hero of peer `peer` aims at with the pointer at `point`, in cells; nothing off the grid.
  * A plan takes E before anything else in its cell, so a marked door is taken apart rather than
  * opened. Of several plans, the oldest that can be worked, so one the hero cannot pay for does not
- * block the mark beside it; when none can, the oldest, to show why. Then a crate, a tank, a door, a
+ * block the mark beside it; when none can, the oldest, to show why. Then a crate or a furnace, a tank, a door, a
  * valve: a valve under a machine or in a door's cell is not worked with E. Last, the piece of debris
  * nearest the pointer within `DEBRIS.aimRadius`, only while the hero is out in space, where it can
  * catch one, and none in `passOver`: grabbed already, its grab still in flight.
@@ -78,7 +81,7 @@ export function aimAt(
   const work = here.find((w) => !w.problem) ?? here[0];
   if (work) return { cell, inReach, work };
   const machine = sim.query(grid).machineAt(cell);
-  if (machine?.kind === 'crate') return { cell, inReach, crate: machine.id };
+  if (machine && holdsItems(machine.kind)) return { cell, inReach, crate: machine.id };
   const press = pressOf(sim, peer, cell);
   if (press) return { cell, inReach, press };
   const piece = pieceNear(sim, hero, point, passOver);

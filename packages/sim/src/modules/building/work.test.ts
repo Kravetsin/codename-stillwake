@@ -5,7 +5,6 @@ import {
   ITEMS,
   MACHINES,
   MATERIALS,
-  STARTING_CRATE,
 } from '@stillwake/content';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
@@ -263,18 +262,17 @@ describe('building by hand', () => {
   });
 
   describe('taking apart', () => {
-    /** A crate, machine 1, holding the starting store. */
-    const CRATE_ROOM = parseLayout(['#KK.#'], [' s']);
+    /** A crate, machine 1. */
+    const CRATE_ROOM = parseLayout(['#KK.#']);
     const crateTicks = apartTicks(MACHINES.crate.buildTicks);
-    const empty = (w: Scenario) => {
-      for (const slot of Object.keys(STARTING_CRATE).keys()) {
-        w.do(items, 'move', { src: { crate: 1, slot }, dst: {}, count: 999 }, 1);
-      }
-      return w.run();
-    };
+    /** Peer 1 puts some of its steel into the crate. */
+    const fill = (w: Scenario) =>
+      w.do(items, 'move', { src: { slot: 1 }, dst: { crate: 1 }, count: 5 }, 1).run();
+    const empty = (w: Scenario) =>
+      w.do(items, 'move', { src: { crate: 1, slot: 0 }, dst: {}, count: 999 }, 1).run();
 
     it('refuses to mark a crate that holds something, and takes an emptied one apart', () => {
-      const w = stocked(CRATE_ROOM);
+      const w = fill(stocked(CRATE_ROOM));
       w.do(building, 'deconstruct', { cell: 2, layer: 'machine' }).run();
       expect(w.refusals).toEqual(['building.notEmpty']);
       expect(w.query(building).problem(1, { clear: 'machine' })).toBe('building.notEmpty');
@@ -286,7 +284,7 @@ describe('building by hand', () => {
     });
 
     it('refuses the last tick of work on a crate filled after it was marked', () => {
-      const w = empty(stocked(CRATE_ROOM));
+      const w = stocked(CRATE_ROOM);
       w.do(building, 'deconstruct', { cell: 1, layer: 'machine' }).run();
       work(w, 1, crateTicks - 1);
       w.do(items, 'move', { src: { slot: 0 }, dst: { crate: 1 }, count: 1 }).run();

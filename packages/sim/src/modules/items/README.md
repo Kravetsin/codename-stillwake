@@ -1,10 +1,10 @@
 # items
 
-Every stack of items: each hero's inventory, by its peer's id; each crate's contents, by the crate's
-machine id; and creative mode, the world setting in which nothing is ever taken
+Every stack of items: each hero's inventory, by its peer's id; what each machine holding items (a
+crate, a furnace) holds, by its machine id; and creative mode, the world setting in which nothing is ever taken
 ([0008](../../../../../docs/decisions/0008-items-inventories-and-crates.md)).
 
-- **Depends on:** `grid`, for which machines are crates and what holds a stack on the floor up;
+- **Depends on:** `grid`, for which machines hold items and what holds a stack on the floor up;
   `rooms`, for where space is.
 - **State:** `inventories` — those changed at least once, `{ peer, slots }` in peer id order;
   `crates` — those holding something, `{ crate, slots }` in machine id order; `creative`; `floor` —
@@ -12,12 +12,12 @@ machine id; and creative mode, the world setting in which nothing is ever taken
   the module's own clock. All saved; nothing is derived.
 - **Files:** `stacks.ts` — the rules below, on slots; `floor.ts` — stacks on the floor; `index.ts` —
   the module; `state.ts` — its types.
-- **Start:** every inventory empty; every crate drawn over an `s` on the map under the map holds
-  `STARTING_CRATE`, the others nothing. Crate ids are found as `grid` gives them, in `machinesOf` order.
+- **Start:** every inventory and every machine empty: what a hero has, it caught and smelted.
 
 ## Rules
 
-- An inventory is `INVENTORY.slots` slots, a crate `CRATE.slots`, each a stack (`{ item, count }`,
+- An inventory is `INVENTORY.slots` slots, a machine holding items its `slots` in `MACHINES`, each
+  a stack (`{ item, count }`,
   from 1 to the item's `ITEMS` stack limit) or `null`. Items are known by their id in `ITEMS`; every
   material is one, and the salvage items, with `yields`, are what caught debris becomes. The
   inventory's first row is the hotbar.
@@ -31,6 +31,8 @@ machine id; and creative mode, the world setting in which nothing is ever taken
   - A whole stack onto another item swaps the two; part of one is refused.
   - With no slot in `dst`, that side as a whole: the item's stacks there in slot order, then its
     empty slots, as much as fits. Within one side a move names its slot.
+  - A machine with `inputs` (a furnace) takes items only into its first `inputs` slots, refusing the
+    rest with `items.takeOnly`; a move into it naming no slot goes into the first.
 - A change of nothing (a cost of zeros) changes nothing and stores no inventory; a crate emptied
   loses its entry.
 - In creative mode nothing is taken; giving still gives: what is taken apart is still there.
@@ -57,6 +59,8 @@ machine id; and creative mode, the world setting in which nothing is ever taken
   its own moves before their tick runs; it folds drops in flight too. `floor()` — the stacks on the
   floor, live and read-only; `pickUpProblem(peer, id)` — the refusal that peer's `pickUp` would get; `pickUpAmount(peer, id)` —
   how much of it would fit.
+- **Furnaces:** `canSmelt(id)` — whether its input holds salvage whose `yields` fit its outputs;
+  the operation `smelt(id)` turns one of it into them, the caller checking `canSmelt` first.
 - **Operations:** `take(peer, cost)` — the caller checks `shortOf` first, and taking past what is there
   throws; it returns what it took, nothing in creative mode, so a caller refunds exactly that.
   `give(peer, cost)` — the caller checks `fullFor` first, and giving past the room throws.

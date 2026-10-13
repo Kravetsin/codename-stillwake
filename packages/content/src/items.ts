@@ -6,10 +6,12 @@ export type Yields = Readonly<Partial<Record<MaterialId | 'canister', number>>>;
 export interface ItemSpec {
   /** The most of it one inventory slot holds. */
   readonly stack: number;
-  /** A salvage item, caught as debris, is taken apart by hand into these. */
+  /** A salvage item, caught as debris, is smelted in a furnace into these. */
   readonly yields?: Yields;
-  /** Ticks of a hero's work to take one apart; given with `yields`. */
-  readonly dismantleTicks?: number;
+  /** Ticks a furnace at full power takes to smelt one; given with `yields`. */
+  readonly smeltTicks?: number;
+  /** Oxygen a furnace draws from its pipe as it starts on one; given with `yields`. */
+  readonly oxygen?: number;
 }
 
 /**
@@ -20,9 +22,9 @@ export const ITEMS = {
   scrap: { stack: 500 },
   steel: { stack: 500 },
   canister: { stack: 5 },
-  scrapChunk: { stack: 10, yields: { scrap: 12 }, dismantleTicks: 40 },
-  hullPlate: { stack: 5, yields: { steel: 6, scrap: 4 }, dismantleTicks: 80 },
-  supplyPod: { stack: 1, yields: { canister: 1, scrap: 6 }, dismantleTicks: 120 },
+  scrapChunk: { stack: 10, yields: { scrap: 12 }, smeltTicks: 100, oxygen: 2 },
+  hullPlate: { stack: 5, yields: { steel: 6, scrap: 4 }, smeltTicks: 200, oxygen: 4 },
+  supplyPod: { stack: 1, yields: { canister: 1, scrap: 6 }, smeltTicks: 300, oxygen: 3 },
 } as const satisfies Readonly<Record<string, ItemSpec>>;
 
 export type ItemId = keyof typeof ITEMS;
@@ -52,18 +54,3 @@ export const FLOOR = {
    */
   spaceDrift: 30,
 } as const satisfies Readonly<Record<string, number>>;
-
-/** A crate, the machine that holds items in place. */
-export const CRATE = {
-  slots: 27,
-} as const satisfies Readonly<Record<string, number>>;
-
-/**
- * What a crate drawn over an `s` on the map under the map holds when the game starts, in whole
- * units: the wreck's whole store. Enough to patch room B, pipe a vent into it and build one more
- * generator; all else comes from salvage.
- */
-export const STARTING_CRATE = {
-  scrap: 30,
-  steel: 6,
-} as const satisfies Readonly<Partial<Record<ItemId, number>>>;

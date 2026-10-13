@@ -1,4 +1,13 @@
-import { command, items, type Drop, type Move, type Place, type Slot } from '@stillwake/sim';
+import {
+  command,
+  furnace,
+  grid,
+  items,
+  type Drop,
+  type Move,
+  type Place,
+  type Slot,
+} from '@stillwake/sim';
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react';
 import { t } from '../../i18n/en';
 import { ICON_AUTHORS } from '../../render/item-icons';
@@ -23,10 +32,19 @@ function read(game: Game, crate: number | undefined) {
   );
   const shown = q.afterMoves(game.client.id, moves);
   const copy = (slots: readonly (Readonly<Slot> | null)[]) => slots.map((s) => s && { ...s });
+  const kind = game.client.sim
+    .query(grid)
+    .machines()
+    .find((m) => m.id === crate)?.kind;
   return {
     inventory: copy(shown.inventory),
     crate: crate === undefined ? undefined : copy(shown.crates.get(crate) ?? q.crate(crate)),
     creative: q.creative(),
+    // A furnace shows its input, how far its work is, its outputs and why it stands still.
+    furnace:
+      crate !== undefined && kind === 'furnace'
+        ? { at: game.client.sim.query(furnace).at(crate) }
+        : undefined,
   };
 }
 
@@ -56,6 +74,7 @@ function SlotBox(props: {
   return (
     <button
       data-slot={props.id}
+      data-item={slot?.item}
       className={`relative h-9 w-9 rounded border bg-slate-800/90 ${edge} ${props.picked ? 'opacity-40' : ''}`}
       onMouseDown={down}
       onMouseUp={up}
@@ -253,7 +272,32 @@ export function Inventory({ game }: { readonly game: Game }) {
               {t('items.iconCredit', { authors: ICON_AUTHORS.join(', ') })}
             </p>
           </div>
-          {crate !== undefined && reading.crate && (
+          {crate !== undefined && reading.crate && reading.furnace && (
+            <div
+              data-panel="crate"
+              className="rounded border border-orange-700/70 bg-slate-900/90 p-1"
+            >
+              <div className="flex items-center gap-2">
+                {box({ crate, slot: 0 })}
+                <div className="h-1.5 w-14 overflow-hidden rounded bg-slate-700">
+                  <div
+                    data-progress
+                    className="h-full bg-orange-400"
+                    style={{
+                      width: `${reading.furnace.at ? (100 * reading.furnace.at.progress) / reading.furnace.at.work : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {range(1, reading.crate.length).map((slot) => box({ crate, slot }))}
+                </div>
+              </div>
+              {reading.furnace.at?.problem && (
+                <p className="mt-1 text-[10px] text-red-300">{t(reading.furnace.at.problem)}</p>
+              )}
+            </div>
+          )}
+          {crate !== undefined && reading.crate && !reading.furnace && (
             <div
               data-panel="crate"
               className="rounded border border-amber-700/70 bg-slate-900/90 p-1"

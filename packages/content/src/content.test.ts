@@ -7,15 +7,7 @@ import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
 import { DEBRIS } from './debris';
-import {
-  CRATE,
-  FLOOR,
-  INVENTORY,
-  ITEMS,
-  STARTING_CRATE,
-  type ItemId,
-  type ItemSpec,
-} from './items';
+import { FLOOR, INVENTORY, ITEMS, type ItemId, type ItemSpec } from './items';
 import { WRECK, WRECK_CABLES } from './wreck';
 
 describe('materials', () => {
@@ -93,14 +85,23 @@ describe('items', () => {
     for (const material of Object.keys(MATERIALS)) expect(Object.keys(ITEMS)).toContain(material);
   });
 
-  it('go into inventories and crates of whole slots, and start in a crate they fit', () => {
-    for (const slots of [INVENTORY.slots, CRATE.slots]) {
-      expect(Number.isSafeInteger(slots) && slots > 0).toBe(true);
+  it('go into inventories and machines of whole slots, a machine taking them into its first few', () => {
+    expect(Number.isSafeInteger(INVENTORY.slots) && INVENTORY.slots > 0).toBe(true);
+    for (const m of Object.values(MACHINES) as { slots?: number; inputs?: number }[]) {
+      if (m.slots !== undefined) expect(Number.isSafeInteger(m.slots) && m.slots > 0).toBe(true);
+      if (m.inputs === undefined) continue;
+      expect(m.slots).toBeDefined();
+      expect(Number.isSafeInteger(m.inputs) && m.inputs > 0 && m.inputs < (m.slots ?? 0)).toBe(
+        true,
+      );
     }
-    for (const [item, amount] of Object.entries(STARTING_CRATE)) {
-      expect({ [item]: Number.isSafeInteger(amount) && amount >= 0 }).toEqual({ [item]: true });
+  });
+
+  it("smelt in a furnace whose outputs take any one item's yields", () => {
+    const outputs = MACHINES.furnace.slots - MACHINES.furnace.inputs;
+    for (const spec of Object.values(ITEMS) as ItemSpec[]) {
+      if (spec.yields) expect(slotsFor(spec.yields)).toBeLessThanOrEqual(outputs);
     }
-    expect(slotsFor(STARTING_CRATE)).toBeLessThanOrEqual(CRATE.slots);
   });
 });
 
@@ -123,17 +124,14 @@ describe('the floor', () => {
 describe('salvage', () => {
   const specs: [string, ItemSpec][] = Object.entries(ITEMS);
 
-  it('comes apart in whole ticks into whole amounts of items that are not salvage', () => {
+  it('smelts in whole ticks, for whole oxygen, into whole amounts of items that are not salvage', () => {
     for (const [id, spec] of specs) {
-      expect({ [id]: (spec.yields === undefined) === (spec.dismantleTicks === undefined) }).toEqual(
-        {
-          [id]: true,
-        },
-      );
+      const given = [spec.yields, spec.smeltTicks, spec.oxygen].map((v) => v !== undefined);
+      expect({ [id]: given.every((v) => v === given[0]) }).toEqual({ [id]: true });
       if (!spec.yields) continue;
-      expect(Number.isSafeInteger(spec.dismantleTicks) && (spec.dismantleTicks ?? 0) > 0).toBe(
-        true,
-      );
+      for (const value of [spec.smeltTicks, spec.oxygen]) {
+        expect(Number.isSafeInteger(value) && (value ?? 0) > 0).toBe(true);
+      }
       const yields = Object.entries(spec.yields);
       expect(yields.length).toBeGreaterThan(0);
       for (const [item, amount] of yields) {

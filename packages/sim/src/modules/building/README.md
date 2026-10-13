@@ -16,7 +16,7 @@ completes through `grid`'s operations, paid from and refunded to the inventories
 - A plan to place is checked against the grid first (`grid.placementProblem`, whose keys pass through
   unchanged), then against the other plans: in each cell, structure and machines share one solid slot,
   and a conduit and a back wall each have their own, as in the grid. A machine's plan covers its whole footprint.
-- A mark needs something in that layer of that cell, and one thing takes one mark. A crate is
+- A mark needs something in that layer of that cell, and one thing takes one mark. A machine holding items (a crate, a furnace) is
   marked only empty, refused with `building.notEmpty`, and the tick of work that would take it apart
   is refused the same way when items were put into it meanwhile. A machine a cable ends on is marked
   and taken apart the same way only once its cables are cut, refused with `building.cabled`. A machine's mark is

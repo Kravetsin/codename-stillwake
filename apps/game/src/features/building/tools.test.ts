@@ -27,6 +27,7 @@ describe('the toolbar', () => {
       'solarPanel',
       'vent',
       'crate',
+      'furnace',
       'deconstruct',
       'cancel',
     ]);

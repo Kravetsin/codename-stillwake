@@ -86,6 +86,7 @@ const MACHINE_CHARS: Readonly<Record<string, MachineKind>> = {
   T: 'tank',
   G: 'generator',
   P: 'solarPanel',
+  F: 'furnace',
   V: 'vent',
   K: 'crate',
 };

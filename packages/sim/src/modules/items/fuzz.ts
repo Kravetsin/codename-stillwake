@@ -1,4 +1,4 @@
-import { CRATE, INVENTORY } from '@stillwake/content';
+import { INVENTORY, MACHINES } from '@stillwake/content';
 import type { DeepReadonly } from '../../core/module';
 import type { Rng } from '../../core/rng';
 import type { ItemsState, Place, Slot, Target } from './state';
@@ -35,13 +35,16 @@ export function fuzzItems(state: DeepReadonly<ItemsState>, rng: Rng, from: numbe
       ? { slot: slotIn(own, INVENTORY.slots) }
       : {
           crate: at.crate,
-          slot: slotIn(state.crates.find((c) => c.crate === at.crate)?.slots, CRATE.slots),
+          slot: slotIn(state.crates.find((c) => c.crate === at.crate)?.slots, MACHINES.crate.slots),
         };
   const to = side();
   const dst: Target =
     rng.below(3) === 0
       ? to
-      : { ...to, slot: rng.below((to.crate === undefined ? INVENTORY.slots : CRATE.slots) + 1) };
+      : {
+          ...to,
+          slot: rng.below((to.crate === undefined ? INVENTORY.slots : MACHINES.crate.slots) + 1),
+        };
   // Whole stacks, halves and single items, and now and then none.
   const count = [999, 1, 3, rng.below(40), 0][rng.below(5)] ?? 1;
   const roll = rng.below(8);

@@ -1,8 +1,9 @@
-import { CREW, STARTING_CRATE } from '@stillwake/content';
+import { CREW, ITEMS } from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { cellsOf } from '../core/layout';
 import { defineSim } from '../core/sim';
 import { builder } from '../testing/builder';
+import { giveItems } from '../testing/items';
 import { scenario, type Scenario } from '../testing/scenario';
 import { atmosphere, crew, grid, items, MODULES, power, rooms, stillwake, wreck } from './index';
 
@@ -50,25 +51,59 @@ describe('the starting wreck', () => {
     expect(margin).toBeGreaterThanOrEqual(16);
   });
 
-  it('holds a panel cabled to a generator, a vent, a crate with the store, three doorways', () => {
+  it('holds a panel cabled to a generator and a furnace, a vent, an empty crate, three doorways', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
-    expect(q.machines().map((m) => m.kind)).toEqual(['solarPanel', 'generator', 'vent', 'crate']);
+    const kinds = q.machines().map((m) => m.kind);
+    expect(kinds).toEqual(['solarPanel', 'generator', 'furnace', 'vent', 'crate']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(9).fill({ kind: 'door', open: false }));
-    const crate = q.machines()[3]?.id ?? 0;
-    const panel = q.machines()[0]?.cell ?? 0;
-    const generator = q.machines()[1]?.cell ?? 0;
+    const [panel, generator, furnaceAt] = q.machines().map((m) => m.cell);
+    // The furnace idle, the generator alone draws: in full.
     expect(sim.query(power).networks()).toEqual([
-      { id: panel, nodes: [panel, generator], supply: 5, demand: 4, satisfaction: 1000 },
+      {
+        id: panel,
+        nodes: [panel, generator, furnaceAt],
+        supply: 5,
+        demand: 4,
+        satisfaction: 1000,
+      },
     ]);
+    const crate = q.machines()[4]?.id ?? 0;
     expect(
       sim
         .query(items)
         .crate(crate)
         .filter((s) => s !== null),
-    ).toEqual(Object.entries(STARTING_CRATE).map(([item, count]) => ({ item, count })));
+    ).toEqual([]);
     expect(A).toContain(sim.query(crew).spawn());
+  });
+
+  it('smelts a caught chunk into the scrap that walls over the breach, slowing the generator', () => {
+    // Half a minute more, so the generator's store is full when the chunk goes in.
+    const w = airedWreck().run(600);
+    const furnaceId = w.query(grid).machines()[2]?.id ?? 0;
+    const generatorId = w.query(grid).machines()[1]?.id ?? 0;
+    giveItems(w, 0, { scrapChunk: 1 });
+    w.do(items, 'move', { src: { slot: 0 }, dst: { crate: furnaceId }, count: 1 }).run();
+    // Both drawing, 5 against 8: each at 625‰, the chunk in 160 ticks rather than 100.
+    expect(w.query(power).satisfaction(generatorId)).toBe(625);
+    // The tick of the move was the first of 160.
+    w.run(158);
+    expect(w.query(items).crate(furnaceId)[1]).toBeNull();
+    w.run();
+    const out = w.query(items).crate(furnaceId);
+    expect(out[0]).toBeNull();
+    expect(out[1]).toEqual({ item: 'scrap', count: ITEMS.scrapChunk.yields.scrap });
+    // From the next tick, the furnace idle, the generator runs in full again.
+    w.run();
+    expect(w.query(power).satisfaction(generatorId)).toBe(1000);
+    w.do(items, 'move', { src: { crate: furnaceId, slot: 1 }, dst: {}, count: 999 }).run();
+    w.do(builder, 'place', {
+      cell: BREACH,
+      placement: { layer: 'structure', kind: 'wall', material: 'scrap' },
+    }).run();
+    expect(w.query(rooms).rooms()[0]?.openings).toEqual([]);
   });
 
   it('finds room B, room A and the airlock, B open to space through its breach', () => {

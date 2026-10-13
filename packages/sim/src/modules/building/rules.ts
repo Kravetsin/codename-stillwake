@@ -65,8 +65,8 @@ export function clearAt(
 }
 
 /**
- * Why taking `layer` out of `cell` would leave something behind: `building.notEmpty` for a crate
- * holding something, `building.cabled` for a machine a cable ends on.
+ * Why taking `layer` out of `cell` would leave something behind: `building.notEmpty` for a machine
+ * holding items (a crate, a furnace), `building.cabled` for one a cable ends on.
  */
 function inUse(
   grid: Grid,
@@ -78,7 +78,6 @@ function inUse(
   const machine = layer === 'machine' ? grid.machineAt(cell) : undefined;
   if (!machine) return undefined;
   if (power.cabled(machine.cell)) return 'building.cabled';
-  if (machine.kind !== 'crate') return undefined;
   return items.crate(machine.id).some((s) => s !== null) ? 'building.notEmpty' : undefined;
 }
 

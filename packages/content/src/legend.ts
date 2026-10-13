@@ -16,6 +16,7 @@ export const LEGEND = {
   T: 'oxygen tank: draw its whole footprint',
   G: 'oxygen generator: draw its whole footprint',
   P: 'solar panel: draw its whole footprint',
+  F: 'furnace: draw its whole footprint',
   V: 'vent',
   K: 'crate: draw its whole footprint',
   S: 'where the hero wakes',
@@ -31,5 +32,4 @@ export const LEGEND_UNDER = {
   ' ': 'nothing',
   '-': 'pipe, under a wall or a machine as anywhere',
   o: "a canister's worth of oxygen in the tank drawn over it",
-  s: 'the starting store, STARTING_CRATE, in the crate drawn over it',
 } as const satisfies Readonly<Record<string, string>>;
