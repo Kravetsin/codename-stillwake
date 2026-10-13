@@ -4,10 +4,16 @@
  * round corners included. On a WebGL2 canvas of its own, half the screen's size, laid over the game
  * and multiplied into it by CSS.
  *
- * Passes: seeds and a jump flood for each pixel's distance to the nearest solid one; then cascades
- * from the widest down, each tracing its rays over its own stretch of distance and taking what lies
- * beyond from the cascade above; last, the light of each pixel from the finest cascade's probes.
+ * The mask's alpha says what blocks: walls and closed doors at 1, machines and heroes at
+ * `THINGS`. Light is found twice: once blocked by all, for the open space and the shadows things
+ * cast; once by walls alone, for the fronts of things, seen from the side as they are and lit as
+ * if they were not there, and for the faces of walls. Each time: seeds and a jump flood for each
+ * pixel's distance to the nearest that blocks, then cascades from the widest down, each tracing
+ * its rays over its own stretch of distance and taking what lies beyond from the cascade above.
  */
+
+/** The mask's alpha for machines and heroes: they block light, but less than a wall does. */
+export const THINGS = 0.6;
 
 const VERTEX = `#version 300 es
 in vec2 aPos;
@@ -17,10 +23,11 @@ void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
 const SEED = `#version 300 es
 precision highp float;
 uniform sampler2D uMask;
+uniform float uBlocks;
 out vec4 o;
 void main() {
-  ivec2 p = ivec2(gl_FragCoord.xy);
-  o = texelFetch(uMask, p, 0).a > 0.5 ? vec4(gl_FragCoord.xy, 0.0, 1.0) : vec4(-1.0);
+  bool seed = texelFetch(uMask, ivec2(gl_FragCoord.xy), 0).a > uBlocks;
+  o = seed ? vec4(gl_FragCoord.xy, 0.0, 1.0) : vec4(-1.0);
 }
 `;
 
@@ -124,8 +131,8 @@ void main() {
 
 const OUTPUT = `#version 300 es
 precision highp float;
-uniform sampler2D uC0;
-uniform sampler2D uDist;
+uniform sampler2D uAll;
+uniform sampler2D uWalls;
 uniform sampler2D uMask;
 uniform float uEmit;
 uniform float uSpacing;
@@ -133,50 +140,56 @@ uniform int uD;
 uniform ivec2 uProbes;
 uniform vec3 uAmbient;
 uniform float uExposure;
+uniform float uThings;
 out vec4 o;
 
-vec3 probe(ivec2 q) {
+vec3 probe(sampler2D c, ivec2 q) {
   q = clamp(q, ivec2(0), uProbes - 1);
   vec3 sum = vec3(0.0);
   for (int y = 0; y < uD; y++) for (int x = 0; x < uD; x++) {
-    sum += texelFetch(uC0, q * uD + ivec2(x, y), 0).rgb;
+    sum += texelFetch(c, q * uD + ivec2(x, y), 0).rgb;
   }
   return sum / float(uD * uD);
 }
 
-vec3 at(vec2 p) {
+vec3 at(sampler2D c, vec2 p) {
   vec2 a = p / uSpacing - 0.5;
   ivec2 q = ivec2(floor(a));
   vec2 f = a - floor(a);
   return mix(
-    mix(probe(q), probe(q + ivec2(1, 0)), f.x),
-    mix(probe(q + ivec2(0, 1)), probe(q + ivec2(1, 1)), f.x),
+    mix(probe(c, q), probe(c, q + ivec2(1, 0)), f.x),
+    mix(probe(c, q + ivec2(0, 1)), probe(c, q + ivec2(1, 1)), f.x),
     f.y
   );
 }
 
-bool solid(vec2 p) {
-  return texelFetch(uDist, ivec2(p), 0).r < 0.75;
+float blocks(vec2 p) {
+  return texelFetch(uMask, ivec2(p), 0).a;
 }
 
 void main() {
   vec2 p = gl_FragCoord.xy;
-  vec3 light = at(p);
-  vec3 own = texelFetch(uMask, ivec2(p), 0).rgb * uEmit;
-  // What gives off light shows its own; a solid pixel that does not is lit as the open space
-  // around it: a wall's face, a machine's front, the hero.
-  if (solid(p) && max(own.r, max(own.g, own.b)) > 0.0) {
-    light = own;
-  } else if (solid(p)) {
+  vec4 m = texelFetch(uMask, ivec2(p), 0);
+  vec3 light;
+  if (max(m.r, max(m.g, m.b)) > 0.0) {
+    // What gives off light shows its own.
+    light = m.rgb * uEmit;
+  } else if (m.a > (1.0 + uThings) * 0.5) {
+    // A wall's face takes the brightest light beside it, found as if no thing stood there.
     light = vec3(0.0);
     for (int i = 0; i < 24; i++) {
       int ring = i / 8;
       float angle = float(i) * 0.785398 + float(ring) * 0.26;
-      vec2 q = p + vec2(cos(angle), sin(angle)) * (6.0 + 7.0 * float(ring));
-      vec3 there = texelFetch(uMask, ivec2(q), 0).rgb * uEmit;
-      if (!solid(q)) light = max(light, at(q));
-      else if (max(there.r, max(there.g, there.b)) > 0.0) light = max(light, there);
+      vec2 q = p + vec2(cos(angle), sin(angle)) * (5.0 + 6.0 * float(ring));
+      vec4 there = texelFetch(uMask, ivec2(q), 0);
+      if (max(there.r, max(there.g, there.b)) > 0.0) light = max(light, there.rgb * uEmit);
+      else if (there.a < (1.0 + uThings) * 0.5) light = max(light, at(uWalls, q));
     }
+  } else if (m.a > uThings * 0.5) {
+    // A thing's front is lit as the place it stands in.
+    light = at(uWalls, p);
+  } else {
+    light = at(uAll, p);
   }
   vec3 shown = 1.0 - exp(-(uAmbient + light) * uExposure);
   o = vec4(shown, 1.0);
@@ -198,6 +211,20 @@ interface Target {
   readonly fbo: WebGLFramebuffer;
   readonly width: number;
   readonly height: number;
+}
+
+interface Cascade {
+  readonly target: Target;
+  readonly spacing: number;
+  readonly d: number;
+  readonly probes: readonly [number, number];
+}
+
+/** One way of blocking light: its distance field and its cascades. */
+interface Field {
+  readonly seeds: readonly [Target, Target];
+  readonly distance: Target;
+  readonly cascades: readonly Cascade[];
 }
 
 /** Probe spacing of the finest cascade, in light pixels, and its rays across one side. */
@@ -278,29 +305,38 @@ export function createCascades(canvas: HTMLCanvasElement) {
 
   const mask = texture(1, 1, false);
   let size = { width: 0, height: 0 };
-  let seeds: [Target, Target] | undefined;
-  let distance: Target | undefined;
-  let cascades: { target: Target; spacing: number; d: number; probes: [number, number] }[] = [];
+  let fields: { all: Field; walls: Field } | undefined;
+
+  const field = (width: number, height: number): Field => {
+    // Enough cascades for the last to reach across the whole light.
+    const across = Math.hypot(width, height);
+    let count = 1;
+    while ((INTERVAL * (4 ** count - 1)) / 3 < across) count++;
+    return {
+      seeds: [target(width, height), target(width, height)],
+      distance: target(width, height),
+      cascades: Array.from({ length: count }, (_, c) => {
+        const spacing = SPACING * 2 ** c;
+        const d = D0 * 2 ** c;
+        const probes: [number, number] = [Math.ceil(width / spacing), Math.ceil(height / spacing)];
+        return { target: target(probes[0] * d, probes[1] * d), spacing, d, probes };
+      }),
+    };
+  };
+  const freeField = (f: Field) => {
+    for (const t of [...f.seeds, f.distance, ...f.cascades.map((c) => c.target)]) free(t);
+  };
 
   const resize = (width: number, height: number) => {
     if (width === size.width && height === size.height) return;
     size = { width, height };
     canvas.width = width;
     canvas.height = height;
-    for (const t of [...(seeds ?? []), ...(distance ? [distance] : [])]) free(t);
-    for (const c of cascades) free(c.target);
-    seeds = [target(width, height), target(width, height)];
-    distance = target(width, height);
-    // Enough cascades for the last to reach across the whole light.
-    const across = Math.hypot(width, height);
-    let count = 1;
-    while ((INTERVAL * (4 ** count - 1)) / 3 < across) count++;
-    cascades = Array.from({ length: count }, (_, c) => {
-      const spacing = SPACING * 2 ** c;
-      const d = D0 * 2 ** c;
-      const probes: [number, number] = [Math.ceil(width / spacing), Math.ceil(height / spacing)];
-      return { target: target(probes[0] * d, probes[1] * d), spacing, d, probes };
-    });
+    if (fields) {
+      freeField(fields.all);
+      freeField(fields.walls);
+    }
+    fields = { all: field(width, height), walls: field(width, height) };
   };
 
   const draw = (
@@ -320,70 +356,77 @@ export function createCascades(canvas: HTMLCanvasElement) {
     return unit;
   };
 
+  /** Light where whatever the mask's alpha puts over `blocks` stops it: into `f`'s finest cascade. */
+  const light = (f: Field, blocks: number, tuning: Tuning) => {
+    draw(f.seeds[0], programs.seed, (u) => {
+      gl.uniform1i(u('uMask'), sample(0, mask));
+      gl.uniform1f(u('uBlocks'), blocks);
+    });
+    let from = 0;
+    const top = 2 ** Math.ceil(Math.log2(Math.max(size.width, size.height))) / 2;
+    for (let step = top; step >= 1; step /= 2) {
+      const read = f.seeds[from];
+      const write = f.seeds[1 - from];
+      if (!read || !write) return;
+      draw(write, programs.flood, (u) => {
+        gl.uniform1i(u('uSeed'), sample(0, read.texture));
+        gl.uniform1f(u('uStep'), step);
+        gl.uniform2f(u('uSize'), size.width, size.height);
+      });
+      from = 1 - from;
+    }
+    const flooded = f.seeds[from];
+    if (!flooded) return;
+    draw(f.distance, programs.distance, (u) =>
+      gl.uniform1i(u('uSeed'), sample(0, flooded.texture)),
+    );
+    for (let c = f.cascades.length - 1; c >= 0; c--) {
+      const at = f.cascades[c];
+      const above = f.cascades[c + 1];
+      if (!at) continue;
+      draw(at.target, programs.cascade, (u) => {
+        gl.uniform1i(u('uMask'), sample(0, mask));
+        gl.uniform1i(u('uDist'), sample(1, f.distance.texture));
+        gl.uniform1i(u('uUpper'), sample(2, above?.target.texture ?? null));
+        gl.uniform2f(u('uLight'), size.width, size.height);
+        gl.uniform1f(u('uSpacing'), at.spacing);
+        gl.uniform1i(u('uD'), at.d);
+        gl.uniform1f(u('uStart'), (INTERVAL * (4 ** c - 1)) / 3);
+        gl.uniform1f(u('uEnd'), (INTERVAL * (4 ** (c + 1) - 1)) / 3);
+        gl.uniform1i(u('uHasUpper'), above ? 1 : 0);
+        gl.uniform2i(u('uUpperProbes'), above?.probes[0] ?? 1, above?.probes[1] ?? 1);
+        gl.uniform1f(u('uEmit'), tuning.emit);
+      });
+    }
+  };
+
   return {
     gl,
     /** Lights the scene drawn on `scene`, a canvas the light's size, and shows it on `canvas`. */
     run(scene: OffscreenCanvas | HTMLCanvasElement, tuning: Tuning) {
       resize(scene.width, scene.height);
-      if (!seeds || !distance) return;
+      if (!fields) return;
       gl.bindTexture(gl.TEXTURE_2D, mask);
       // Rows bottom up, as the targets are, so the light comes out the right way up.
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, scene);
 
-      draw(seeds[0], programs.seed, (u) => gl.uniform1i(u('uMask'), sample(0, mask)));
-      let from = 0;
-      for (
-        let step = 2 ** Math.ceil(Math.log2(Math.max(size.width, size.height))) / 2;
-        step >= 1;
-        step /= 2
-      ) {
-        const read = seeds[from];
-        const write = seeds[1 - from];
-        if (!read || !write) return;
-        draw(write, programs.flood, (u) => {
-          gl.uniform1i(u('uSeed'), sample(0, read.texture));
-          gl.uniform1f(u('uStep'), step);
-          gl.uniform2f(u('uSize'), size.width, size.height);
-        });
-        from = 1 - from;
-      }
-      const flooded = seeds[from];
-      if (!flooded) return;
-      draw(distance, programs.distance, (u) =>
-        gl.uniform1i(u('uSeed'), sample(0, flooded.texture)),
-      );
-
-      for (let c = cascades.length - 1; c >= 0; c--) {
-        const at = cascades[c];
-        const above = cascades[c + 1];
-        if (!at) continue;
-        draw(at.target, programs.cascade, (u) => {
-          gl.uniform1i(u('uMask'), sample(0, mask));
-          gl.uniform1i(u('uDist'), sample(1, distance?.texture ?? null));
-          gl.uniform1i(u('uUpper'), sample(2, above?.target.texture ?? null));
-          gl.uniform2f(u('uLight'), size.width, size.height);
-          gl.uniform1f(u('uSpacing'), at.spacing);
-          gl.uniform1i(u('uD'), at.d);
-          gl.uniform1f(u('uStart'), (INTERVAL * (4 ** c - 1)) / 3);
-          gl.uniform1f(u('uEnd'), (INTERVAL * (4 ** (c + 1) - 1)) / 3);
-          gl.uniform1i(u('uHasUpper'), above ? 1 : 0);
-          gl.uniform2i(u('uUpperProbes'), above?.probes[0] ?? 1, above?.probes[1] ?? 1);
-          gl.uniform1f(u('uEmit'), tuning.emit);
-        });
-      }
-      const finest = cascades[0];
-      if (!finest) return;
+      light(fields.all, THINGS * 0.5, tuning);
+      light(fields.walls, (1 + THINGS) * 0.5, tuning);
+      const all = fields.all.cascades[0];
+      const walls = fields.walls.cascades[0];
+      if (!all || !walls) return;
       draw(null, programs.output, (u) => {
-        gl.uniform1i(u('uC0'), sample(0, finest.target.texture));
-        gl.uniform1i(u('uDist'), sample(1, distance?.texture ?? null));
+        gl.uniform1i(u('uAll'), sample(0, all.target.texture));
+        gl.uniform1i(u('uWalls'), sample(1, walls.target.texture));
         gl.uniform1i(u('uMask'), sample(2, mask));
         gl.uniform1f(u('uEmit'), tuning.emit);
-        gl.uniform1f(u('uSpacing'), finest.spacing);
-        gl.uniform1i(u('uD'), finest.d);
-        gl.uniform2i(u('uProbes'), finest.probes[0], finest.probes[1]);
+        gl.uniform1f(u('uSpacing'), all.spacing);
+        gl.uniform1i(u('uD'), all.d);
+        gl.uniform2i(u('uProbes'), all.probes[0], all.probes[1]);
         gl.uniform3f(u('uAmbient'), ...tuning.ambient);
         gl.uniform1f(u('uExposure'), tuning.exposure);
+        gl.uniform1f(u('uThings'), THINGS);
       });
     },
     destroy() {

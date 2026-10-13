@@ -3,6 +3,10 @@ import { BACK, furnace, grid, power, STRUCTURE, type Sim } from '@stillwake/sim'
 import { CELL } from '../../../render/camera';
 import { alphaOf, particles } from '../../../render/particles';
 import { lampLevel } from '../lightmap';
+import { THINGS } from './cascades';
+
+/** Machines and heroes: in the way of light, though not as a wall is. */
+const THING = `rgba(0, 0, 0, ${THINGS})`;
 
 /**
  * What gives off light in the mask, as a share of the cascades' `emit`: the stars beyond a hole in
@@ -40,8 +44,18 @@ export function drawMask(
   const { width: w, height: h } = g.canvas;
   const scale = w / view.width;
   const px = (cells: number) => cells * scale;
-  const sx = (x: number) => (x - view.x) * scale;
-  const sy = (y: number) => (y - view.y) * scale;
+  // Edges on whole pixels, so cells side by side share theirs and leave no seam between them.
+  const sx = (x: number) => Math.round((x - view.x) * scale);
+  const sy = (y: number) => Math.round((y - view.y) * scale);
+  /** A rectangle in cells, filled or cleared on whole pixels. */
+  const box = (x: number, y: number, w: number, h: number, clear = false) => {
+    const left = sx(x);
+    const top = sy(y);
+    const width = sx(x + w) - left;
+    const height = sy(y + h) - top;
+    if (clear) g.clearRect(left, top, width, height);
+    else g.fillRect(left, top, width, height);
+  };
   g.globalCompositeOperation = 'source-over';
   g.fillStyle = rgb(SKY);
   g.fillRect(0, 0, w, h);
@@ -57,9 +71,9 @@ export function drawMask(
       const cell = y * layers.width + x;
       const s = layers.structure[cell];
       if (s === STRUCTURE.wall || s === STRUCTURE.doorClosed) {
-        g.fillRect(sx(x), sy(y), px(1) + 0.5, px(1) + 0.5);
+        box(x, y, 1, 1);
       } else if (layers.back[cell] !== BACK.none) {
-        g.clearRect(sx(x), sy(y), px(1) + 0.5, px(1) + 0.5);
+        box(x, y, 1, 1, true);
       }
     }
   }
@@ -72,18 +86,19 @@ export function drawMask(
       const level = lampLevel(sim.query(power).satisfaction(m.id));
       if (level === 0) continue;
       g.fillStyle = rgb(BULB, level / 255);
-      g.fillRect(sx(x + 0.2), sy(y + 0.3), px(0.6), px(0.5));
+      box(x + 0.2, y + 0.3, 0.6, 0.5);
       continue;
     }
     // A machine stands on the floor in front of the back wall, a little inside its cells' sides.
-    g.fillStyle = '#000';
-    g.fillRect(sx(x + 0.1), sy(y + 0.1), px(spec.width - 0.2), px(spec.height - 0.1));
+    g.fillStyle = THING;
+    box(x + 0.1, y + 0.1, spec.width - 0.2, spec.height - 0.1, true);
+    box(x + 0.1, y + 0.1, spec.width - 0.2, spec.height - 0.1);
     if (m.kind === 'furnace') {
       const at = sim.query(furnace).at(m.id);
       if (at && !at.problem) {
         // Its fire shows past its sides, so its light gets out into the room.
         g.fillStyle = rgb(FIRE);
-        g.fillRect(sx(x - 0.05), sy(y + spec.height - 0.85), px(spec.width + 0.1), px(0.4));
+        box(x - 0.05, y + spec.height - 0.85, spec.width + 0.1, 0.4);
       }
     }
   }
@@ -91,14 +106,15 @@ export function drawMask(
   if (hero) {
     const width = HERO.width / 1000;
     const height = HERO.height / 1000;
-    g.fillStyle = '#000';
-    g.fillRect(sx(hero.x - width / 2), sy(hero.y - height), px(width), px(height));
+    g.fillStyle = THING;
+    box(hero.x - width / 2, hero.y - height, width, height, true);
+    box(hero.x - width / 2, hero.y - height, width, height);
   }
 
   for (const p of particles.live) {
     if (!p.effect.glow) continue;
     g.fillStyle = rgb(hex(p.effect.glow.colour), alphaOf(p));
-    const size = Math.max(2, px(p.size / CELL));
+    const size = Math.max(2, Math.round(px(p.size / CELL)));
     g.fillRect(sx(p.x / CELL) - size / 2, sy(p.y / CELL) - size / 2, size, size);
   }
 }
