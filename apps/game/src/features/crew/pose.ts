@@ -1,5 +1,5 @@
 import type { Hero } from './hero';
-import { ARM, HIP, LEG, reach, W, type Bend, type Point } from './rig';
+import { ARM, endOf, HIP, LEG, reach, W, type Bend, type Point } from './rig';
 
 /** What a hero's figure is doing, read from its movement: never decided anywhere else. */
 export type Pose = 'stand' | 'walk' | 'air' | 'climb' | 'float' | 'lie' | 'tumble';
@@ -12,7 +12,10 @@ export interface Limbs {
   readonly backLeg: Bend;
   /** Radians the whole body turns forward, around its middle; a body lying down is at -π/2. */
   readonly tilt: number;
-  /** Pixels the body rises, for breathing and drifting; below zero it sinks, landing. */
+  /**
+   * Pixels the body rises, drifting in space; on the floor, below zero by as much as the lower foot
+   * is short of it, so bent legs never float and straight ones never sink in.
+   */
   readonly lift: number;
   /** Whether the body rests on the floor however it is turned, rather than standing on its feet. */
   readonly lying: boolean;
@@ -101,7 +104,8 @@ const positive = (n: number) => Math.max(0, n);
  */
 export function limbsOf(pose: Pose, hero: Hero, moment: Moment): Limbs {
   const body = bodyOf(pose, hero, moment);
-  const landed = landingOf(pose, body, moment.landing);
+  const landed =
+    pose === 'stand' || pose === 'walk' ? grounded(landingOf(body, moment.landing)) : body;
   if (moment.plan === undefined || !holdsIn(pose)) return landed;
   const front = planHand(moment.plan);
   const along = HOLD.farHand * SHEET.length;
@@ -110,9 +114,15 @@ export function limbsOf(pose: Pose, hero: Hero, moment: Moment): Limbs {
   return { ...landed, frontArm: reach(front, ARM, 1), backArm: reach(far, ARM, 1) };
 }
 
-/** Touching down, the body sinks and springs back, the feet staying on the floor under the hips. */
-function landingOf(pose: Pose, limbs: Limbs, landing: number | undefined): Limbs {
-  if (!landing || (pose !== 'stand' && pose !== 'walk')) return limbs;
+/** On the floor, the body comes down until its lower foot stands on it. */
+function grounded(limbs: Limbs): Limbs {
+  const lowest = Math.max(endOf(limbs.frontLeg, LEG).y, endOf(limbs.backLeg, LEG).y);
+  return { ...limbs, lift: lowest - HIP };
+}
+
+/** Touching down, the knees bend deep and straighten again, the feet under the hips. */
+function landingOf(limbs: Limbs, landing: number | undefined): Limbs {
+  if (!landing) return limbs;
   // Down fast and up slower: the deepest a third of the way through.
   const t = 1 - landing;
   const sink = LAND.sink * (t < 1 / 3 ? t * 3 : (1 - t) * 1.5);
@@ -123,7 +133,6 @@ function landingOf(pose: Pose, limbs: Limbs, landing: number | undefined): Limbs
     backLeg: foot(-W * 0.06),
     frontArm: bend(0.55, 0.6),
     backArm: bend(0.35, 0.7),
-    lift: limbs.lift - sink,
   };
 }
 
@@ -140,7 +149,6 @@ function bodyOf(pose: Pose, hero: Hero, { travelled, timeMs }: Moment): Limbs {
         backArm: bend(-0.05 * breath, 0.22),
         frontLeg: bend(0.02, -0.04),
         backLeg: bend(-0.02, -0.04),
-        lift: 0.4 * breath,
       };
     }
     case 'walk': {
@@ -154,8 +162,6 @@ function bodyOf(pose: Pose, hero: Hero, { travelled, timeMs }: Moment): Limbs {
         backLeg: bend(-0.55 * s, -(0.08 + 0.9 * positive(-c))),
         frontArm: bend(-0.45 * s, 0.3 + 0.35 * positive(-c)),
         backArm: bend(0.45 * s, 0.3 + 0.35 * positive(c)),
-        // Highest passing over the straight leg, lowest with both feet down.
-        lift: 0.9 * (1 - Math.abs(s)) - 0.45,
         tilt: 0.05,
       };
     }

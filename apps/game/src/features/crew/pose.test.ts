@@ -55,7 +55,22 @@ describe('limbsOf', () => {
     expect(leg(STRIDE.walk / 2, 0).upper).toBeCloseTo(0);
   });
 
-  it('stands on near straight legs, only the arms and the chest breathing', () => {
+  it('keeps a foot on the floor standing and walking, never floating nor sunk in', () => {
+    for (let i = 0; i < 24; i++) {
+      for (const pose of ['stand', 'walk'] as const) {
+        const l = limbsOf(pose, pose === 'walk' ? walking : standing, at(i * 0.4, i * 170));
+        const lowest = Math.max(endOf(l.frontLeg, LEG).y, endOf(l.backLeg, LEG).y);
+        expect(lowest - l.lift).toBeCloseTo(HIP, 5);
+        expect(l.lift).toBeLessThanOrEqual(0);
+      }
+    }
+    // Lowest with both feet apart, highest passing over the straight leg.
+    const apart = limbsOf('walk', walking, at(STRIDE.walk / 4)).lift;
+    const passing = limbsOf('walk', walking, at(0)).lift;
+    expect(apart).toBeLessThan(passing - 0.5);
+  });
+
+  it('stands on near straight legs, only the arms breathing', () => {
     for (const ms of [0, 700, 1300, 2000]) {
       const l = limbsOf('stand', standing, at(3, ms));
       expect(Math.abs(l.frontLeg.lower)).toBeLessThan(0.1);
