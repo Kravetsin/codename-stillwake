@@ -18,6 +18,7 @@ export const LEGEND = {
   P: 'solar panel: draw its whole footprint',
   F: 'furnace: draw its whole footprint',
   V: 'vent',
+  L: 'lamp',
   K: 'crate: draw its whole footprint',
   S: 'where the hero wakes',
 } as const satisfies Readonly<Record<string, string>>;

@@ -51,25 +51,25 @@ describe('the starting wreck', () => {
     expect(margin).toBeGreaterThanOrEqual(16);
   });
 
-  it('holds a panel cabled to a generator and a furnace, a vent, an empty crate, three doorways', () => {
+  it('holds a panel cabled to a lamp, a generator and a furnace, a vent, an empty crate, three doorways', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
     const kinds = q.machines().map((m) => m.kind);
-    expect(kinds).toEqual(['solarPanel', 'generator', 'furnace', 'vent', 'crate']);
+    expect(kinds).toEqual(['solarPanel', 'lamp', 'generator', 'furnace', 'vent', 'crate']);
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(9).fill({ kind: 'door', open: false }));
-    const [panel, generator, furnaceAt] = q.machines().map((m) => m.cell);
-    // The furnace idle, the generator alone draws: in full.
+    const [panel, lamp, generator, furnaceAt] = q.machines().map((m) => m.cell);
+    // The furnace idle, the generator and the lamp draw what the panel makes: in full.
     expect(sim.query(power).networks()).toEqual([
       {
         id: panel,
-        nodes: [panel, generator, furnaceAt],
+        nodes: [panel, lamp, generator, furnaceAt],
         supply: 5,
-        demand: 4,
+        demand: 5,
         satisfaction: 1000,
       },
     ]);
-    const crate = q.machines()[4]?.id ?? 0;
+    const crate = q.machines()[5]?.id ?? 0;
     expect(
       sim
         .query(items)
@@ -82,14 +82,14 @@ describe('the starting wreck', () => {
   it('smelts a caught chunk into the scrap that walls over the breach, slowing the generator', () => {
     // Half a minute more, so the generator's store is full when the chunk goes in.
     const w = airedWreck().run(600);
-    const furnaceId = w.query(grid).machines()[2]?.id ?? 0;
-    const generatorId = w.query(grid).machines()[1]?.id ?? 0;
+    const furnaceId = w.query(grid).machines()[3]?.id ?? 0;
+    const generatorId = w.query(grid).machines()[2]?.id ?? 0;
     giveItems(w, 0, { scrapChunk: 1 });
     w.do(items, 'move', { src: { slot: 0 }, dst: { crate: furnaceId }, count: 1 }).run();
-    // Both drawing, 5 against 8: each at 625‰, the chunk in 160 ticks rather than 100.
-    expect(w.query(power).satisfaction(generatorId)).toBe(625);
-    // The tick of the move was the first of 160.
-    w.run(158);
+    // All drawing, 5 against 9: each at 555‰, the chunk in 181 ticks rather than 100.
+    expect(w.query(power).satisfaction(generatorId)).toBe(555);
+    // The tick of the move was the first of 181.
+    w.run(179);
     expect(w.query(items).crate(furnaceId)[1]).toBeNull();
     w.run();
     const out = w.query(items).crate(furnaceId);

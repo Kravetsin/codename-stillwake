@@ -44,6 +44,7 @@ export const MACHINES = {
     makes: 5,
   },
   vent: { width: 1, height: 1, ports: [{ x: 0, y: 0 }], cost: { scrap: 2 }, buildTicks: 60 },
+  lamp: { width: 1, height: 1, ports: [], cost: { scrap: 2 }, buildTicks: 60, draws: 1 },
   crate: { width: 2, height: 1, ports: [], cost: { scrap: 6 }, buildTicks: 40, slots: 27 },
   furnace: {
     width: 2,

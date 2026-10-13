@@ -60,6 +60,7 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
     tools: [
       { kind: 'cable', id: 'cable', label: t('tool.cable') },
       place('solarPanel', { layer: 'machine', kind: 'solarPanel' }),
+      place('lamp', { layer: 'machine', kind: 'lamp' }),
     ],
   },
   { id: 'production', tools: [place('furnace', { layer: 'machine', kind: 'furnace' })] },

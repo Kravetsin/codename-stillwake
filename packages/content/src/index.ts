@@ -3,6 +3,7 @@ export { BUILDS, DECONSTRUCT_SPEEDUP, type Build, type BuildCost } from './build
 export { CREW } from './crew';
 export { HERO } from './hero';
 export { LEGEND, LEGEND_UNDER, type LegendChar } from './legend';
+export { LIGHT } from './light';
 export { MACHINES, type MachineKind, type MachineSpec } from './machines';
 export { DEFAULT_HULL, MATERIALS, type Material, type MaterialId } from './materials';
 export { DEBRIS } from './debris';

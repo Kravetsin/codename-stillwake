@@ -3,6 +3,7 @@ import { AIR } from './air';
 import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { CREW } from './crew';
 import { HERO } from './hero';
+import { LIGHT } from './light';
 import { MACHINES } from './machines';
 import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
@@ -237,5 +238,18 @@ describe('crew', () => {
       expect(value).toBeGreaterThan(0);
     }
     expect(CREW.refill).toBeLessThan(CREW.suit);
+  });
+});
+
+describe('light', () => {
+  it('is in whole levels within full, falling off faster on a diagonal, never quite black', () => {
+    for (const level of [LIGHT.star, LIGHT.lamp]) {
+      expect(Number.isSafeInteger(level) && level > 0 && level <= LIGHT.full).toBe(true);
+    }
+    expect(LIGHT.falloff).toBeGreaterThan(0);
+    expect(LIGHT.diagonal).toBeGreaterThan(LIGHT.falloff);
+    expect(LIGHT.diagonal).toBeLessThan(2 * LIGHT.falloff);
+    expect(LIGHT.darkest).toBeGreaterThan(0);
+    expect(LIGHT.darkest).toBeLessThan(1000);
   });
 });

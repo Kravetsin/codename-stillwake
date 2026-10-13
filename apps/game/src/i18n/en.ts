@@ -29,6 +29,7 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.tank': 'Tank',
   'tool.generator': 'Generator',
   'tool.solarPanel': 'Solar panel',
+  'tool.lamp': 'Lamp',
   'tool.cable': 'Cable',
   'tool.furnace': 'Furnace',
   'tool.vent': 'Vent',
@@ -55,6 +56,8 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.generator.about': 'Makes oxygen into its pipes from power.',
   'tool.cable.about': 'Joins machines and anchors into a power network. Drag from one to another.',
   'tool.solarPanel.about': 'Makes power out in space, never in a room.',
+  'tool.lamp.about':
+    'Lights what it reaches, as bright as the power it gets. Walls stop its light.',
   'tool.furnace.about': 'Smelts salvage into materials, on power and the oxygen in its pipe.',
   'tool.crate.about': 'Holds items. Open it with E.',
   'tool.remove.about':

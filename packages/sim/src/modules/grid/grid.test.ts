@@ -403,6 +403,7 @@ describe('invariants', () => {
             solarPanel: [0, 1, 2],
             furnace: [0, 1, 5, 6],
             vent: [0],
+            lamp: [0],
             crate: [0, 1],
           }[m.kind];
           for (const offset of spec) {

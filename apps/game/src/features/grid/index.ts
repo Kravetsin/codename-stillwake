@@ -10,6 +10,8 @@ import { Batch, drawBack, drawConduit, drawStructure, type Cells } from './draw'
 const MACHINE_FILL = 0x2a3d4f;
 const MACHINE_EDGE = 0x5f86a8;
 const PORT = 0xd8e6f2;
+/** A lamp's bulb: its light, when on, is the light layer's. */
+const BULB = 0xfff1c8;
 
 /**
  * The ship drawn as flat graybox blocks: back walls and the pipes in front of them behind everything,
@@ -103,6 +105,21 @@ export const gridFeature: Feature = {
         for (const child of machineLayer.removeChildren()) child.destroy();
         for (const m of machines) {
           const spec = MACHINES[m.kind];
+          const at = { x: (m.cell % size.width) * CELL, y: Math.floor(m.cell / size.width) * CELL };
+          if (m.kind === 'lamp') {
+            // A fixture under the ceiling rather than a box with its name.
+            const lamp = new Graphics()
+              .rect(CELL * 0.2, 0, CELL * 0.6, 3)
+              .fill(MACHINE_EDGE)
+              .rect(CELL * 0.45, 3, CELL * 0.1, 3)
+              .fill(MACHINE_EDGE)
+              .circle(CELL / 2, 9, 3.5)
+              .fill(BULB)
+              .stroke({ width: 1, color: MACHINE_EDGE });
+            lamp.position.set(at.x, at.y);
+            machineLayer.addChild(lamp);
+            continue;
+          }
           const box = new Graphics()
             .rect(2, 2, spec.width * CELL - 4, spec.height * CELL - 4)
             .fill(MACHINE_FILL)
@@ -123,10 +140,7 @@ export const gridFeature: Feature = {
           label.scale.set(Math.min(1, (spec.width * CELL - 8) / label.width));
           const machine = new Container();
           machine.addChild(box, label);
-          machine.position.set(
-            (m.cell % size.width) * CELL,
-            Math.floor(m.cell / size.width) * CELL,
-          );
+          machine.position.set(at.x, at.y);
           machineLayer.addChild(machine);
         }
       },
