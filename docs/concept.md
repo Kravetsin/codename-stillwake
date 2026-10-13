@@ -23,7 +23,10 @@ A living document: what is decided about the game and what is still open. Techni
   unlike the Factory in Tossit.
 - **Characters** are assembled from parts with simple keyframed movement; the parts exist mainly for
   customization ([0003](decisions/0003-character-rig.md)).
-- **Graybox first.** Plain blocks without textures until the core mechanics are fun; art comes after.
+- **Pixel art,** a pixel of art a pixel of the world, sixteen to a cell, on trial until the team
+  settles the style: walls, doors, pipes and machines are tiles and pictures drawn as text in
+  `features/grid/art.ts`, the hero's parts likewise, moved and turned smoothly by its rig. `?art` in
+  development shows them all.
 - **Look: simple textures carried by light.** Light also tells the ship's state: an unpowered room is
   dark but for helmet lamps, a venting room flashes red, starlight comes in through windows.
 - **Oxygen works like a power grid.** A pipe network holds one pool of oxygen; a vent of a network
