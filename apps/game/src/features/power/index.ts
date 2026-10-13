@@ -112,7 +112,7 @@ function cables(): Layer {
       if (overlayOn.get() !== 'power') mode?.release();
       own.hold(mode?.carried()?.end);
       const landing = mode?.takeLanding();
-      if (landing !== undefined) own.land(landing);
+      if (landing) own.land(landing.node, landing.end);
       time += elapsedMs / 1000;
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());

@@ -42,8 +42,8 @@ export function createPowerMode() {
   let from: number | undefined;
   /** The cable's end carried now, and whether it may be let go where it is. */
   let carried: { end: Held; fits: boolean } | undefined;
-  /** The node a cable was last carried to, until told. */
-  let landing: number | undefined;
+  /** The node a cable was last carried to, and its end there, until told. */
+  let landing: { node: number; end: Held } | undefined;
 
   return {
     views: [ghost, reason] as const,
@@ -105,7 +105,11 @@ export function createPowerMode() {
             if (!wires.moveProblem(grip.node, cell, cable)) {
               const payload = { from: grip.node, to: cell, ...(cable ? { cable } : {}) };
               game.client.send(command(power, 'move', payload));
-              landing = wires.nodeAt(cell);
+              const to = wires.nodeAt(cell);
+              if (to !== undefined) {
+                const end = { node: grip.node, at: endOf(q, to), ...(cable ? { cable } : {}) };
+                landing = { node: to, end };
+              }
             }
           }
         }
@@ -185,11 +189,11 @@ export function createPowerMode() {
     },
     /** The cable's end carried now, and whether it may be let go where it is; nothing if none. */
     carried: () => carried,
-    /** The node a cable was last carried to, once: where the cables layer lands it. */
+    /** The node a cable was last carried to and its end there, once: the cables layer lands it. */
     takeLanding() {
-      const node = landing;
+      const taken = landing;
       landing = undefined;
-      return node;
+      return taken;
     },
     /** Lets go of whatever is held: the mode turned off mid-drag. */
     release() {

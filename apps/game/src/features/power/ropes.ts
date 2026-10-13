@@ -26,6 +26,11 @@ const FLOATING: RopeStyle = {
  */
 const HANG = 1 + (8 * SAG * SAG) / 3;
 const LOOSE = 1.02;
+/**
+ * How long an end let go on a node stays where it was let go, waiting for the world to move the
+ * cable there: past this, the move was refused, and the end goes back to its node.
+ */
+const LANDING_MS = 2000;
 
 /**
  * A cable's end carried by hand: the end at `node` of every cable there, or of `cable` alone, held
@@ -62,7 +67,8 @@ export function createCableRopes() {
   const cables = new Map<string, Cable>();
   let started = false;
   let held: Held | undefined;
-  let landing: number | undefined;
+  /** An end let go on `node`, kept where it was let go until the world has the cable there. */
+  let landing: { node: number; end: Held; ms: number } | undefined;
   return {
     /** Takes the cables as the world has them now: new ones in, gone ones out. */
     sync(sim: Sim) {
@@ -74,7 +80,8 @@ export function createCableRopes() {
         const { pieces, feeds } = piecesOf(q, c.a, c.b);
         const shape = JSON.stringify(pieces);
         if (cables.get(key)?.shape === shape) continue;
-        const landed = landing !== undefined && (c.a === landing || c.b === landing);
+        const landed = landing !== undefined && (c.a === landing.node || c.b === landing.node);
+        if (landed) landing = undefined;
         const stretches = pieces.map((piece, i) => {
           const style = piece.hangs ? HANGING : FLOATING;
           const rest =
@@ -91,16 +98,21 @@ export function createCableRopes() {
     hold(end: Held | undefined) {
       held = end;
     },
-    /** A cable is being carried to `node`: once the world has it there, it starts in its hang. */
-    land(node: number) {
-      landing = node;
+    /**
+     * `end` is let go on `node`: it stays there until the world has the cable there, which then
+     * starts in its hang, as it was carried, rather than going back to where it was first.
+     */
+    land(node: number, end: Held) {
+      landing = { node, end, ms: 0 };
     },
     /** Moves every cable on by `elapsedMs`, brushed by `bodies` aboard. */
     update(elapsedMs: number, bodies: readonly Body[]) {
+      if (landing && (landing.ms += elapsedMs) > LANDING_MS) landing = undefined;
+      const hand = held ?? landing?.end;
       for (const [key, c] of cables) {
         const [a, b] = key.split(':').map(Number) as [number, number];
         const carried =
-          held && (!held.cable || (held.cable.a === a && held.cable.b === b)) ? held : undefined;
+          hand && (!hand.cable || (hand.cable.a === a && hand.cable.b === b)) ? hand : undefined;
         const last = c.stretches.length - 1;
         c.stretches.forEach(({ piece, rope }, i) => {
           const factor = piece.hangs ? HANG : LOOSE;

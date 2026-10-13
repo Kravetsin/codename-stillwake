@@ -104,11 +104,42 @@ describe('cables as drawn', () => {
     expect(offRest(ropes)).toBeLessThan(0.15);
   });
 
-  it('carried to another node, start there in their hang, not straight', () => {
+  it('carried to another node, wait where let go until the world moves them, then hang there', () => {
+    // The cable ran from the lamp at 18 to the wall at 28; let go on the lamp, it stays there.
+    const before = stillwake.create(
+      1,
+      parseLayout(
+        ROWS,
+        [],
+        [
+          [
+            { x: 1, y: 1 },
+            { x: 8, y: 2 },
+          ],
+        ],
+      ),
+    );
     const ropes = createCableRopes();
-    ropes.sync(stillwake.create(1, parseLayout(ROWS)));
-    ropes.land(10 + 8);
+    ropes.sync(before);
+    run(ropes, 2);
+    const lamp = rest.at(-1) ?? { x: 0, y: 0 };
+    ropes.land(10 + 8, { node: 20 + 8, at: lamp });
+    run(ropes, 1);
+    expect(pointsOf(ropes).at(-1)).toMatchObject(lamp);
+    // The world has it there: it starts in its hang.
     ropes.sync(sim);
+    expect(offRest(ropes)).toBeLessThan(0.15);
+  });
+
+  it('let go on a node the world never moves them to, go back to where they were', () => {
+    const ropes = createCableRopes();
+    ropes.sync(sim);
+    run(ropes, 2);
+    const away = { x: 4.5, y: 3.5 };
+    ropes.land(20 + 4, { node: 10 + 8, at: away });
+    run(ropes, 1);
+    expect(pointsOf(ropes).at(-1)).toMatchObject(away);
+    run(ropes, 10);
     expect(offRest(ropes)).toBeLessThan(0.15);
   });
 });
