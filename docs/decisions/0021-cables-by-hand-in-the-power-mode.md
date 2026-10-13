@@ -14,13 +14,11 @@ themselves, as Factorio's poles join: wiring stays the player's.
 
 ## Decision
 
-- **A cable has a length,** set when it is laid: the straight way between its nodes' nearest
-  cells, rounded up to a tenth of a cell, at most `POWER.maxSpan`. Saved, in tenths.
 - **A cable's end may move** to another node: `move { from, to, cable? }` takes every cable ending
   at node `from`, or only the one named, to node `to`. Refused when no cable ends there
   (`power.noCable`), `to` is no node (`power.noNode`), a moved cable would join a node to itself
-  (`power.sameNode`) or a pair already joined (`power.twice`), or would span farther than its length
-  (`power.taut`). Moving costs nothing.
+  (`power.sameNode`) or a pair already joined (`power.twice`), or would be pulled taut, spanning
+  farther than a cable does (`power.taut`, `POWER.maxSpan` as for laying). Moving costs nothing.
 - **Supports are anchors, as before:** any cell with a wall, floor, door or back wall. Wherever a
   cable ends on one, a fitting is drawn there, as where a cable goes through the hull. They cost
   nothing and are no thing of their own.
@@ -34,11 +32,12 @@ themselves, as Factorio's poles join: wiring stays the player's.
 - **The mode has the hands.** In it the left button does nothing else; picking a build tool leaves
   it, and turning it on puts the plan away. The cable tool leaves the build menu, and Remove no
   longer cuts cables.
-- **A cable is drawn as long as it is:** a rope paid out to its length, so an end moved nearer
-  leaves it hanging lower.
 
 ## Rejected
 
+- **A length of its own for each cable,** set when laid, its ends moving only as far apart as that: a
+  cable laid is already taut, so a support could only ever move nearer. Every cable is as long as a
+  cable is, `POWER.maxSpan`, and hangs by the way it spans.
 - **Laying a cable by itself when a machine is built,** as poles join in Factorio: too casual for
   the team; which way the power goes is the player's to choose.
 - **Dragging with bare hands or with the cable tool:** the left button already builds and works
@@ -49,6 +48,5 @@ themselves, as Factorio's poles join: wiring stays the player's.
 
 ## Consequences
 
-- Saves gain a length per cable: the save format moves on.
 - The build menu loses its cable card; the Remove tool keeps to what is built.
-- A map's cables are laid at the length their ends span.
+- A support moves freely within a cable's span of every cable on it, the way a belt is re-led.

@@ -12,11 +12,6 @@ export interface Cable {
   readonly b: number;
   /** Whether its cost was taken from whoever laid it, and so is given back when it is cut. */
   readonly paid: boolean;
-  /**
-   * How long it is, in tenths of a cell: the way between its nodes when it was laid, rounded up. Its
-   * ends may move only as far apart as that (0021).
-   */
-  readonly length: number;
 }
 
 /** A network: the nodes cables join, named by its lowest node cell, and how its power stands. */
@@ -49,58 +44,24 @@ export function nodeAt(grid: Grid, cell: number): number | undefined {
   return mounted ? cell : undefined;
 }
 
-/** How many cells a node covers across and down: a machine's footprint, an anchor's one cell. */
-export type Size = { readonly width: number; readonly height: number };
-
-/** The cells node `node` of `size` covers, as a box, on a grid `width` across. */
-function boxOf(width: number, node: number, size: Size) {
+/** The cells a node covers, as a box: a machine's footprint, or an anchor's one cell. */
+function boxOf(grid: Grid, node: number) {
+  const { width } = grid.size();
   const x = node % width;
   const y = Math.floor(node / width);
-  return { x0: x, y0: y, x1: x + size.width - 1, y1: y + size.height - 1 };
-}
-
-/** The size of node `node`: its machine's footprint, or one cell. */
-export function sizeOf(grid: Grid, node: number): Size {
   const machine = grid.machineAt(node);
-  return machine && machine.cell === node ? spec(machine) : { width: 1, height: 1 };
+  const s = machine && machine.cell === node ? spec(machine) : { width: 1, height: 1 };
+  return { x0: x, y0: y, x1: x + s.width - 1, y1: y + s.height - 1 };
 }
-
-/** The square of the way between two nodes' nearest cells, in whole cells, on a grid `width` across. */
-export function reachSquared(
-  width: number,
-  a: number,
-  aSize: Size,
-  b: number,
-  bSize: Size,
-): number {
-  const p = boxOf(width, a, aSize);
-  const q = boxOf(width, b, bSize);
-  const dx = Math.max(0, q.x0 - p.x1, p.x0 - q.x1);
-  const dy = Math.max(0, q.y0 - p.y1, p.y0 - q.y1);
-  return dx * dx + dy * dy;
-}
-
-/** The square of the way between nodes `a` and `b` as they stand on `grid`. */
-export const reachOf = (grid: Grid, a: number, b: number) =>
-  reachSquared(grid.size().width, a, sizeOf(grid, a), b, sizeOf(grid, b));
 
 /** Whether two nodes' nearest cells are within a cable's span: straight, in whole cells. */
 export function inSpan(grid: Grid, a: number, b: number): boolean {
-  return reachOf(grid, a, b) <= POWER.maxSpan * POWER.maxSpan;
+  const p = boxOf(grid, a);
+  const q = boxOf(grid, b);
+  const dx = Math.max(0, q.x0 - p.x1, p.x0 - q.x1);
+  const dy = Math.max(0, q.y0 - p.y1, p.y0 - q.y1);
+  return dx * dx + dy * dy <= POWER.maxSpan * POWER.maxSpan;
 }
-
-/**
- * The length of a cable laid across `reach`, the square of the way it spans in cells: in tenths of a
- * cell, rounded up. Counted up, as square roots differ between machines.
- */
-export function lengthOf(reach: number): number {
-  let tenths = 0;
-  while (tenths * tenths < 100 * reach) tenths += 1;
-  return tenths;
-}
-
-/** Whether a cable `length` long reaches across `reach`, the square of a way in cells. */
-export const reaches = (length: number, reach: number) => 100 * reach <= length * length;
 
 /** A pair of nodes as a cable names them, the lower first. */
 export const ordered = (a: number, b: number) => (a < b ? { a, b } : { a: b, b: a });

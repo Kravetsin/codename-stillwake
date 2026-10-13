@@ -31,6 +31,8 @@ export interface Camera {
   view(screen: Size): { x: number; y: number; width: number; height: number; zoom: number };
   /** Left-button presses and releases since the last call, in order, at their world points. */
   takeLeft(): readonly LeftButton[];
+  /** Right-button presses since the last call, in order, at their world points. */
+  takeRight(): readonly { readonly x: number; readonly y: number }[];
   destroy(): void;
 }
 
@@ -62,6 +64,8 @@ export function createCamera(
   let mouse: { x: number; y: number } | undefined;
   let left: LeftButton[] = [];
   let leftDown = false;
+  let right: { x: number; y: number }[] = [];
+  let rightDown = false;
   // Whether the buttons held were pressed on the canvas: a drag begun on a panel, a stack carried
   // from a crate to the hotbar, crosses the world without being the world's.
   let ours = false;
@@ -86,6 +90,9 @@ export function createCamera(
       leftDown = leftHeld;
       left.push({ down: leftHeld, at: toWorld(mouse.x, mouse.y) });
     }
+    const rightHeld = (e.buttons & 2) !== 0;
+    if (rightHeld && !rightDown) right.push(toWorld(mouse.x, mouse.y));
+    rightDown = rightHeld;
     // Captured while any button is held, so a release outside the canvas still arrives.
     const captured = canvas.hasPointerCapture(e.pointerId);
     if (e.buttons !== 0 && !captured) canvas.setPointerCapture(e.pointerId);
@@ -145,6 +152,11 @@ export function createCamera(
     takeLeft() {
       const taken = left;
       left = [];
+      return taken;
+    },
+    takeRight() {
+      const taken = right;
+      right = [];
       return taken;
     },
     destroy() {

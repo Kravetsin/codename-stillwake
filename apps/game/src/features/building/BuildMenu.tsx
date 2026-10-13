@@ -3,8 +3,17 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { t } from '../../i18n/en';
 import { CostRow, costLines } from '../../render/CostRow';
 import type { Game } from '../../session/game';
-import { buildMode } from '../../session/ui';
-import { costOf, menuOpen, putPlanAway, REMOVE, selected, TABS, type Tool } from './tools';
+import { buildMode, overlayOn } from '../../session/ui';
+import {
+  costOf,
+  menuOpen,
+  POWER_MODE,
+  putPlanAway,
+  REMOVE,
+  selected,
+  TABS,
+  type Tool,
+} from './tools';
 
 /** The inventory's counts are read this often while the menu is open: a panel reads on a timer. */
 const REFRESH_MS = 250;
@@ -19,6 +28,7 @@ const REFRESH_MS = 250;
 export function BuildMenu({ game }: { readonly game: Game }) {
   const tool = useSyncExternalStore(selected.subscribe, selected.get);
   const open = useSyncExternalStore(menuOpen.subscribe, menuOpen.get);
+  const wiring = useSyncExternalStore(overlayOn.subscribe, overlayOn.get) === POWER_MODE;
   const [tab, setTab] = useState(TABS[0]?.id ?? '');
   const [hovered, setHovered] = useState<Tool>();
   const [carried, setCarried] = useState<Cost>({});
@@ -68,6 +78,10 @@ export function BuildMenu({ game }: { readonly game: Game }) {
             </span>
             <span className="text-slate-500"> · {t('tool.hint')}</span>
           </>
+        ) : wiring ? (
+          <span data-hint="power" className="text-slate-400">
+            {t('power.hint')}
+          </span>
         ) : (
           <span className="text-slate-400">{t('build.open')}</span>
         )}

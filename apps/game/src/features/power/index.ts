@@ -5,10 +5,11 @@ import { t } from '../../i18n/en';
 import { middleOf } from '../../render/cable';
 import { CELL } from '../../render/camera';
 import { traceRope } from '../../render/rope';
-import { heroBodies, pointerTip } from '../../session/ui';
+import { heroBodies, overlayOn, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
 import { boltTexture, unpluggedTexture } from './art';
+import { createPowerMode } from './mode';
 import { createCableRopes, type CableRopes } from './ropes';
 
 /** A cable out of the overlay: thin and dark, a line against the back wall. */
@@ -31,6 +32,8 @@ const stateColour = (n: PowerNetwork | undefined) =>
 
 /** The cables as ropes, shared by the layer that draws them and the overlay that colours them. */
 let ropes: CableRopes | undefined;
+/** The power mode's hands, let go by the cables' layer while the mode is off. */
+let mode: ReturnType<typeof createPowerMode> | undefined;
 
 /** Calls `draw` again only when the world has run a tick since, at most every `REFRESH_MS`. */
 function everyTick(draw: (sim: Sim) => void) {
@@ -99,20 +102,32 @@ function cables(): Layer {
   return {
     view,
     behind: lines,
-    update: ({ game, elapsedMs }) => {
+    update: ({ game, camera, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
+      // Out of the power mode the right button is no one's, and nothing is held.
+      if (overlayOn.get() !== 'power') {
+        camera.takeRight();
+        mode?.release();
+      }
       time += elapsedMs / 1000;
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
       lines.clear();
       fittings.clear();
+      const q = game.client.sim.query(grid);
       const feeds = [];
       for (const line of own.lines()) {
         traceRope(lines, line.points, CELL);
         feeds.push(...line.feeds);
+        // A cable ending on a wall rather than a machine is held there by a fitting too.
+        const ends = [
+          { node: line.a, at: line.points[0] },
+          { node: line.b, at: line.points[line.points.length - 1] },
+        ];
+        for (const { node, at } of ends) if (at && q.machineAt(node)?.cell !== node) feeds.push(at);
       }
       lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
-      // A fitting on the wall where a cable goes through the hull.
+      // A fitting on the wall where a cable goes through the hull or ends on it.
       for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 2).fill(FITTING);
       for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 1).fill(CABLE);
     },
@@ -120,10 +135,11 @@ function cables(): Layer {
 }
 
 /**
- * Power brought out of the ship: the ship dimmed, and every cable over it in its network's state,
+ * The power mode (0021): power brought out of the ship, the ship dimmed, and every cable over it in its network's state,
  * the very ropes the cables hang as, glowing, a dot where each is plugged in; a plug hanging loose
  * over each machine that makes or draws power with no cable to it. Beside the pointer on a node,
- * what its network makes against what it would draw.
+ * what its network makes against what it would draw. Cables are laid, moved and cut here by hand
+ * (`./mode`).
  */
 function powerOverlay(): Layer {
   const view = new Container();
@@ -131,7 +147,9 @@ function powerOverlay(): Layer {
   const lines = new Graphics();
   const plugs = new Container();
   const bolts = new Container();
-  view.addChild(dim, lines, plugs, bolts);
+  const hands = createPowerMode();
+  mode = hands;
+  view.addChild(dim, lines, plugs, bolts, ...hands.views);
   let time = 0;
   let byNode = new Map<number, PowerNetwork>();
   const redraw = everyTick((sim) => {
@@ -175,6 +193,7 @@ function powerOverlay(): Layer {
           if (end) lines.circle(end.x * CELL, end.y * CELL, 1.5).fill(colour);
         }
       }
+      hands.update(game, camera, [...(ropes?.lines() ?? [])]);
       const pointer = camera.pointer();
       const { width, height } = sim.query(grid).size();
       const x = pointer ? Math.floor(pointer.x) : -1;

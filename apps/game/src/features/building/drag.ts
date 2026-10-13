@@ -113,9 +113,6 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
           commands: [command(building, 'deconstruct', { cell, layer: next.layer })],
         };
       }
-      case 'cable':
-        // A cable joins two nodes, not a line of cells: the layer lays it from press to release.
-        return { cell, problem: undefined, commands: [] };
     }
   });
 }

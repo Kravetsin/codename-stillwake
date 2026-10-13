@@ -5,7 +5,14 @@ import { CELL } from '../../render/camera';
 import { createClock } from '../../session/clock';
 import { grabbing, pickingUp, predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
-import { aimedPiece, buildMode, heroBodies, heroSpot, openCrate } from '../../session/ui';
+import {
+  aimedPiece,
+  buildMode,
+  heroBodies,
+  heroSpot,
+  openCrate,
+  overlayOn,
+} from '../../session/ui';
 import type { Feature } from '../feature';
 import { CrewPanel } from './CrewPanel';
 import { aimAt, crateInReach, usesOf, type Aim } from './aim';
@@ -270,11 +277,13 @@ export const crewFeature: Feature = {
         const pressed = keys.takeUse();
         // The left button grabs debris too: out in space, with WASD held and the mouse aiming, E is
         // a stretch. Held on a plan, it works it.
-        const grab = keys.takeClick() && aim?.piece !== undefined;
+        // In the power mode the left button is the cables': it grabs and works nothing.
+        const wiring = overlayOn.get() === 'power';
+        const grab = keys.takeClick() && aim?.piece !== undefined && !wiring;
         const e =
           out || buildMode.get()
             ? { pressed: false, held: false }
-            : { pressed: pressed || grab, held: keys.holdsLeft() };
+            : { pressed: pressed || grab, held: keys.holdsLeft() && !wiring };
         const uses = usesOf(aim, e, sim.world.tick, workedOnTick);
         workedOnTick = uses.workedOnTick;
         if (uses.served !== undefined) served.add(uses.served);

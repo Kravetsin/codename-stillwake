@@ -393,12 +393,11 @@ desync fuzz draws back walls of every material.
 
 **P2-18 · Cables by hand, in the power mode** · M · sim `power`, content, client `power`,
 `building`, `crew`, ADR 0021 · after P2-17
-A cable has a length, set when laid; `move` carries every cable at a node, or one, to another node,
-refused when taut. The power overlay becomes the power mode: drag from a node to lay a cable, on past
+`move` carries every cable at a node, or one, to another node, refused when it would pull a cable
+taut. The power overlay becomes the power mode: drag from a node to lay a cable, on past
 its reach through supports placed at anchors, drag a support or an end to move it, the right button
-to cut; targets lit while dragging; the cable tool leaves the build menu. Cables are drawn as long as
-they are, fittings where they end on walls.
-Done when: scenario tests for a cable's length, every `move` and each refusal, a save with lengths;
+to cut; targets lit while dragging; the cable tool leaves the build menu. Fittings are drawn where cables end on walls.
+Done when: scenario tests for every `move` and each refusal, and that no cable is left taut;
 the fuzz draws `move`; client tests for leading a cable past its reach and for the lit targets.
 
 **P2-08 · Playtest** · S · after P2-11

@@ -1,12 +1,12 @@
 # power
 
 Electricity: cables laid point to point between nodes, the networks they join, and how much of what
-its users would draw each network can give (ADR 0017); cables have lengths and move by hand (0021).
+its users would draw each network can give (ADR 0017); cables move by hand (0021).
 
 - **Depends on:** `grid` (machines and what is built, to find nodes), `rooms` (whether a panel stands
   in space), `items` (what a cable costs).
-- **State:** `cables` — every cable as the cells of its two nodes, the lower first, whether it was
-  paid for, and its length in tenths of a cell, ordered by its ends. Saved. Derived: `networks` — what the cables join, in id order, each
+- **State:** `cables` — every cable as the cells of its two nodes, the lower first, and whether it was
+  paid for, ordered by its ends. Saved. Derived: `networks` — what the cables join, in id order, each
   with its nodes, supply, demand and satisfaction; `satisfaction` — each cabled user's, by machine
   id. Both found again every tick, in the derivation phase.
 - **Files:** `nodes.ts` — nodes, spans and networks; `index.ts` — the module, its queries and commands.
@@ -19,10 +19,8 @@ its users would draw each network can give (ADR 0017); cables have lengths and m
   comes with the first cable laid there and goes with the last cut.
 - **A cable** joins two different nodes whose nearest cells are within `POWER.maxSpan` cells, straight;
   two nodes take one cable at most. It takes no cell, so it runs through walls and leaks no air.
-  **Its length** is the way between those nearest cells when it is laid, rounded up to a tenth of a
-  cell, counted up rather than taken as a square root, which may differ between machines.
-- **A cable's end moves** to another node with `move`: every cable ending at a node, or one named,
-  each keeping its length, and none may then span farther than it is long. Moving costs nothing.
+- **A cable's end moves** to another node with `move`: every cable ending at a node, or one named;
+  none may then span farther than a cable does, or it would be pulled taut. Moving costs nothing.
 - **A network** is the nodes cables join, named by its lowest node cell. Its supply is what the
   machines on it that make power make, each only with every cell of it in space (a solar panel inside
   a room is in the shade); its demand, what the machines on it that draw power would draw: a furnace only while it has
@@ -31,7 +29,7 @@ its users would draw each network can give (ADR 0017); cables have lengths and m
   on it works at that share, slowed alike. A powered machine with no cable is on no network: it makes
   nothing and gets nothing.
 - A map lays its cables from `Layout.cables`, each end resolved to its node; a cable that ends on no
-  node does not load. They count as paid, each as long as the way its ends span.
+  node does not load. They count as paid.
 
 ## API
 
@@ -51,7 +49,7 @@ its users would draw each network can give (ADR 0017); cables have lengths and m
 ## Invariants
 
 - Cables join two different nodes, the lower first, in order, each pair once.
-- No cable spans farther than it is long.
+- No cable spans farther than `POWER.maxSpan`, however its ends are moved.
 - A network's satisfaction is between 0 and 1000, and what its users get, `floor(draw × satisfaction /
 1000)` summed, never exceeds its supply.
 

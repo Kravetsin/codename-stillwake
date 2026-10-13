@@ -1,4 +1,4 @@
-import { CABLE_COST, MATERIALS, type MaterialId } from '@stillwake/content';
+import { MATERIALS, type MaterialId } from '@stillwake/content';
 import type { Cost, Placement } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
@@ -13,7 +13,7 @@ export type Tool =
       readonly label: string;
     }
   | {
-      readonly kind: 'cable' | 'remove';
+      readonly kind: 'remove';
       readonly id: string;
       readonly label: string;
     };
@@ -60,7 +60,6 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
   {
     id: 'power',
     tools: [
-      { kind: 'cable', id: 'cable', label: t('tool.cable') },
       place('solarPanel', { layer: 'machine', kind: 'solarPanel' }),
       place('lamp', { layer: 'machine', kind: 'lamp' }),
     ],
@@ -75,10 +74,10 @@ export const REMOVE: Tool = { kind: 'remove', id: 'remove', label: t('tool.remov
 /** Every tool, tab by tab, then the header's. */
 export const TOOLS: readonly Tool[] = [...TABS.flatMap((tab) => tab.tools), REMOVE];
 
-/** What a tool costs, by `costFor` (the sim's own rule) for what it places; a cable's own cost. */
+/** What a tool costs, by `costFor` (the sim's own rule) for what it places. */
 export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cost {
   if (tool.kind === 'place') return costFor(tool.placement);
-  return tool.kind === 'cable' ? CABLE_COST : {};
+  return {};
 }
 
 /**
@@ -103,18 +102,36 @@ export function putPlanAway(): void {
 
 /** The overlay a tool is used in, where what it lays is in sight: by the overlay's feature id. */
 export function overlayFor(tool: Tool | undefined): string | undefined {
-  if (tool?.kind === 'cable') return 'power';
   if (tool?.kind === 'place' && tool.placement.layer === 'conduit') return 'pipes';
   return undefined;
 }
 
-// A tool that needs an overlay turns it on; put away, the overlay that was on before comes back.
+/**
+ * The power mode: the power overlay, where cables are laid, moved and cut by hand (0021). It has the
+ * hands, as the plan does: taking one out puts the other away.
+ */
+export const POWER_MODE = 'power';
+
+// A tool that needs an overlay turns it on; put away, the overlay that was on before comes back,
+// unless it was the power mode, which the plan put away.
 let before: string | undefined;
 let forced: string | undefined;
 selected.subscribe(() => {
   const wanted = overlayFor(selected.get());
   if (wanted === forced) return;
-  if (forced === undefined) before = overlayOn.get();
-  overlayOn.set(wanted ?? before);
+  const now = overlayOn.get();
+  if (forced === undefined) before = now === POWER_MODE ? undefined : now;
   forced = wanted;
+  // Put away for the power mode: the mode stays.
+  if (!selected.get() && now === POWER_MODE) return;
+  overlayOn.set(wanted ?? (now === POWER_MODE ? undefined : before));
+});
+// The plan taken out, from the menu or a tool, leaves the power mode.
+const leavePowerMode = () => {
+  if (buildMode.get() && overlayOn.get() === POWER_MODE) overlayOn.set(forced);
+};
+buildMode.subscribe(leavePowerMode);
+// The power mode turned on puts the plan away.
+overlayOn.subscribe(() => {
+  if (overlayOn.get() === POWER_MODE && buildMode.get()) putPlanAway();
 });

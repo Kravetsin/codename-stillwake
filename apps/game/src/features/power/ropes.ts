@@ -22,7 +22,7 @@ const FLOATING: RopeStyle = {
 };
 /**
  * How much longer than its span a hanging cable is: a parabola `SAG` of its span deep is that much
- * longer, so at rest it hangs where the building layer picks it. Out in space, a little slack.
+ * longer, so at rest it hangs where it is picked by. Out in space, a little slack.
  */
 const HANG = 1 + (8 * SAG * SAG) / 3;
 const LOOSE = 1.02;
@@ -64,7 +64,8 @@ export function createCableRopes() {
         const stretches = pieces.map((piece, i) => {
           const style = piece.hangs ? HANGING : FLOATING;
           const rest = started ? undefined : cablePoints(piece.from, piece.to, piece.hangs);
-          return { piece, rope: createRope(style, piece.from, piece.to, c.a + c.b + i, rest) };
+          const rope = createRope(style, piece.from, piece.to, c.a + c.b + i, rest);
+          return { piece, rope };
         });
         cables.set(key, { stretches, feeds, shape });
       }

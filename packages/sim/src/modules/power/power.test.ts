@@ -8,7 +8,7 @@ import { giveItems } from '../../testing/items';
 import { scenario, type Scenario } from '../../testing/scenario';
 import { atmosphere, building, grid, items, MODULES } from '../index';
 import { power } from './index';
-import { reachOf, reaches } from './nodes';
+import { inSpan } from './nodes';
 
 const world = defineSim([...MODULES, builder]);
 
@@ -50,8 +50,7 @@ describe('power', () => {
   it('joins the cables a map lays, its panel out in space feeding the generator in full', () => {
     const w = scenario(world, map());
     const q = w.query(power);
-    // Three cells from the panel down to the generator: thirty tenths long.
-    expect(q.cables()).toEqual([{ a: PANEL, b: GEN, paid: true, length: 30 }]);
+    expect(q.cables()).toEqual([{ a: PANEL, b: GEN, paid: true }]);
     expect(q.networks()).toEqual([
       { id: PANEL, nodes: [PANEL, GEN], supply: 5, demand: 4, satisfaction: 1000 },
     ]);
@@ -64,7 +63,7 @@ describe('power', () => {
     const w = giveItems(scenario(world, map()), 0, { scrap: 10 });
     w.do(power, 'lay', { a: at(2, 4), b: at(0, 3) }).run();
     expect(w.refusals).toEqual([]);
-    expect(w.query(power).cables()).toContainEqual({ a: at(0, 3), b: GEN, paid: true, length: 10 });
+    expect(w.query(power).cables()).toContainEqual({ a: at(0, 3), b: GEN, paid: true });
     expect(scrap(w)).toBe(10 - (CABLE_COST.scrap ?? 0));
     expect(w.query(power).networks()[0]?.nodes).toEqual([PANEL, at(0, 3), GEN]);
   });
@@ -112,7 +111,6 @@ describe('power', () => {
       a: at(0, 3),
       b: GEN,
       paid: false,
-      length: 10,
     });
     w.do(power, 'cut', { a: GEN, b: at(0, 3) }, 2).run();
     expect(scrap(w, 2)).toBe(0);
@@ -225,20 +223,14 @@ describe('moving cables', () => {
   const S = at(8, 3);
   const cablesOf = (w: Scenario) => w.query(power).cables();
 
-  it('lays a cable as long as the way it spans, rounded up to a tenth of a cell', () => {
-    // Three across and two down: the root of thirteen, 3.605…, is 37 tenths.
-    expect(cablesOf(laid(S, at(11, 5)))).toEqual([{ a: S, b: at(11, 5), paid: false, length: 37 }]);
-  });
-
-  it('moves every cable ending at a support to another, each keeping its length', () => {
-    // Down to the wall below, between the two: nearer each than it was.
+  it('moves every cable ending at a support to another', () => {
     const w = laid(S, at(5, 5), at(11, 5))
       .do(power, 'move', { from: S, to: at(8, 5) })
       .run();
     expect(w.refusals).toEqual([]);
     expect(cablesOf(w)).toEqual([
-      { a: at(5, 5), b: at(8, 5), paid: false, length: 37 },
-      { a: at(8, 5), b: at(11, 5), paid: false, length: 37 },
+      { a: at(5, 5), b: at(8, 5), paid: false },
+      { a: at(8, 5), b: at(11, 5), paid: false },
     ]);
   });
 
@@ -251,8 +243,8 @@ describe('moving cables', () => {
     w.run();
     expect(w.refusals).toEqual([]);
     expect(cablesOf(w)).toEqual([
-      { a: GEN, b: at(12, 3), paid: false, length: 100 },
-      { a: at(4, 3), b: S, paid: false, length: 60 },
+      { a: GEN, b: at(12, 3), paid: false },
+      { a: at(4, 3), b: S, paid: false },
     ]);
   });
 
@@ -262,7 +254,7 @@ describe('moving cables', () => {
       .do(power, 'move', { from: S, to: at(10, 0) })
       .do(power, 'move', { from: S, to: at(11, 5), cable: { a: S, b: at(11, 5) } })
       .do(power, 'move', { from: at(5, 5), to: at(11, 5), cable: { a: S, b: at(5, 5) } })
-      .do(power, 'move', { from: S, to: at(14, 3), cable: { a: S, b: at(5, 5) } })
+      .do(power, 'move', { from: S, to: at(15, 3), cable: { a: S, b: at(5, 5) } })
       .run();
     expect(w.refusals).toEqual([
       'power.noCable',
@@ -274,7 +266,7 @@ describe('moving cables', () => {
     expect(cablesOf(w)).toEqual(cablesOf(laid(S, at(5, 5), at(11, 5))));
   });
 
-  it('never leaves a cable spanning farther than it is long', () => {
+  it('never leaves a cable spanning farther than a cable reaches', () => {
     const cell = fc.integer({ min: 0, max: 16 * 6 - 1 });
     const step = fc.record({ kind: fc.integer({ min: 0, max: 2 }), a: cell, b: cell });
     fc.assert(
@@ -287,7 +279,7 @@ describe('moving cables', () => {
           w.run();
         }
         const g = w.query(grid);
-        return cablesOf(w).every((c) => reaches(c.length, reachOf(g, c.a, c.b)));
+        return cablesOf(w).every((c) => inSpan(g, c.a, c.b));
       }),
       { numRuns: 60 },
     );

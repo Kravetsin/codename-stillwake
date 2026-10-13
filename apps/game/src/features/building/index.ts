@@ -1,15 +1,7 @@
-import { building, command, grid, power, rooms, type Plan, type QueryApi } from '@stillwake/sim';
+import { building, grid, rooms, type Plan, type QueryApi } from '@stillwake/sim';
 import { Container, Graphics, Text } from 'pixi.js';
 import { t } from '../../i18n/en';
-import {
-  cablePoints,
-  distanceTo,
-  endOf,
-  hangsAt,
-  middleOf,
-  shapeOf,
-  type Point,
-} from '../../render/cable';
+import type { Point } from '../../render/cable';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import { costLines } from '../../render/CostRow';
 import { EFFECTS, particles } from '../../render/particles';
@@ -18,7 +10,7 @@ import type { Feature } from '../feature';
 import { judge, lineOf, onButton, onGrid, spotAt, type Spot } from './drag';
 import { nearGrid } from './near-grid';
 import { BuildMenu } from './BuildMenu';
-import { putPlanAway, selected } from './tools';
+import { POWER_MODE, putPlanAway, selected } from './tools';
 
 const PLAN = 0x5fd0ff;
 const MARK = 0xe05555;
@@ -31,8 +23,6 @@ const BAR_BACK = 0x0b0f17;
 const GRID_LINE = 0x9fb4c8;
 /** Sparks per tick of work done on a plan: a hand at work throws one now and then. */
 const SPARKS_PER_TICK = 0.3;
-/** How near a Remove click must be to a cable, in cells, to cut it. */
-const CUT_REACH = 0.35;
 
 /**
  * Plans and marks drawn over the ship, and the selected tool at work: the grid around the pointer,
@@ -64,8 +54,6 @@ export const buildingFeature: Feature = {
     let worked = new Map<number, number>();
     let owedSparks = 0;
     let pressed: Spot | undefined;
-    /** The node a cable is being laid from, while the button is held. */
-    let cableFrom: number | undefined;
     return {
       view,
       update({ game, camera }) {
@@ -94,91 +82,28 @@ export const buildingFeature: Feature = {
         }
 
         const tool = selected.get();
-        const shape = { grid: q.grid, rooms: sim.query(rooms) };
-        const wires = sim.query(power);
         const cellAt = (p: Point) => {
           const s = spotAt(size, p);
           return s.y * size.width + s.x;
         };
-        /** The cable a Remove click at `p` cuts: the nearest within reach. */
-        const cableNear = (p: Point) => {
-          let best: { a: number; b: number; d: number } | undefined;
-          for (const c of wires.cables()) {
-            const d = distanceTo(shapeOf(shape, c.a, c.b), p);
-            if (d <= CUT_REACH && (!best || d < best.d)) best = { a: c.a, b: c.b, d };
-          }
-          return best;
-        };
-        for (const button of camera.takeLeft()) {
+        // In the power mode the left button is the cables': left for the power layer to take.
+        const buttons = !tool && overlayOn.get() === POWER_MODE ? [] : camera.takeLeft();
+        for (const button of buttons) {
           if (!tool) continue;
-          if (tool.kind === 'cable') {
-            const at = onGrid(size, button.at) ? cellAt(button.at) : undefined;
-            if (button.down) cableFrom = at === undefined ? undefined : wires.nodeAt(at);
-            else if (cableFrom !== undefined && at !== undefined) {
-              if (!wires.layProblem(game.client.id, cableFrom, at)) {
-                game.client.send(command(power, 'lay', { a: cableFrom, b: at }));
-              }
-              cableFrom = undefined;
-            }
-            continue;
-          }
           const next = onButton(pressed, button, size);
-          // With the cables in sight, a click, not a drag, by one cuts it before what is behind.
-          const clicked =
-            next.line && next.line[0].x === next.line[1].x && next.line[0].y === next.line[1].y;
-          const cut =
-            tool.kind === 'remove' && clicked && overlayOn.get() === 'power'
-              ? cableNear(button.at)
-              : undefined;
           pressed = next.pressed;
-          if (cut) {
-            game.client.send(command(power, 'cut', { a: cut.a, b: cut.b }));
-            continue;
-          }
           if (!next.line) continue;
           for (const verdict of judge(tool, lineOf(size.width, tool, ...next.line), q)) {
             for (const c of verdict.commands) game.client.send(c);
           }
         }
         if (!tool) pressed = undefined;
-        if (tool?.kind !== 'cable') cableFrom = undefined;
 
         ghost.clear();
         near.clear();
         reason.text = '';
         const pointer = camera.pointer();
         showTray(pointer && onGrid(size, pointer) ? cellAt(pointer) : undefined, q);
-        if (tool?.kind === 'cable') {
-          // The power overlay, on with the tool, rings the nodes and says how each network stands.
-          if (!pointer || cableFrom === undefined) return;
-          const over = onGrid(size, pointer) ? wires.nodeAt(cellAt(pointer)) : undefined;
-          // The ghost reaches for the node under the pointer, or hangs from the pointer itself.
-          const toward = over === undefined ? pointer : middleOf(q.grid, over);
-          const end =
-            over === undefined ? pointer : endOf(q.grid, over, middleOf(q.grid, cableFrom));
-          const start = endOf(q.grid, cableFrom, toward);
-          const hangs =
-            hangsAt(shape, cableFrom) &&
-            (over === undefined || hangsAt(shape, over)) &&
-            (!onGrid(size, pointer) || hangsAt(shape, cellAt(pointer)));
-          const problem =
-            over === undefined
-              ? 'power.noNode'
-              : wires.layProblem(game.client.id, cableFrom, cellAt(pointer));
-          drawLine(ghost, cablePoints(start, end, hangs), problem ? REFUSED : FITS);
-          if (problem) {
-            reason.text = t(problem);
-            reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);
-          }
-          return;
-        }
-        if (tool?.kind === 'remove' && pointer && overlayOn.get() === 'power') {
-          const cable = cableNear(pointer);
-          if (cable) {
-            drawLine(ghost, shapeOf(shape, cable.a, cable.b), REFUSED);
-            return;
-          }
-        }
         if (tool && pointer) {
           for (const e of nearGrid(pointer, size)) {
             near
@@ -264,14 +189,6 @@ function sparkWork(
     const at = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
     particles.emit(EFFECTS.spark, at, count, -Math.PI / 2, where.roomAt(p.cell) === 'space');
   }
-}
-
-/** A cable's points as a line in pixels of the world. */
-function drawLine(g: Graphics, points: readonly Point[], colour: number) {
-  points.forEach((p, i) =>
-    i === 0 ? g.moveTo(p.x * CELL, p.y * CELL) : g.lineTo(p.x * CELL, p.y * CELL),
-  );
-  g.stroke({ width: 3, color: colour, alpha: 0.8, cap: 'round', join: 'round' });
 }
 
 /** The rectangle around `cells`, in pixels of the world. */

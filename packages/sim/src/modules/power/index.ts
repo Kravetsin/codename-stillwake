@@ -9,15 +9,10 @@ import {
   byEnds,
   findNetworks,
   inSpan,
-  lengthOf,
   nodeAt,
   ordered,
-  reachOf,
-  reaches,
-  reachSquared,
   type Cable,
   type PowerNetwork,
-  type Size,
 } from './nodes';
 
 export type { Cable, PowerNetwork } from './nodes';
@@ -36,29 +31,21 @@ type Grid = QueryApi<GridModule>;
 
 /**
  * The cables a map lays, each end resolved to its node as `lay` would: a machine drawn there, by its
- * top-left, or the cell; each as long as the way its ends span. A map whose cable ends on nothing a
- * cable can end on does not load.
+ * top-left, or the cell. A map whose cable ends on nothing a cable can end on does not load.
  */
 function startingCables(layout: Layout): Cable[] {
   const machines = machinesOf(layout);
-  const resolve = (cell: number): { node: number; size: Size } => {
+  const resolve = (cell: number) => {
     const machine = machines.find((m) => m.cells.includes(cell));
     const s: MachineSpec | undefined = machine && MACHINES[machine.kind];
-    if (machine && s && (s.makes !== undefined || s.draws !== undefined)) {
-      return { node: machine.cell, size: s };
-    }
+    if (machine && (s?.makes !== undefined || s?.draws !== undefined)) return machine.cell;
     const char = layout.rows[Math.floor(cell / layout.width)]?.[cell % layout.width] ?? ' ';
     // Every character but a space has a back wall to mount on, a machine's included.
     if (machine || char === ' ') throw new Error(`Map cell ${cell}: a cable ends on no node.`);
-    return { node: cell, size: { width: 1, height: 1 } };
+    return cell;
   };
   return (layout.cables ?? [])
-    .map(([a, b]) => {
-      const p = resolve(a);
-      const q = resolve(b);
-      const length = lengthOf(reachSquared(layout.width, p.node, p.size, q.node, q.size));
-      return { ...ordered(p.node, q.node), paid: true, length };
-    })
+    .map(([a, b]) => ({ ...ordered(resolve(a), resolve(b)), paid: true }))
     .sort(byEnds);
 }
 
@@ -73,7 +60,7 @@ function moved(cables: readonly Cable[], from: number, cable?: { a: number; b: n
 /**
  * Why cables cannot move from node `from` to the node at cell `to`, as a refusal key: none ends
  * there, no node is there, one would end where it starts or join a pair already joined, or one would
- * span farther than it is long.
+ * be pulled taut, its ends farther apart than a cable spans.
  */
 function moveProblem(
   grid: Grid,
@@ -94,7 +81,7 @@ function moveProblem(
     const ends = ordered(other, target);
     if (pairs.has(`${ends.a}:${ends.b}`)) return 'power.twice';
     pairs.add(`${ends.a}:${ends.b}`);
-    if (!reaches(c.length, reachOf(grid, other, target))) return 'power.taut';
+    if (!inSpan(grid, other, target)) return 'power.taut';
   }
   return undefined;
 }
@@ -182,8 +169,7 @@ const powerModule = defineModule<Deps>()({
         const grid = ctx.deps.grid.query;
         const ends = ordered(nodeAt(grid, p.a) as number, nodeAt(grid, p.b) as number);
         const taken = ctx.deps.items.op.take(ctx.from, CABLE_COST);
-        const length = lengthOf(reachOf(grid, ends.a, ends.b));
-        ctx.state.cables.push({ ...ends, paid: Object.keys(taken).length > 0, length });
+        ctx.state.cables.push({ ...ends, paid: Object.keys(taken).length > 0 });
         ctx.state.cables.sort(byEnds);
       },
     },
@@ -199,7 +185,7 @@ const powerModule = defineModule<Deps>()({
           .map((c) => {
             if (!taken.includes(c)) return c;
             const other = c.a === p.from ? c.b : c.a;
-            return { ...ordered(other, target), paid: c.paid, length: c.length };
+            return { ...ordered(other, target), paid: c.paid };
           })
           .sort(byEnds);
       },
