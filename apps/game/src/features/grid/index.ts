@@ -1,4 +1,3 @@
-import { MACHINES } from '@stillwake/content';
 import { grid } from '@stillwake/sim';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
@@ -6,13 +5,13 @@ import { predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
-import { machineTexture, portTexture } from './art';
+import { machineTexture } from './art';
 import { drawBack, drawConduit, drawStructure, type Cells } from './draw';
 
 /**
  * The ship drawn in pixel art (`./art`): back walls and the pipes in front of them behind everything,
- * then structure, then machines, whose sockets show where pipes join them; redraws only chunks whose
- * cells changed.
+ * then structure, then machines; redraws only chunks whose cells changed. Where pipes join machines
+ * the pipes overlay shows.
  */
 export const gridFeature: Feature = {
   id: 'grid',
@@ -94,18 +93,10 @@ export const gridFeature: Feature = {
         const key = machines.map((m) => `${m.id}:${m.kind}:${m.cell}`).join(',');
         if (key === machinesKey) return;
         machinesKey = key;
-        for (const child of machineLayer.removeChildren()) child.destroy({ children: true });
+        for (const child of machineLayer.removeChildren()) child.destroy();
         for (const m of machines) {
-          const spec = MACHINES[m.kind];
           const at = { x: (m.cell % size.width) * CELL, y: Math.floor(m.cell / size.width) * CELL };
-          const machine = new Container();
-          machine.addChild(new Sprite(machineTexture(m.kind)));
-          // A socket where a conduit joins: empty, it says where to lay one.
-          for (const port of spec.ports) {
-            const socket = new Sprite(portTexture());
-            socket.position.set(port.x * CELL + CELL / 2 - 4, port.y * CELL + CELL / 2 - 4);
-            machine.addChild(socket);
-          }
+          const machine = new Sprite(machineTexture(m.kind));
           machine.position.set(at.x, at.y);
           machineLayer.addChild(machine);
         }

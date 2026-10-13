@@ -345,18 +345,6 @@ const VALVE = [
   '...OOOO...',
 ];
 
-/** Where a conduit joins a machine: a socket, eight pixels across. */
-const PORT = [
-  '..PPPP..',
-  '.PKKKKP.',
-  'PKssssKP',
-  'PKssssKP',
-  'PKssssKP',
-  'PKssssKP',
-  '.PKKKKP.',
-  '..PPPP..',
-];
-
 const PIPE = 0x56606e;
 const VALVE_COLOUR = { open: 0x4caf6a, closed: 0xd05050 };
 
@@ -780,10 +768,6 @@ const pipes = keptBy((linked) => {
 export function valveTexture(open: boolean): Texture {
   const colour = open ? VALVE_COLOUR.open : VALVE_COLOUR.closed;
   return pixelTexture(`valve:${open}`, VALVE, { c: colour, O: shade(colour, 0.35) });
-}
-
-export function portTexture(): Texture {
-  return pixelTexture('port', PORT, GEAR);
 }
 
 export function machineTexture(kind: MachineKind): Texture {

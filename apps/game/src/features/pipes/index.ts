@@ -1,7 +1,8 @@
 import { atmosphere, CONDUIT, grid, pipes, power } from '@stillwake/sim';
-import { Graphics } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import type { Feature, Layer } from '../feature';
+import { socketTexture } from './art';
 import { colourOf, litNetworks } from './oxygen';
 
 const VALVE_OPEN = 0x4caf6a;
@@ -13,11 +14,15 @@ const DRY_ALPHA = 0.4;
 /**
  * Every pipe network brought in front of the ship, each in a colour of its own, so a player sees
  * which tanks and generators reach which vents: full where oxygen is in it, faded where none is. Each
- * valve ringed by its state: a closed one is where two networks meet without joining. Out of the
- * overlay, the grid draws the pipes dull, behind walls and machines.
+ * valve ringed by its state: a closed one is where two networks meet without joining; and a socket
+ * where each machine takes a pipe, which only matters here. Out of the overlay, the grid draws the
+ * pipes dull, behind walls and machines.
  */
 function pipesOverlay(): Layer {
-  const view = new Graphics();
+  const lines = new Graphics();
+  const sockets = new Container();
+  const view = new Container();
+  view.addChild(lines, sockets);
   let since = Infinity;
   let shown = -1;
   return {
@@ -44,7 +49,18 @@ function pipesOverlay(): Layer {
             : kinds.get(m) === 'tank' && sim.query(atmosphere).oxygenIn(m) > 0,
         ),
       );
-      view.clear();
+      lines.clear();
+      for (const socket of sockets.removeChildren()) socket.destroy();
+      for (const m of sim.query(grid).machines()) {
+        for (const port of sim.query(grid).portsOf(m)) {
+          const socket = new Sprite(socketTexture());
+          socket.position.set(
+            (port % width) * CELL + CELL / 2 - 4,
+            Math.floor(port / width) * CELL + CELL / 2 - 4,
+          );
+          sockets.addChild(socket);
+        }
+      }
       sim
         .query(pipes)
         .networks()
@@ -54,14 +70,14 @@ function pipesOverlay(): Layer {
           for (const cell of network.cells) {
             const cx = (cell % width) * CELL + CELL / 2;
             const cy = Math.floor(cell / width) * CELL + CELL / 2;
-            view.rect(cx - 3, cy - 3, 6, 6);
+            lines.rect(cx - 3, cy - 3, 6, 6);
             const x = cell % width;
-            if (x < width - 1 && own.has(cell + 1)) view.rect(cx, cy - 3, CELL / 2, 6);
-            if (x > 0 && own.has(cell - 1)) view.rect(cx - CELL / 2, cy - 3, CELL / 2, 6);
-            if (own.has(cell + width)) view.rect(cx - 3, cy, 6, CELL / 2);
-            if (own.has(cell - width)) view.rect(cx - 3, cy - CELL / 2, 6, CELL / 2);
+            if (x < width - 1 && own.has(cell + 1)) lines.rect(cx, cy - 3, CELL / 2, 6);
+            if (x > 0 && own.has(cell - 1)) lines.rect(cx - CELL / 2, cy - 3, CELL / 2, 6);
+            if (own.has(cell + width)) lines.rect(cx - 3, cy, 6, CELL / 2);
+            if (own.has(cell - width)) lines.rect(cx - 3, cy - CELL / 2, 6, CELL / 2);
           }
-          view.fill({ color: colourOf(i), alpha: lit.has(network) ? 1 : DRY_ALPHA });
+          lines.fill({ color: colourOf(i), alpha: lit.has(network) ? 1 : DRY_ALPHA });
         });
       for (const [state, colour] of [
         [CONDUIT.valveOpen, VALVE_OPEN],
@@ -71,9 +87,9 @@ function pipesOverlay(): Layer {
           if (c !== state) return;
           const x = (cell % width) * CELL;
           const y = Math.floor(cell / width) * CELL;
-          view.rect(x + 1, y + 1, CELL - 2, CELL - 2);
+          lines.rect(x + 1, y + 1, CELL - 2, CELL - 2);
         });
-        view.stroke({ width: 2, color: colour });
+        lines.stroke({ width: 2, color: colour });
       }
     },
   };
