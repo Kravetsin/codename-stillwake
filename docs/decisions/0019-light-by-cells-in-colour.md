@@ -26,7 +26,7 @@ does not need a hero's shadow for now.
   or closed door and `wallOut` out of one, so a wall is lit where light falls on it and a wall a
   cell thick lets next to none through.
 - **What gives off light:** the stars in every open cell with no back wall and past the grid's
-  edge, lamps by the power they get — flickering when short, the more often the less they get — a working furnace's fire along its bottom, and each glowing
+  edge, lamps by the power they get — flickering when short, dark as often as they are short — a working furnace's fire along its bottom, and each glowing
   particle, an ember or a spark, in its own cell.
 - **Drawn as a texture of a texel a cell,** laid in the world by `lighting.sprite` and laid on by
   one filter (`render/lighting`) that each feature sets on what it draws: back walls, walls,

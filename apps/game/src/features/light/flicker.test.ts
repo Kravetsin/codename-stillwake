@@ -17,14 +17,16 @@ describe('a lamp short of power', () => {
     }
   });
 
-  it('flickers short of power, the more often the less it gets', () => {
+  it('flickers short of power, dark as often as it is short, near always near none', () => {
     const nearly = dipped(0.9);
     const half = dipped(0.5);
     const little = dipped(0.1);
     expect(nearly).toBeGreaterThan(0.02);
     expect(half).toBeGreaterThan(nearly * 2);
     expect(little).toBeGreaterThan(half);
-    expect(little).toBeLessThan(0.7);
+    expect(half).toBeGreaterThan(0.4);
+    expect(half).toBeLessThan(0.6);
+    expect(little).toBeGreaterThan(0.8);
   });
 
   it('flickers out of step with the lamp beside it', () => {
