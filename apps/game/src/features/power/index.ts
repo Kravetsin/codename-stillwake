@@ -2,13 +2,13 @@ import { MACHINES, type MachineSpec } from '@stillwake/content';
 import { grid, power, type PowerNetwork, type Sim } from '@stillwake/sim';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { t } from '../../i18n/en';
-import { middleOf } from '../../render/cable';
+import { endOf, middleOf, type Point } from '../../render/cable';
 import { CELL } from '../../render/camera';
 import { traceRope } from '../../render/rope';
 import { heroBodies, overlayOn, pointerTip } from '../../session/ui';
 import { lit } from '../../render/lighting';
 import type { Feature, Layer } from '../feature';
-import { boltTexture, unpluggedTexture } from './art';
+import { boltTexture, pegTexture, plugTexture, unpluggedTexture } from './art';
 import { createPowerMode } from './mode';
 import { createCableRopes, type CableRopes } from './ropes';
 
@@ -85,8 +85,9 @@ function blink(bolts: Container, time: number): void {
  */
 function cables(): Layer {
   const lines = new Graphics();
-  // Fittings sit on the hull's face, in front of the wall the cable goes behind.
-  const fittings = new Graphics();
+  // Fittings sit on the wall's face, in front of the wall the cable goes behind: a grommet where it
+  // goes through the hull, a peg where it ends on a wall, a plug in each socket it is plugged into.
+  const fittings = new Container();
   for (const g of [lines, fittings]) lit(g);
   // A machine short of power says so whatever is on, and glows: it is not lit.
   const bolts = new Container();
@@ -97,6 +98,7 @@ function cables(): Layer {
   const sync = everyTick((sim) => {
     own.sync(sim);
     placeBolts(bolts, sim);
+    placeFittings(fittings, sim, own);
   });
   let time = 0;
   return {
@@ -113,25 +115,37 @@ function cables(): Layer {
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
       lines.clear();
-      fittings.clear();
-      const q = game.client.sim.query(grid);
-      const feeds = [];
-      for (const line of own.lines()) {
-        traceRope(lines, line.points, CELL);
-        feeds.push(...line.feeds);
-        // A cable ending on a wall rather than a machine is held there by a fitting too.
-        const ends = [
-          { node: line.a, at: line.points[0] },
-          { node: line.b, at: line.points[line.points.length - 1] },
-        ];
-        for (const { node, at } of ends) if (at && q.machineAt(node)?.cell !== node) feeds.push(at);
-      }
+      for (const line of own.lines()) traceRope(lines, line.points, CELL);
       lines.stroke({ width: CABLE_WIDTH, color: CABLE, cap: 'round', join: 'round' });
-      // A fitting on the wall where a cable goes through the hull or ends on it.
-      for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 2).fill(FITTING);
-      for (const f of feeds) fittings.circle(f.x * CELL, f.y * CELL, 1).fill(CABLE);
     },
   };
+}
+
+/**
+ * The fittings of every cable, laid into `into`: a grommet where it goes through the hull, and at
+ * each end a plug in a machine's socket or a peg on a wall, one for every node however many cables
+ * end there. Only where cables end and go through, which moves only when a cable does.
+ */
+function placeFittings(into: Container, sim: Sim, cables: CableRopes): void {
+  for (const child of into.removeChildren()) child.destroy();
+  const q = sim.query(grid);
+  const grommets = new Graphics();
+  const ends = new Map<number, Point>();
+  for (const line of cables.lines()) {
+    for (const f of line.feeds) {
+      grommets.circle(f.x * CELL, f.y * CELL, 2).fill(FITTING);
+      grommets.circle(f.x * CELL, f.y * CELL, 1).fill(CABLE);
+    }
+    for (const node of [line.a, line.b]) ends.set(node, endOf(q, node));
+  }
+  into.addChild(grommets);
+  for (const [node, at] of ends) {
+    const machine = q.machineAt(node)?.cell === node;
+    const piece = new Sprite(machine ? plugTexture() : pegTexture());
+    piece.anchor.set(0.5);
+    piece.position.set(at.x * CELL, at.y * CELL);
+    into.addChild(piece);
+  }
 }
 
 /**

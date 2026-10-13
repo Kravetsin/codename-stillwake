@@ -6,6 +6,7 @@ import { distanceTo, endOf, middleOf, type Point } from '../../render/cable';
 import type { Camera } from '../../render/camera';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import type { Game } from '../../session/game';
+import { cableInHand } from '../../session/ui';
 import { gripAt, lightOf, supportOnWay, type Grip, type Line } from './wiring';
 
 const FITS = 0x7fe08a;
@@ -16,10 +17,11 @@ const OUT_OF_REACH = 0x9aa3ad;
 const CUT_REACH = 0.35;
 
 /**
- * The power mode's hands (0021): a press on a node lays a cable from it, led on past its reach
- * through supports at the anchors on its way; a press on a support, or on a cable's end at a
- * machine, carries it; a release lays or moves there; a right press cuts the cable under it. While
- * dragging, each powered machine is lit by whether the cable reaches it, and the ghost runs to the
+ * The power mode's hands (0021): with a cable in hand, a press on a node lays a cable from it, led on
+ * past its reach through supports at the anchors on its way; without one, a press on a support, or
+ * on a cable's end at a machine, carries it, and a right press cuts the cable under it. A release
+ * lays or moves there. While
+ * dragging, each powered machine's socket is lit by whether the cable reaches it, and the ghost runs to the
  * pointer in the colour of what the sim would say, its reason beside it.
  */
 export function createPowerMode() {
@@ -53,7 +55,10 @@ export function createPowerMode() {
       const isMachine = (node: number) => q.machineAt(node)?.cell === node;
       const lay = (a: number, b: number) => game.client.send(command(power, 'lay', { a, b }));
 
+      const laying = cableInHand.get();
+      // With a cable in hand the right button is the plan's, as for any tool: it cuts nothing.
       for (const at of camera.takeRight()) {
+        if (laying) continue;
         let best: { line: Line; d: number } | undefined;
         for (const line of lines) {
           const d = distanceTo(line.points, at);
@@ -65,7 +70,17 @@ export function createPowerMode() {
       for (const button of camera.takeLeft()) {
         const cell = cellAt(button.at);
         if (button.down) {
-          grip = gripAt(button.at, lines, cell < 0 ? undefined : wires.nodeAt(cell), isMachine);
+          const node = cell < 0 ? undefined : wires.nodeAt(cell);
+          // A cable in hand is laid from whatever node is pressed, a peg too; without one, pegs and
+          // plugs are carried and nothing is laid.
+          const held = gripAt(button.at, lines, node, isMachine);
+          grip = laying
+            ? node === undefined
+              ? undefined
+              : { kind: 'lay', node }
+            : held?.kind === 'lay'
+              ? undefined
+              : held;
           from = grip?.node;
           continue;
         }
@@ -118,21 +133,19 @@ export function createPowerMode() {
                 grip?.kind === 'end' ? grip.cable : undefined,
               );
 
-      // Each powered machine lit by whether the cable reaches it.
+      // Each powered machine's socket lit by whether the cable reaches it: where it would plug in.
       for (const m of q.machines()) {
         const spec: MachineSpec = MACHINES[m.kind];
-        if (spec.makes === undefined && spec.draws === undefined) continue;
-        if (m.cell === from) continue;
-        const why = problemAt(m.cell);
-        const colour = { fits: FITS, far: OUT_OF_REACH, refused: REFUSED }[lightOf(why)];
+        if (!spec.plug || m.cell === from) continue;
+        const colour = { fits: FITS, far: OUT_OF_REACH, refused: REFUSED }[
+          lightOf(problemAt(m.cell))
+        ];
+        const at = endOf(q, m.cell);
         ghost
-          .rect(
-            (m.cell % width) * CELL,
-            Math.floor(m.cell / width) * CELL,
-            spec.width * CELL,
-            spec.height * CELL,
-          )
-          .fill({ color: colour, alpha: why ? 0.12 : 0.25 });
+          .circle(at.x * CELL, at.y * CELL, 6)
+          .fill({ color: colour, alpha: 0.25 })
+          .rect(at.x * CELL - 3, at.y * CELL - 3, 6, 6)
+          .stroke({ width: 1, color: colour });
       }
 
       const why = problemAt(target);
@@ -148,7 +161,7 @@ export function createPowerMode() {
               .filter((l) => l.a === grip?.node || l.b === grip?.node)
               .map((l) => (l.a === grip?.node ? l.b : l.a));
       for (const end of ends) {
-        const p = endOf(q, end, pointer);
+        const p = endOf(q, end);
         ghost.moveTo(p.x * CELL, p.y * CELL).lineTo(pointer.x * CELL, pointer.y * CELL);
       }
       ghost.stroke({ width: 1.5, color: colour, alpha: 0.9 });

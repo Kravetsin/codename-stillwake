@@ -113,6 +113,9 @@ export function judge(tool: Tool, cells: readonly number[], q: Queries): Verdict
           commands: [command(building, 'deconstruct', { cell, layer: next.layer })],
         };
       }
+      case 'cable':
+        // A cable is laid by the power mode, from press to release, not along a line of cells.
+        return { cell, problem: undefined, commands: [] };
     }
   });
 }

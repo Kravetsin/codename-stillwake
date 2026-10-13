@@ -37,6 +37,12 @@ export const heroSpot = createStore<{ readonly cell: number; readonly facing: -1
 export const heroBodies = createStore<readonly Body[]>([]);
 
 /**
+ * Whether a cable is in hand: `building` sets it with the tool, and the power mode then lays cables
+ * from whatever a press takes hold of, where without one it moves them and cuts them.
+ */
+export const cableInHand = createStore(false);
+
+/**
  * Which overlay is on, by its feature's id, or none: switched by its key (`overlays/switch`), and
  * by `building` while a tool that needs one is out.
  */

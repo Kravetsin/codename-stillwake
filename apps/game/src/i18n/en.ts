@@ -34,8 +34,9 @@ export const EN: Readonly<Record<string, string>> = {
   'tool.furnace': 'Furnace',
   'tool.vent': 'Vent',
   'tool.crate': 'Crate',
+  'tool.cable': 'Cable',
   'tool.remove': 'Remove',
-  'power.hint': 'Drag to lay or move a cable · right button cuts · L leaves',
+  'power.hint': 'Drag a peg or a plug to move it · right button cuts · L leaves',
   'tool.hint': 'Drag to lay a line · right button for the menu · B or Esc puts the plan away',
   'build.open': '[B] Plan',
   'build.close': 'B or Esc puts the plan away',
@@ -62,6 +63,8 @@ export const EN: Readonly<Record<string, string>> = {
     'Lights what it reaches, as bright as the power it gets. Walls stop its light.',
   'tool.furnace.about': 'Smelts salvage into materials, on power and the oxygen in its pipe.',
   'tool.crate.about': 'Holds items. Open it with E.',
+  'tool.cable.about':
+    'Drag from a machine, a wall or a peg to lay a cable; led too far, it is held on the walls on its way.',
   'tool.remove.about':
     'Begun on a plan, cancels plans: what was delivered falls where they stood. Begun on anything built, marks it to take apart; hold the left button on a mark to do it.',
   'material.scrap': 'scrap',

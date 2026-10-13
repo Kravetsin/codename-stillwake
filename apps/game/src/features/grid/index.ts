@@ -1,3 +1,4 @@
+import { MACHINES, type MachineSpec } from '@stillwake/content';
 import { grid } from '@stillwake/sim';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { CELL } from '../../render/camera';
@@ -5,7 +6,7 @@ import { predictedGrid } from '../../session/predicted';
 import { lit } from '../../render/lighting';
 import type { Feature } from '../feature';
 import { CHUNK, chunkCount, chunksAcross, emptySeen, staleChunks, type Seen } from './chunks';
-import { machineTexture } from './art';
+import { machineTexture, socketTexture } from './art';
 import { drawBack, drawConduit, drawStructure, type Cells } from './draw';
 
 /**
@@ -99,6 +100,14 @@ export const gridFeature: Feature = {
           const machine = new Sprite(machineTexture(m.kind));
           machine.position.set(at.x, at.y);
           machineLayer.addChild(machine);
+          // A socket where power plugs in, on every machine that makes or draws it.
+          const { plug } = MACHINES[m.kind] as MachineSpec;
+          if (plug) {
+            const socket = new Sprite(socketTexture());
+            socket.anchor.set(0.5);
+            socket.position.set(at.x + plug.x, at.y + plug.y);
+            machineLayer.addChild(socket);
+          }
         }
       },
     };

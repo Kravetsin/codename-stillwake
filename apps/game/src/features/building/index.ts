@@ -87,9 +87,10 @@ export const buildingFeature: Feature = {
           return s.y * size.width + s.x;
         };
         // In the power mode the left button is the cables': left for the power layer to take.
-        const buttons = !tool && overlayOn.get() === POWER_MODE ? [] : camera.takeLeft();
+        const wiring = (!tool || tool.kind === 'cable') && overlayOn.get() === POWER_MODE;
+        const buttons = wiring ? [] : camera.takeLeft();
         for (const button of buttons) {
-          if (!tool) continue;
+          if (!tool || tool.kind === 'cable') continue;
           const next = onButton(pressed, button, size);
           pressed = next.pressed;
           if (!next.line) continue;

@@ -13,22 +13,17 @@ export const SAG = 0.12;
 export const STEPS = 16;
 
 /**
- * Where a cable meets node `node` coming from `toward`: an anchor's middle, or the point of a
- * machine's box nearest to `toward`, so a cable seems plugged in wherever it reaches the machine.
+ * Where a cable meets node `node`: a machine's socket (`plug` in `MACHINES`), or an anchor's middle.
+ * One socket a machine, so every cable to it plugs in at one place.
  */
-export function endOf(q: QueryApi<typeof grid>, node: number, toward: Point): Point {
+export function endOf(q: QueryApi<typeof grid>, node: number): Point {
   const { width } = q.size();
   const x = node % width;
   const y = Math.floor(node / width);
   const machine = q.machineAt(node);
-  if (!machine || machine.cell !== node) return { x: x + 0.5, y: y + 0.5 };
-  const spec: MachineSpec = MACHINES[machine.kind];
-  // A little inside the box, so the end sits on the machine rather than on its outline.
-  const inset = 0.15;
-  return {
-    x: Math.min(x + spec.width - inset, Math.max(x + inset, toward.x)),
-    y: Math.min(y + spec.height - inset, Math.max(y + inset, toward.y)),
-  };
+  const plug: MachineSpec['plug'] =
+    machine && machine.cell === node ? (MACHINES[machine.kind] as MachineSpec).plug : undefined;
+  return plug ? { x: x + plug.x / 16, y: y + plug.y / 16 } : { x: x + 0.5, y: y + 0.5 };
 }
 
 /** A node's middle, in cells: what the other end of a cable aims at. */
@@ -96,8 +91,8 @@ const PROBE = 0.05;
  * fitting drawn on the wall at each. Only drawn: the sim knows a cable by its two nodes.
  */
 export function piecesOf(q: Queries, a: number, b: number): { pieces: Piece[]; feeds: Point[] } {
-  const from = endOf(q.grid, a, middleOf(q.grid, b));
-  const to = endOf(q.grid, b, middleOf(q.grid, a));
+  const from = endOf(q.grid, a);
+  const to = endOf(q.grid, b);
   const { width, height } = q.grid.size();
   const kindAt = (t: number): 'space' | 'solid' | 'aboard' => {
     const x = Math.floor(from.x + (to.x - from.x) * t);

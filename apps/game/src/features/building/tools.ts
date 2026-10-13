@@ -1,8 +1,8 @@
-import { MATERIALS, type MaterialId } from '@stillwake/content';
+import { CABLE_COST, MATERIALS, type MaterialId } from '@stillwake/content';
 import type { Cost, Placement } from '@stillwake/sim';
 import { t } from '../../i18n/en';
 import { createStore } from '../../session/store';
-import { buildMode, overlayOn } from '../../session/ui';
+import { buildMode, cableInHand, overlayOn } from '../../session/ui';
 
 /** What the left button does in the world while a tool is selected; `id` names its text. */
 export type Tool =
@@ -13,7 +13,7 @@ export type Tool =
       readonly label: string;
     }
   | {
-      readonly kind: 'remove';
+      readonly kind: 'cable' | 'remove';
       readonly id: string;
       readonly label: string;
     };
@@ -60,6 +60,7 @@ export const TABS: readonly { readonly id: string; readonly tools: readonly Tool
   {
     id: 'power',
     tools: [
+      { kind: 'cable', id: 'cable', label: t('tool.cable') },
       place('solarPanel', { layer: 'machine', kind: 'solarPanel' }),
       place('lamp', { layer: 'machine', kind: 'lamp' }),
     ],
@@ -74,10 +75,10 @@ export const REMOVE: Tool = { kind: 'remove', id: 'remove', label: t('tool.remov
 /** Every tool, tab by tab, then the header's. */
 export const TOOLS: readonly Tool[] = [...TABS.flatMap((tab) => tab.tools), REMOVE];
 
-/** What a tool costs, by `costFor` (the sim's own rule) for what it places. */
+/** What a tool costs, by `costFor` (the sim's own rule) for what it places; a cable its own. */
 export function costOf(tool: Tool, costFor: (placement: Placement) => Cost): Cost {
   if (tool.kind === 'place') return costFor(tool.placement);
-  return {};
+  return tool.kind === 'cable' ? CABLE_COST : {};
 }
 
 /**
@@ -102,13 +103,14 @@ export function putPlanAway(): void {
 
 /** The overlay a tool is used in, where what it lays is in sight: by the overlay's feature id. */
 export function overlayFor(tool: Tool | undefined): string | undefined {
+  if (tool?.kind === 'cable') return POWER_MODE;
   if (tool?.kind === 'place' && tool.placement.layer === 'conduit') return 'pipes';
   return undefined;
 }
 
 /**
  * The power mode: the power overlay, where cables are laid, moved and cut by hand (0021). It has the
- * hands, as the plan does: taking one out puts the other away.
+ * hands, as the plan does: taking one out puts the other away, but for a cable, which is laid in it.
  */
 export const POWER_MODE = 'power';
 
@@ -120,18 +122,22 @@ selected.subscribe(() => {
   const wanted = overlayFor(selected.get());
   if (wanted === forced) return;
   const now = overlayOn.get();
-  if (forced === undefined) before = now === POWER_MODE ? undefined : now;
+  const was = forced;
+  if (was === undefined) before = now === POWER_MODE ? undefined : now;
   forced = wanted;
-  // Put away for the power mode: the mode stays.
-  if (!selected.get() && now === POWER_MODE) return;
-  overlayOn.set(wanted ?? (now === POWER_MODE ? undefined : before));
+  // Put away for the power mode turned on by hand: the mode stays. A cable put away takes it along.
+  const byHand = now === POWER_MODE && was !== POWER_MODE;
+  if (!selected.get() && byHand) return;
+  overlayOn.set(wanted ?? (byHand ? undefined : before));
 });
-// The plan taken out, from the menu or a tool, leaves the power mode.
+const holdsCable = () => selected.get()?.kind === 'cable';
+selected.subscribe(() => cableInHand.set(holdsCable()));
+// The plan taken out, from the menu or a tool other than a cable, leaves the power mode.
 const leavePowerMode = () => {
-  if (buildMode.get() && overlayOn.get() === POWER_MODE) overlayOn.set(forced);
+  if (buildMode.get() && !holdsCable() && overlayOn.get() === POWER_MODE) overlayOn.set(forced);
 };
 buildMode.subscribe(leavePowerMode);
-// The power mode turned on puts the plan away.
+// The power mode turned on puts the plan away, unless a cable is in hand.
 overlayOn.subscribe(() => {
-  if (overlayOn.get() === POWER_MODE && buildMode.get()) putPlanAway();
+  if (overlayOn.get() === POWER_MODE && buildMode.get() && !holdsCable()) putPlanAway();
 });

@@ -770,6 +770,13 @@ export function valveTexture(open: boolean): Texture {
   return pixelTexture(`valve:${open}`, VALVE, { c: colour, O: shade(colour, 0.35) });
 }
 
+/** A machine's power socket, where a cable plugs in (`plug` in `MACHINES`), five pixels across. */
+const SOCKET = ['.KKK.', 'KnnnK', 'KsnsK', 'KnnnK', '.KKK.'];
+
+export function socketTexture(): Texture {
+  return pixelTexture('power-socket', SOCKET, GEAR);
+}
+
 export function machineTexture(kind: MachineKind): Texture {
   return pixelTexture(`machine:${kind}`, MACHINE_ART[kind], GEAR);
 }

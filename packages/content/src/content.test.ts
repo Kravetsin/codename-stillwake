@@ -4,7 +4,7 @@ import { BUILDS, DECONSTRUCT_SPEEDUP } from './builds';
 import { CREW } from './crew';
 import { HERO } from './hero';
 import { LIGHT } from './light';
-import { MACHINES } from './machines';
+import { MACHINES, type MachineSpec } from './machines';
 import { MATERIALS } from './materials';
 import { CABLE_COST, POWER } from './power';
 import { DEBRIS } from './debris';
@@ -222,6 +222,16 @@ describe('power', () => {
       for (const value of [m.makes, m.draws]) {
         if (value !== undefined) expect(Number.isSafeInteger(value) && value > 0).toBe(true);
       }
+    }
+  });
+
+  it('gives every machine making or drawing power one plug, inside its picture, and no other a plug', () => {
+    for (const m of Object.values(MACHINES) as MachineSpec[]) {
+      const powered = m.makes !== undefined || m.draws !== undefined;
+      expect(m.plug !== undefined).toBe(powered);
+      if (!m.plug) continue;
+      expect(m.plug.x >= 0 && m.plug.x < m.width * 16).toBe(true);
+      expect(m.plug.y >= 0 && m.plug.y < m.height * 16).toBe(true);
     }
   });
 

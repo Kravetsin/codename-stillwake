@@ -1,3 +1,4 @@
+import { MACHINES } from '@stillwake/content';
 import { grid, parseLayout, rooms, stillwake } from '@stillwake/sim';
 import { describe, expect, it } from 'vitest';
 import { cablePoints, distanceTo, endOf, piecesOf } from './cable';
@@ -19,13 +20,12 @@ describe('a cable as drawn', () => {
     expect(distanceTo(line, { x: 12, y: 0 })).toBeCloseTo(2);
   });
 
-  it('meets a machine at the point of its box nearest the other end, an anchor at its middle', () => {
+  it('meets a machine at its socket, an anchor at its middle', () => {
     const q = stillwake.create(1, parseLayout(['#GG.....', '.GG.....'])).query(grid);
     // The generator covers columns 1–2, rows 0–1; its top-left names it.
-    const right = endOf(q, 1, { x: 7, y: 1 });
-    expect(right.x).toBeCloseTo(2.85);
-    expect(right.y).toBe(1);
-    expect(endOf(q, 0, { x: 7, y: 1 })).toEqual({ x: 0.5, y: 0.5 });
+    const { plug } = MACHINES.generator;
+    expect(endOf(q, 1)).toEqual({ x: 1 + plug.x / 16, y: plug.y / 16 });
+    expect(endOf(q, 0)).toEqual({ x: 0.5, y: 0.5 });
   });
 });
 
