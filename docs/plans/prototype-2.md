@@ -348,6 +348,18 @@ Done when: unit tests for a drag's Remove mode by its first cell, the plan held 
 open or a tool is out, the left button held; an e2e takes the plan out, picks a card, reopens the
 menu with the right button and puts it away.
 
+**P2-15 · The hero's rig** · M · client `crew`, dev · after P2-14
+The hero stays a chibi drawn in code, its limbs now two segments each: rounded capsules bending at
+elbows and knees, gloves, and boots pointing forward. Swinging limbs are set by angles; hands and
+feet that must be somewhere by a two-bone reach (`rig.ts`): rungs on a ladder, the floor under a
+landing, the plan's sheet in both hands. Motions: a standing breath, a walk lifting the swinging
+knee with a bob, a jump tucked rising and reaching falling, a landing that sinks and springs back,
+a climb taking rungs hand over hand with the opposite foot, a breaststroke and a loose drift in
+space, lying and tumbling. `?poses` in development shows them all side by side, with the head's
+turn, speed, zoom and suit set by eye.
+Done when: unit tests for the reach, the walk's knees, the landing's feet on the floor, the climb's
+hands, the stroke and the plan in hand; the gallery shows every pose.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says

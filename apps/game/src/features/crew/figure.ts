@@ -1,8 +1,17 @@
-import { HERO } from '@stillwake/content';
 import { Container, Graphics } from 'pixi.js';
 import { CELL } from '../../render/camera';
 import { UNIT, type Hero } from './hero';
-import { headTurn, holdingPlan, limbsOf, type Limbs, type Pose } from './pose';
+import {
+  headTurn,
+  holdsIn,
+  LAND,
+  limbsOf,
+  SHEET as SHEET_SIZE,
+  sheetTurn,
+  type Limbs,
+  type Pose,
+} from './pose';
+import { ARM, endOf, H, HIP, HIP_APART, LEG, NECK, SHOULDER, W, type Bend } from './rig';
 
 const VISOR = 0x2b3a4a;
 /** The plan's sheet: blueprint blue, a pale edge and the faint grid of a drawing. */
@@ -21,26 +30,8 @@ const SETTLE_MS = 30;
 /** Slower for the head, so it follows the pointer rather than snapping to it. */
 const HEAD_SETTLE_MS = 90;
 
-const W = (HERO.width / UNIT) * CELL;
-const H = (HERO.height / UNIT) * CELL;
-/** Where the parts sit, in pixels from the feet, which are at the origin; forward is +x. */
-const HIP = H * 0.42;
-const SHOULDER = H * 0.61;
-const NECK = H * 0.71;
 /** The collar between helmet and body, so the arms hang from shoulders below it, not the neck. */
 const COLLAR = H * 0.045;
-/** A limb starts half its width above its joint, so a leg is that much longer to reach the floor. */
-const LEG = { width: W * 0.34, length: HIP + W * 0.17 };
-const ARM = { width: W * 0.27, length: H * 0.3 };
-/** A glove's or a boot's share of its limb's length, in limb widths. */
-const END = 1.1;
-/**
- * The plan's sheet, held by its near edge in the front hand: `length` along its face, `face` how
- * much of it shows tilted toward the eyes, and `skew` how far its top edge leans back to them.
- */
-const PLAN = { length: W * 0.85, face: H * 0.13, skew: W * 0.18 };
-/** Radians the sheet tilts its far edge up, looking straight ahead, and how much a look turns it. */
-const PLAN_TILT = { ahead: 0.45, perLook: 0.6 };
 /** How far the air pack sticks out behind the middle: what a body lying on its back rests on. */
 const BACK = W * 0.62;
 
@@ -51,30 +42,61 @@ function darker(colour: number, by: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+/** A capsule from its joint at the origin `length` down, its ends round, so a bend has no seam. */
+function capsule(g: Graphics, width: number, length: number, colour: number, edge: number) {
+  return g
+    .roundRect(-width / 2, -width / 2, width, length + width, width / 2)
+    .fill(colour)
+    .stroke({ width: 1, color: edge });
+}
+
 /**
- * A limb hanging from its joint at the origin, turned by its `rotation`, ending in a glove or a
- * boot; an arm has a round shoulder over its joint.
+ * A limb hanging from its joint at the origin in two segments, `upper` turned at the joint and
+ * `lower` at the elbow or knee, ending in a glove, or a boot pointing forward; an arm has a round
+ * shoulder over its joint.
  */
 function limb(
   colour: number,
   edge: number,
-  size: { width: number; length: number },
-  shoulder = false,
-): Graphics {
-  const { width: w, length } = size;
-  const g = new Graphics()
-    .roundRect(-w / 2, -w / 2, w, length, w / 2)
+  size: { width: number; upper: number; lower: number },
+  kind: 'arm' | 'leg',
+) {
+  const w = size.width;
+  const upper = new Container();
+  const lower = new Container();
+  lower.position.set(0, size.upper);
+  const shin = new Graphics()
+    .roundRect(-w / 2, -w / 2, w, size.lower + w / 2, w / 2)
     .fill(colour)
-    .stroke({ width: 1, color: edge })
-    .roundRect(-w / 2, length - w / 2 - w * END, w, w * END, w / 2)
-    .fill(GEAR)
     .stroke({ width: 1, color: edge });
-  return shoulder
-    ? g
-        .circle(0, 0, w * 0.62)
-        .fill(colour)
-        .stroke({ width: 1, color: edge })
-    : g;
+  if (kind === 'leg') {
+    shin
+      .roundRect(-w * 0.5, size.lower - w * 0.75, w * 1.45, w * 0.75, w * 0.3)
+      .fill(GEAR)
+      .stroke({ width: 1, color: edge });
+  } else {
+    shin
+      .roundRect(-w * 0.58, size.lower - w * 1.05, w * 1.16, w * 1.05, w * 0.5)
+      .fill(GEAR)
+      .stroke({ width: 1, color: edge });
+  }
+  lower.addChild(shin);
+  const thigh = capsule(new Graphics(), w, size.upper, colour, edge);
+  if (kind === 'arm')
+    thigh
+      .circle(0, 0, w * 0.56)
+      .fill(colour)
+      .stroke({ width: 1, color: edge });
+  // The upper segment over the lower, so the joint between them is one rounded curve.
+  upper.addChild(lower, thigh);
+  return {
+    view: upper,
+    /** Rotations run clockwise and the figure faces +x, so forward is negative. */
+    bend(b: Bend) {
+      upper.rotation = -b.upper;
+      lower.rotation = -b.lower;
+    },
+  };
 }
 
 /**
@@ -82,7 +104,7 @@ function limb(
  * on it; the middle of its near bottom edge, where the hand holds it, at the origin.
  */
 function sheet(): Graphics {
-  const { length: l, face: h, skew: k } = PLAN;
+  const { length: l, face: h, skew: k } = SHEET_SIZE;
   const at = (along: number, up: number) => ({ x: along * l - up * k, y: -up * h });
   const corners = [at(0, 0), at(1, 0), at(1, 1), at(0, 1)];
   const g = new Graphics()
@@ -104,6 +126,14 @@ function settle(from: number, to: number, elapsedMs: number, within = SETTLE_MS)
   return from + (to - from) * Math.min(1, elapsedMs / within);
 }
 
+/** A bend settled toward `to`, segment by segment. */
+function settleBend(from: Bend, to: Bend, elapsedMs: number): Bend {
+  return {
+    upper: settle(from.upper, to.upper, elapsedMs),
+    lower: settle(from.lower, to.lower, elapsedMs),
+  };
+}
+
 /** An angle settled toward `to` the short way round, so a body stops tumbling without unwinding. */
 function settleAngle(from: number, to: number, elapsedMs: number): number {
   const turn = 2 * Math.PI;
@@ -112,26 +142,25 @@ function settleAngle(from: number, to: number, elapsedMs: number): number {
 }
 
 /**
- * A hero's figure built from rectangles: helmet and visor, body, air pack, two arms and two legs that
- * turn at their joints. `show` places it at the hero's feet and poses it; textures replace the parts
+ * A hero's figure built from rounded shapes: helmet and visor, body, air pack, two arms and two legs
+ * that bend at shoulders and elbows, hips and knees. `show` places it at the hero's feet and poses it; textures replace the parts
  * later, the poses stay.
  */
 export function createFigure(colour: number) {
   const far = darker(colour, FAR);
   const edge = { width: 1, color: darker(colour, EDGE) };
-  const backLeg = limb(far, edge.color, LEG);
-  const backArm = limb(far, edge.color, ARM, true);
-  const frontLeg = limb(colour, edge.color, LEG);
-  const frontArm = limb(colour, edge.color, ARM, true);
-  // Hips apart, so two legs read as two even standing still.
-  backLeg.position.set(-W * 0.14, -HIP);
-  frontLeg.position.set(W * 0.14, -HIP);
-  for (const arm of [backArm, frontArm]) arm.position.set(0, -SHOULDER);
+  const backLeg = limb(far, edge.color, LEG, 'leg');
+  const backArm = limb(far, edge.color, ARM, 'arm');
+  const frontLeg = limb(colour, edge.color, LEG, 'leg');
+  const frontArm = limb(colour, edge.color, ARM, 'arm');
+  backLeg.view.position.set(-HIP_APART, -HIP);
+  frontLeg.view.position.set(HIP_APART, -HIP);
+  for (const arm of [backArm, frontArm]) arm.view.position.set(0, -SHOULDER);
   const torso = new Graphics()
     .rect(-BACK, -SHOULDER - H * 0.02, W * 0.22, H * 0.3)
     .fill(PACK)
     .stroke({ width: 1, color: darker(PACK, EDGE) })
-    .roundRect(-W * 0.4, -NECK, W * 0.8, NECK - HIP + LEG.width / 2, W * 0.12)
+    .roundRect(-W * 0.4, -NECK, W * 0.8, NECK - HIP + LEG.width * 0.6, W * 0.12)
     .fill(colour)
     .stroke(edge)
     .roundRect(-W * 0.3, -NECK - COLLAR / 2, W * 0.6, COLLAR, COLLAR / 2)
@@ -140,7 +169,7 @@ export function createFigure(colour: number) {
     .roundRect(-W * 0.42, -H, W * 0.84, H - NECK - COLLAR / 2, W * 0.22)
     .fill(colour)
     .stroke(edge)
-    .roundRect(W * 0.02, -H * 0.93, W * 0.38, H * 0.13, W * 0.06)
+    .roundRect(W * 0.0, -H * 0.935, W * 0.42, H * 0.14, W * 0.07)
     .fill(VISOR);
   // The helmet turns at the neck.
   helmet.pivot.set(0, -NECK);
@@ -154,7 +183,7 @@ export function createFigure(colour: number) {
   plan.visible = false;
   // Both legs come out from under the body, which hides their joints; the near arm hangs in front,
   // its hand over the sheet it holds.
-  body.addChild(backArm, backLeg, frontLeg, torso, helmet, plan, frontArm);
+  body.addChild(backArm.view, backLeg.view, frontLeg.view, torso, helmet, plan, frontArm.view);
   const view = new Container();
   view.addChild(body);
 
@@ -166,6 +195,8 @@ export function createFigure(colour: number) {
   let wasPose: Pose | undefined;
   let timeMs = 0;
   let head = 0;
+  /** Milliseconds of a landing still to spring back from. */
+  let landingMs = 0;
 
   return {
     view,
@@ -179,39 +210,41 @@ export function createFigure(colour: number) {
       if (last) travelled += ((hero.x - last.x) * hero.facing + Math.abs(hero.y - last.y)) / UNIT;
       last = { x: hero.x, y: hero.y };
       if (pose !== wasPose) strideFrom = travelled;
+      if (wasPose === 'air' && (pose === 'stand' || pose === 'walk')) landingMs = LAND.ms;
+      landingMs = Math.max(0, landingMs - elapsedMs);
       wasPose = pose;
-      const free = limbsOf(pose, hero, travelled - strideFrom, timeMs);
-      const holding = hero.holds === 'plan' ? holdingPlan(pose, free, head) : undefined;
-      const to = holding ?? free;
+      const holding = hero.holds === 'plan' && holdsIn(pose);
+      const to = limbsOf(pose, hero, {
+        travelled: travelled - strideFrom,
+        timeMs,
+        landing: landingMs / LAND.ms,
+        ...(holding ? { plan: head } : {}),
+      });
       const from = shown ?? to;
       shown = {
-        frontArm: settle(from.frontArm, to.frontArm, elapsedMs),
-        backArm: settle(from.backArm, to.backArm, elapsedMs),
-        frontLeg: settle(from.frontLeg, to.frontLeg, elapsedMs),
-        backLeg: settle(from.backLeg, to.backLeg, elapsedMs),
+        frontArm: settleBend(from.frontArm, to.frontArm, elapsedMs),
+        backArm: settleBend(from.backArm, to.backArm, elapsedMs),
+        frontLeg: settleBend(from.frontLeg, to.frontLeg, elapsedMs),
+        backLeg: settleBend(from.backLeg, to.backLeg, elapsedMs),
         tilt: settleAngle(from.tilt, to.tilt, elapsedMs),
         lift: settle(from.lift, to.lift, elapsedMs),
         lying: to.lying,
       };
-      // Rotations run clockwise and the figure faces +x, so forward is negative.
-      frontArm.rotation = -shown.frontArm;
-      backArm.rotation = -shown.backArm;
-      frontLeg.rotation = -shown.frontLeg;
-      backLeg.rotation = -shown.backLeg;
+      frontArm.bend(shown.frontArm);
+      backArm.bend(shown.backArm);
+      frontLeg.bend(shown.frontLeg);
+      backLeg.bend(shown.backLeg);
       body.rotation = shown.tilt;
       const awake = pose !== 'lie' && pose !== 'tumble';
       head = settle(head, awake ? (hero.look ?? 0) : 0, elapsedMs, HEAD_SETTLE_MS);
       helmet.rotation = head;
       // The sheet is in the front hand, tilted to face the eyes: up toward them looking up, flatter
       // looking down at it.
-      plan.visible = holding !== undefined;
+      plan.visible = holding;
       if (holding) {
-        const reach = ARM.length - ARM.width;
-        plan.position.set(
-          Math.sin(shown.frontArm) * reach,
-          -SHOULDER + Math.cos(shown.frontArm) * reach,
-        );
-        plan.rotation = -PLAN_TILT.ahead + head * PLAN_TILT.perLook;
+        const hand = endOf(shown.frontArm, ARM);
+        plan.position.set(hand.x, -SHOULDER + hand.y);
+        plan.rotation = sheetTurn(head);
       }
       // Lying down, the middle sinks as the body turns, so it comes to rest on the floor.
       const c = Math.abs(Math.cos(shown.tilt));

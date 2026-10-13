@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Hero } from './hero';
-import { HEAD, headTurn, HOLD, holdingPlan, limbsOf, poseOf, STRIDE } from './pose';
+import {
+  HEAD,
+  headTurn,
+  holdsIn,
+  LAND,
+  limbsOf,
+  planHand,
+  poseOf,
+  STRIDE,
+  type Pose,
+} from './pose';
+import { ARM, endOf, HIP, LEG } from './rig';
 
 const standing: Hero = { x: 5500, y: 10000, vx: 0, vy: 0, climbing: false, facing: 1 };
 
@@ -22,66 +33,94 @@ describe('poseOf', () => {
 
 describe('limbsOf', () => {
   const walking = { ...standing, vx: 240 };
+  const at = (travelled: number, timeMs = 0) => ({ travelled, timeMs });
 
   it('swings legs against each other and arms against legs while walking', () => {
-    const quarter = STRIDE.walk / 4;
-    const l = limbsOf('walk', walking, quarter, 0);
-    expect(l.frontLeg).toBeGreaterThan(0.3);
-    expect(l.backLeg).toBeCloseTo(-l.frontLeg);
-    expect(Math.sign(l.frontArm)).toBe(-Math.sign(l.frontLeg));
+    const l = limbsOf('walk', walking, at(STRIDE.walk / 4));
+    expect(l.frontLeg.upper).toBeGreaterThan(0.3);
+    expect(l.backLeg.upper).toBeCloseTo(-l.frontLeg.upper);
+    expect(Math.sign(l.frontArm.upper)).toBe(-Math.sign(l.frontLeg.upper));
+  });
+
+  it('lifts the knee of the leg swinging forward and keeps the other near straight', () => {
+    // A stride begun, the front leg swings forward past the back one.
+    const l = limbsOf('walk', walking, at(0));
+    expect(l.frontLeg.lower).toBeLessThan(-0.8);
+    expect(l.backLeg.lower).toBeGreaterThan(-0.2);
   });
 
   it('takes one stride per stride length walked, whatever the time', () => {
-    const at = (cells: number, ms: number) => limbsOf('walk', walking, cells, ms).frontLeg;
-    expect(at(1.1 + STRIDE.walk, 0)).toBeCloseTo(at(1.1, 5000));
-    expect(at(STRIDE.walk / 2, 0)).toBeCloseTo(0);
+    const leg = (cells: number, ms: number) => limbsOf('walk', walking, at(cells, ms)).frontLeg;
+    expect(leg(1.1 + STRIDE.walk, 0).upper).toBeCloseTo(leg(1.1, 5000).upper);
+    expect(leg(STRIDE.walk / 2, 0).upper).toBeCloseTo(0);
   });
 
-  it('keeps the legs straight standing, only the arms breathe', () => {
+  it('stands on near straight legs, only the arms and the chest breathing', () => {
     for (const ms of [0, 700, 1300, 2000]) {
-      const l = limbsOf('stand', standing, 3, ms);
-      expect([l.frontLeg, l.backLeg, l.tilt]).toEqual([0, 0, 0]);
-      expect(Math.abs(l.frontArm)).toBeLessThan(0.1);
+      const l = limbsOf('stand', standing, at(3, ms));
+      expect(Math.abs(l.frontLeg.lower)).toBeLessThan(0.1);
+      expect(endOf(l.frontLeg, LEG).y).toBeCloseTo(HIP, 0);
+      expect(Math.abs(l.frontArm.upper)).toBeLessThan(0.1);
     }
   });
 
-  it('reaches up on a ladder and down off it', () => {
-    expect(limbsOf('climb', { ...standing, climbing: true }, 0.4, 0).frontArm).toBeGreaterThan(2);
-    expect(limbsOf('walk', walking, 0.4, 0).frontArm).toBeLessThan(1);
+  it('sinks into a landing with the feet kept on the floor, then springs back', () => {
+    const deep = limbsOf('stand', standing, { ...at(0), landing: 2 / 3 });
+    expect(deep.lift).toBeLessThan(-LAND.sink * 0.9);
+    // The hips come down by the sink; the feet reach just as far.
+    expect(endOf(deep.frontLeg, LEG).y).toBeCloseTo(HIP - LAND.sink * 0.99, 0);
+    expect(deep.frontLeg.lower).toBeLessThan(-0.3);
+    const done = limbsOf('stand', standing, { ...at(0), landing: 0 });
+    expect(done.lift).toBeGreaterThan(-1);
+  });
+
+  it('takes rungs over its head on a ladder, one hand up while the other holds', () => {
+    const climbing = { ...standing, climbing: true };
+    const l = limbsOf('climb', climbing, at(0.3));
+    const front = endOf(l.frontArm, ARM);
+    const back = endOf(l.backArm, ARM);
+    expect(Math.min(front.y, back.y)).toBeLessThan(-ARM.upper);
+    expect(front.y).not.toBeCloseTo(back.y, 0);
   });
 
   it('lies turned onto its back, and tumbles further the longer it drifts', () => {
-    expect(limbsOf('lie', standing, 0, 0)).toMatchObject({ tilt: -Math.PI / 2, lying: true });
-    const tumble = (ms: number) => limbsOf('tumble', standing, 0, ms).tilt;
+    expect(limbsOf('lie', standing, at(0))).toMatchObject({ tilt: -Math.PI / 2, lying: true });
+    const tumble = (ms: number) => limbsOf('tumble', standing, at(0, ms)).tilt;
     expect(tumble(2000)).toBeGreaterThan(tumble(1000));
-    expect(limbsOf('tumble', standing, 0, 1000).lying).toBe(false);
+    expect(limbsOf('tumble', standing, at(0, 1000)).lying).toBe(false);
   });
 
   it('leans into a swim along the floor in space, upright otherwise', () => {
-    const across = limbsOf('float', { ...standing, vx: 120 }, 1, 0).tilt;
-    const up = limbsOf('float', { ...standing, vy: -120 }, 1, 0).tilt;
+    const across = limbsOf('float', { ...standing, vx: 120 }, at(1)).tilt;
+    const up = limbsOf('float', { ...standing, vy: -120 }, at(1)).tilt;
     expect(across).toBeGreaterThan(up);
+  });
+
+  it('strokes in space: arms reach ahead, then pull back to the sides', () => {
+    const swimming = { ...standing, vx: 120 };
+    const reaching = limbsOf('float', swimming, at(0)).frontArm.upper;
+    const pulled = limbsOf('float', swimming, at(STRIDE.float / 2)).frontArm.upper;
+    expect(reaching).toBeGreaterThan(2);
+    expect(pulled).toBeLessThan(1);
   });
 });
 
-describe('holdingPlan', () => {
-  it('raises both arms before the chest, the far one higher, and turns them with the head', () => {
-    const walking = limbsOf('walk', { ...standing, vx: 240 }, STRIDE.walk / 4, 0);
-    const ahead = holdingPlan('walk', walking, 0);
-    expect(ahead?.frontArm).toBe(HOLD.arm);
-    expect(ahead?.backArm).toBeGreaterThan(HOLD.arm);
-    // The legs walk on under the sheet.
-    expect(ahead?.frontLeg).toBe(walking.frontLeg);
-    const down = holdingPlan('stand', limbsOf('stand', standing, 0, 0), HEAD.down);
-    const up = holdingPlan('stand', limbsOf('stand', standing, 0, 0), -HEAD.up);
-    expect(down?.frontArm).toBeLessThan(HOLD.arm);
-    expect(up?.frontArm).toBeGreaterThan(HOLD.arm);
+describe('holding the plan', () => {
+  it('puts the front hand where the sheet is held, turned with the head, the far hand further on', () => {
+    for (const look of [0, HEAD.down, -HEAD.up]) {
+      const l = limbsOf('walk', { ...standing, vx: 240 }, { travelled: 1, timeMs: 0, plan: look });
+      const hand = endOf(l.frontArm, ARM);
+      expect(hand.x).toBeCloseTo(planHand(look).x, 1);
+      expect(hand.y).toBeCloseTo(planHand(look).y, 1);
+      expect(endOf(l.backArm, ARM).x).toBeGreaterThan(hand.x);
+    }
+    expect(planHand(-HEAD.up).y).toBeLessThan(planHand(0).y);
+    expect(planHand(HEAD.down).y).toBeGreaterThan(planHand(0).y);
   });
 
   it('holds nothing climbing, lying or tumbling', () => {
-    for (const pose of ['climb', 'lie', 'tumble'] as const) {
-      expect(holdingPlan(pose, limbsOf(pose, standing, 0, 0), 0)).toBeUndefined();
-    }
+    expect(['stand', 'walk', 'air', 'float'].every((p) => holdsIn(p as Pose))).toBe(true);
+    expect(['climb', 'lie', 'tumble'].some((p) => holdsIn(p as Pose))).toBe(false);
   });
 });
 
