@@ -10,6 +10,7 @@ import { createOverlaySwitch, type OverlaySwitch } from './overlays/switch';
 import { browserPlatform } from './platform/browser';
 import { currentPlatform } from './platform/desktop';
 import { createCamera, START_ZOOM } from './render/camera';
+import { createPixelView } from './render/pixelate';
 import { BUILD } from './session/build';
 import { createGame, ownSession, type Game, type Session } from './session/game';
 import { hostOnRelay, joinOnRelay, link } from './session/relay-link';
@@ -94,7 +95,14 @@ export function App() {
       const world = new Container();
       app.stage.addChild(world);
       const camera = createCamera(world, app.canvas, window);
-      destroyCamera = () => camera.destroy();
+      // `?pixel` tries the world as pixel art: drawn a pixel a pixel, then scaled up unsmoothed.
+      const pixels = new URLSearchParams(location.search).has('pixel')
+        ? createPixelView(app, world, 0x0b0f17)
+        : undefined;
+      destroyCamera = () => {
+        camera.destroy();
+        pixels?.destroy();
+      };
       // The reference world is measured whole on screen; a game starts close on the hero.
       const { width, height } = created.client.sim.query(grid).size();
       if (perf) camera.fit({ x: 0, y: 0, width, height }, app.screen);
@@ -133,6 +141,7 @@ export function App() {
           layer.view.visible = switched.active() === id;
           if (layer.view.visible) layer.update(frame);
         }
+        pixels?.render();
         // An overlay says what the pointer is on only while it is on; switched off, it says nothing.
         if (switched.active() === undefined && pointerTip.get().world) {
           pointerTip.set({ ...pointerTip.get(), world: undefined });
