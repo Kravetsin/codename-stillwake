@@ -90,4 +90,25 @@ describe('cables as drawn', () => {
     run(beside, 2, [hero]);
     expect(pointsOf(beside)).toEqual(pointsOf(alone));
   });
+
+  it('follow a hand that carries an end, and go back to their node once let go', () => {
+    const ropes = createCableRopes();
+    ropes.sync(sim);
+    const hand = { x: 4.5, y: 3.5 };
+    ropes.hold({ node: 10 + 8, at: hand });
+    run(ropes, 2);
+    expect(pointsOf(ropes).at(-1)).toMatchObject(hand);
+    expect(pointsOf(ropes)[0]).toMatchObject(rest[0] ?? {});
+    ropes.hold(undefined);
+    run(ropes, 10);
+    expect(offRest(ropes)).toBeLessThan(0.15);
+  });
+
+  it('carried to another node, start there in their hang, not straight', () => {
+    const ropes = createCableRopes();
+    ropes.sync(stillwake.create(1, parseLayout(ROWS)));
+    ropes.land(10 + 8);
+    ropes.sync(sim);
+    expect(offRest(ropes)).toBeLessThan(0.15);
+  });
 });

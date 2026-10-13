@@ -23,6 +23,8 @@ const SHORT = 0xf0b44c;
 const DARK = 0xe05555;
 /** A cable on no network: none is, but a cable is drawn by its first node's. */
 const LOOSE = 0x9aa3ad;
+/** A cable carried by hand, bright and thicker than the rest, red where it may not be let go. */
+const CARRIED = { fits: 0xffffff, refused: DARK, width: 2.5 } as const;
 /** What the overlay lays over the ship, so the cables stand out from it. */
 const DIM = { color: 0x05080d, alpha: 0.45 };
 const REFRESH_MS = 250;
@@ -106,8 +108,11 @@ function cables(): Layer {
     behind: lines,
     update: ({ game, elapsedMs }) => {
       sync(game.client.sim, elapsedMs);
-      // Out of the power overlay, nothing is held.
+      // Out of the power overlay, nothing is held; in it, a cable's end may be carried by hand.
       if (overlayOn.get() !== 'power') mode?.release();
+      own.hold(mode?.carried()?.end);
+      const landing = mode?.takeLanding();
+      if (landing !== undefined) own.land(landing);
       time += elapsedMs / 1000;
       blink(bolts, time);
       own.update(elapsedMs, heroBodies.get());
@@ -193,18 +198,37 @@ function powerOverlay(): Layer {
       redraw(sim, elapsedMs);
       time += elapsedMs / 1000;
       blink(bolts, time);
+      hands.update(game, camera, [...(ropes?.lines() ?? [])]);
+      // The cable carried by hand stands out from the rest.
+      const carried = hands.carried();
+      const holds = (a: number, b: number) =>
+        carried !== undefined &&
+        (carried.end.cable
+          ? carried.end.cable.a === a && carried.end.cable.b === b
+          : carried.end.node === a || carried.end.node === b);
       lines.clear();
       for (const { a, b, points } of ropes?.lines() ?? []) {
-        const colour = stateColour(byNode.get(a) ?? byNode.get(b));
+        const held = holds(a, b);
+        const colour = held
+          ? carried?.fits
+            ? CARRIED.fits
+            : CARRIED.refused
+          : stateColour(byNode.get(a) ?? byNode.get(b));
+        const width = held ? CARRIED.width : 1.25;
         traceRope(lines, points, CELL);
-        lines.stroke({ width: 3, color: colour, alpha: 0.25, cap: 'round', join: 'round' });
+        lines.stroke({
+          width: width * 2.4,
+          color: colour,
+          alpha: 0.25,
+          cap: 'round',
+          join: 'round',
+        });
         traceRope(lines, points, CELL);
-        lines.stroke({ width: 1.25, color: colour, cap: 'round', join: 'round' });
+        lines.stroke({ width, color: colour, cap: 'round', join: 'round' });
         for (const end of [points[0], points[points.length - 1]]) {
           if (end) lines.circle(end.x * CELL, end.y * CELL, 1.5).fill(colour);
         }
       }
-      hands.update(game, camera, [...(ropes?.lines() ?? [])]);
       const pointer = camera.pointer();
       const { width, height } = sim.query(grid).size();
       const x = pointer ? Math.floor(pointer.x) : -1;

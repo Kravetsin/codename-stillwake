@@ -27,6 +27,16 @@ const FLOATING: RopeStyle = {
 const HANG = 1 + (8 * SAG * SAG) / 3;
 const LOOSE = 1.02;
 
+/**
+ * A cable's end carried by hand: the end at `node` of every cable there, or of `cable` alone, held
+ * at `at` instead of its node.
+ */
+export interface Held {
+  readonly node: number;
+  readonly cable?: { readonly a: number; readonly b: number };
+  readonly at: Point;
+}
+
 /** A piece of a cable as a rope, between two of its fixed points. */
 interface Stretch {
   readonly piece: Piece;
@@ -45,11 +55,14 @@ interface Cable {
  * Every cable as ropes, a rope for each of its pieces (`piecesOf`), kept between frames by its two
  * nodes: the part aboard hangs and the part outside floats, held where it goes through the hull.
  * The cables found at the start are already at rest; one laid later starts straight and falls into
- * its hang, swinging.
+ * its hang, swinging. A cable's end carried by hand (`hold`) follows the hand, the rope swinging
+ * after it, and a cable carried to a node (`land`) starts there in its hang, as it was carried.
  */
 export function createCableRopes() {
   const cables = new Map<string, Cable>();
   let started = false;
+  let held: Held | undefined;
+  let landing: number | undefined;
   return {
     /** Takes the cables as the world has them now: new ones in, gone ones out. */
     sync(sim: Sim) {
@@ -61,9 +74,11 @@ export function createCableRopes() {
         const { pieces, feeds } = piecesOf(q, c.a, c.b);
         const shape = JSON.stringify(pieces);
         if (cables.get(key)?.shape === shape) continue;
+        const landed = landing !== undefined && (c.a === landing || c.b === landing);
         const stretches = pieces.map((piece, i) => {
           const style = piece.hangs ? HANGING : FLOATING;
-          const rest = started ? undefined : cablePoints(piece.from, piece.to, piece.hangs);
+          const rest =
+            started && !landed ? undefined : cablePoints(piece.from, piece.to, piece.hangs);
           const rope = createRope(style, piece.from, piece.to, c.a + c.b + i, rest);
           return { piece, rope };
         });
@@ -72,19 +87,31 @@ export function createCableRopes() {
       for (const key of cables.keys()) if (!seen.has(key)) cables.delete(key);
       started = true;
     },
+    /** Holds a cable's end by hand until the next `hold`; nothing lets every end go. */
+    hold(end: Held | undefined) {
+      held = end;
+    },
+    /** A cable is being carried to `node`: once the world has it there, it starts in its hang. */
+    land(node: number) {
+      landing = node;
+    },
     /** Moves every cable on by `elapsedMs`, brushed by `bodies` aboard. */
     update(elapsedMs: number, bodies: readonly Body[]) {
-      for (const c of cables.values()) {
-        for (const { piece, rope } of c.stretches) {
+      for (const [key, c] of cables) {
+        const [a, b] = key.split(':').map(Number) as [number, number];
+        const carried =
+          held && (!held.cable || (held.cable.a === a && held.cable.b === b)) ? held : undefined;
+        const last = c.stretches.length - 1;
+        c.stretches.forEach(({ piece, rope }, i) => {
           const factor = piece.hangs ? HANG : LOOSE;
           rope.update(
-            piece.from,
-            piece.to,
+            i === 0 && carried?.node === a ? carried.at : piece.from,
+            i === last && carried?.node === b ? carried.at : piece.to,
             elapsedMs,
             (span) => span * factor,
             piece.hangs ? bodies : [],
           );
-        }
+        });
       }
     },
     /** Each cable's points, end to end, by its two nodes, and where it goes through the hull. */

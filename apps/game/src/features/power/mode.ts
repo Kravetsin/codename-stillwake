@@ -7,6 +7,7 @@ import type { Camera } from '../../render/camera';
 import { CELL, WORLD_TEXT_RESOLUTION } from '../../render/camera';
 import type { Game } from '../../session/game';
 import { hand } from '../../session/ui';
+import type { Held } from './ropes';
 import { gripAt, lightOf, supportOnWay, type Grip, type Line } from './wiring';
 
 const FITS = 0x7fe08a;
@@ -39,6 +40,10 @@ export function createPowerMode() {
   let grip: Grip | undefined;
   /** The node the cable being laid runs from now: the last support placed, or where it began. */
   let from: number | undefined;
+  /** The cable's end carried now, and whether it may be let go where it is. */
+  let carried: { end: Held; fits: boolean } | undefined;
+  /** The node a cable was last carried to, until told. */
+  let landing: number | undefined;
 
   return {
     views: [ghost, reason] as const,
@@ -100,6 +105,7 @@ export function createPowerMode() {
             if (!wires.moveProblem(grip.node, cell, cable)) {
               const payload = { from: grip.node, to: cell, ...(cable ? { cable } : {}) };
               game.client.send(command(power, 'move', payload));
+              landing = wires.nodeAt(cell);
             }
           }
         }
@@ -109,6 +115,7 @@ export function createPowerMode() {
 
       ghost.clear();
       reason.text = '';
+      carried = undefined;
       const pointer = camera.pointer();
       if (!grip || from === undefined || !pointer) return;
       const target = cellAt(pointer);
@@ -157,34 +164,38 @@ export function createPowerMode() {
       }
 
       const why = problemAt(target);
-      const colour = why ? REFUSED : FITS;
-      // From each end the dragged one leaves behind, or from where the new cable runs.
-      const ends =
-        grip.kind === 'lay'
-          ? [from]
-          : lines
-              .filter((l) =>
-                grip?.kind === 'end' ? l.a === grip.cable.a && l.b === grip.cable.b : true,
-              )
-              .filter((l) => l.a === grip?.node || l.b === grip?.node)
-              .map((l) => (l.a === grip?.node ? l.b : l.a));
       // Where it would go, it runs to where it would end: a machine's socket, an anchor's middle.
       const node = why ? undefined : wires.nodeAt(target);
       const to = node === undefined ? pointer : endOf(q, node);
-      for (const end of ends) {
-        const p = endOf(q, end);
-        ghost.moveTo(p.x * CELL, p.y * CELL).lineTo(to.x * CELL, to.y * CELL);
+      if (grip.kind === 'lay') {
+        const p = endOf(q, from);
+        ghost
+          .moveTo(p.x * CELL, p.y * CELL)
+          .lineTo(to.x * CELL, to.y * CELL)
+          .stroke({ width: 1.5, color: why ? REFUSED : FITS, alpha: 0.9 });
+      } else {
+        // A cable carried is the cable itself, its end in hand.
+        const cable = grip.kind === 'end' ? grip.cable : undefined;
+        carried = { end: { node: grip.node, at: to, ...(cable ? { cable } : {}) }, fits: !why };
       }
-      ghost.stroke({ width: 1.5, color: colour, alpha: 0.9 });
       if (why && why !== 'power.sameNode') {
         reason.text = t(why);
         reason.position.set(pointer.x * CELL + 12, pointer.y * CELL + 12);
       }
     },
+    /** The cable's end carried now, and whether it may be let go where it is; nothing if none. */
+    carried: () => carried,
+    /** The node a cable was last carried to, once: where the cables layer lands it. */
+    takeLanding() {
+      const node = landing;
+      landing = undefined;
+      return node;
+    },
     /** Lets go of whatever is held: the mode turned off mid-drag. */
     release() {
       grip = undefined;
       from = undefined;
+      carried = undefined;
       ghost.clear();
       reason.text = '';
     },
