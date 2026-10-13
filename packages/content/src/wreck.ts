@@ -2,11 +2,12 @@
  * The starting wreck: one deck of a broken-off ship section in open space. The hero wakes in room A,
  * small, aired by a generator piped to its vent and cabled to a solar panel on the roof above,
  * which also runs a lamp under the ceiling. There is no furnace, which is built of caught salvage,
- * nor a crate, built of planks and iron. Behind a closed doorway on the left is room B, a hole one
- * cell tall in its hull: open the door and A's air is gone. An airlock off A's right end, a closet
- * between two closed doorways, is the way outside. Rows are read as written and padded with space to the first, the widest: the
- * space around the wreck, 192 × 96 cells, is room to build and to swim in, its edge too far for a
- * tether to reach.
+ * nor a crate, built of planks and iron. Behind a closed doorway on the left is what is left of room
+ * B, its far half torn away, hull, floor and back wall, open to space: an analyzer survived in it,
+ * uncabled (ADR 0024). Open the door and A's air is gone. An airlock off A's right end, a closet
+ * between two closed doorways, is the way outside. Rows are read as written and padded with space
+ * to the first, the widest: the space around the wreck, 192 × 96 cells, is room to build and to swim
+ * in, its edge too far for a tether to reach.
  */
 export const WRECK: readonly string[] = [
   '                                                                                                                                                                                                ',
@@ -27,12 +28,12 @@ export const WRECK: readonly string[] = [
   '                                                                                                ',
   '                                                                                                ',
   '                                                  PPP                                           ',
-  '                              #########################                                         ',
-  '                              #..............#....L...####                                      ',
-  '                              #..............D........D..D                                      ',
-  '                               ..............DGG......D..D                                      ',
-  '                              #..............DGGV..S..D..D                                      ',
-  '                              ############################                                      ',
+  '                                      #################                                         ',
+  '                                      .......#....L...####                                      ',
+  '                                     ........D........D..D                                      ',
+  '                                    .....AA..DGG......D..D                                      ',
+  '                                   ......AA..DGGV..S..D..D                                      ',
+  '                                  ########################                                      ',
   '                                                                                                ',
   '                                                                                                ',
   '                                                                                                ',

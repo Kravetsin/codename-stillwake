@@ -481,10 +481,10 @@ describe('hero controller', () => {
     const [spawn] = cellsOf(wreck, 'S');
     if (spawn === undefined) throw new Error('the wreck has no S');
 
-    // From room A, where the hero wakes, through the doorway across room B to its far wall.
+    // From room A, where the hero wakes, through the doorway into room B, torn open to space: on its
+    // tether from the doorway, as far as the tether lets it.
     const h = settle(opened, heroAt(opened, spawn), left);
-    expect(h.x).toBe(31 * UNIT + HALF);
-    expect(h.y).toBe(23 * UNIT);
+    expect(h.x).toBe(45 * UNIT + UNIT / 2 - HERO.tether);
 
     // With the doorway closed, the hero stops at it, past the generator.
     expect(settle(ship, heroAt(ship, spawn), left).x).toBe(46 * UNIT + HALF);

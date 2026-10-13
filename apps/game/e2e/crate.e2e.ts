@@ -1,5 +1,6 @@
 import { FURNACE, HERO, ITEMS, WRECK } from '@stillwake/content';
 import { expect, test, type Page } from '@playwright/test';
+import { gift, start, type DevGame } from './dev';
 import { CELL, START_ZOOM } from '../src/render/camera';
 
 // Waiting for the first piece of debris alone may take half a minute on a slow CI machine.
@@ -20,27 +21,6 @@ async function drag(page: Page, from: string, to: string) {
   await page.mouse.down();
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 20 });
   await page.mouse.up();
-}
-
-/** Opens the game and waits for it to run. */
-async function start(page: Page) {
-  await page.goto('/');
-  await page.waitForFunction(() => '__game' in window);
-}
-
-interface DevGame {
-  client: {
-    sim: {
-      world: {
-        slices: {
-          debris: { pieces: { id: number }[] };
-          grid: { machines: { kind: string }[] };
-          items: { inventories: { peer: number; slots: unknown[] }[] };
-        };
-      };
-    };
-    send(c: { module: string; type: string; payload: unknown }): void;
-  };
 }
 
 /**
@@ -112,25 +92,6 @@ async function build(page: Page, kind: string, at: { x: number; y: number }) {
   );
   await page.mouse.up();
   await page.keyboard.press('KeyE');
-}
-
-/**
- * For this test only: puts `stacks` into the hero's first slots straight into the world, as the
- * sim's tests do: no command makes items out of nothing, and waiting for a cargo crate to drift by
- * would take minutes. Peer 0's world is the only one: the host keeps none.
- */
-async function gift(page: Page, stacks: readonly { item: string; count: number }[]) {
-  await page.evaluate((stacks) => {
-    const items = (window as unknown as { __game: DevGame }).__game.client.sim.world.slices.items;
-    let own = items.inventories.find((inv) => inv.peer === 0);
-    if (!own) {
-      own = { peer: 0, slots: Array(36).fill(null) };
-      items.inventories.unshift(own);
-    }
-    stacks.forEach((stack, i) => {
-      if (own) own.slots[i] = stack;
-    });
-  }, stacks);
 }
 
 test('puts a caught piece into a crate and takes it back into the hotbar', async ({ page }) => {

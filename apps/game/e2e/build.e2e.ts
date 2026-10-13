@@ -1,14 +1,13 @@
 import { expect, test } from '@playwright/test';
-
-interface DevGame {
-  client: { sim: { world: { slices: { building: { plans: readonly object[] } } } } };
-}
+import { send, type DevGame } from './dev';
 
 test('takes the plan out with B, swaps cards with the menu shown, and puts it all away with B', async ({
   page,
 }) => {
   await page.goto('/');
   await page.waitForFunction(() => '__game' in window);
+  // In creative mode, where every blueprint is known: the wreck alone knows only its start.
+  await send(page, 'items', 'setCreative', { on: true });
   const menu = page.locator('[data-panel="build"]');
   // The menu listens for B once it is drawn, with the plan away.
   await expect(page.getByText('[B] Plan')).toBeVisible();

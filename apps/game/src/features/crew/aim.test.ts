@@ -243,7 +243,8 @@ describe('the wreck, worked with E', () => {
     expect(h.x).toBe(46 * UNIT + HERO.width / 2);
     use(h, 45, 22);
     h = run(h, left, 300);
-    expect(h.x).toBe(31 * UNIT + HERO.width / 2);
+    // Into room B, torn open to space, as far as the tether from its doorway lets the hero.
+    expect(h.x).toBe(45 * UNIT + UNIT / 2 - HERO.tether);
 
     // Back the other way, the airlock's inner doorway stops the hero, until opened.
     h = run(h, right, 400);
@@ -265,7 +266,8 @@ describe('the wreck, worked with E', () => {
     // Sent, not released: the world still has the doorway shut.
     expect(shipOf(client.sim).structure).not.toEqual(ship().structure);
     for (let i = 0; i < 300; i++) h = stepHero(h, left, ship());
-    expect(h.x).toBe(31 * UNIT + HERO.width / 2);
+    // Into room B, torn open to space, as far as the tether from its doorway lets the hero.
+    expect(h.x).toBe(45 * UNIT + UNIT / 2 - HERO.tether);
   });
 });
 

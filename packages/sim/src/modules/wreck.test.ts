@@ -1,4 +1,14 @@
-import { CREW, FURNACE, HERO, ITEMS, MACHINES } from '@stillwake/content';
+import {
+  CREW,
+  FURNACE,
+  HERO,
+  ITEMS,
+  MACHINES,
+  RESEARCH,
+  START_KNOWN,
+  UNLOCKS,
+  WRECK,
+} from '@stillwake/content';
 import { describe, expect, it } from 'vitest';
 import { cellsOf } from '../core/layout';
 import { defineSim } from '../core/sim';
@@ -13,6 +23,7 @@ import {
   items,
   MODULES,
   power,
+  research,
   rooms,
   stillwake,
   wreck,
@@ -25,7 +36,11 @@ const A = Array.from({ length: 4 * 8 }, (_, i) => at(46 + (i % 8), 19 + Math.flo
 const DOOR_TO_B = at(45, 21);
 const INNER = at(54, 21);
 const OUTER = at(57, 21);
-const BREACH = at(30, 21);
+/** Room B's analyzer, and the cells of B's hull, floor and back wall torn away: drawn as space. */
+const ANALYZER = at(41, 21);
+const B = { left: 30, right: 44, top: 18, bottom: 23 };
+const torn = (x: number, y: number) => WRECK[y]?.[x] === ' ';
+const PANEL = at(50, 17);
 /** A cell of open space, far from the hull. */
 const SPACE = at(10, 10);
 
@@ -64,14 +79,15 @@ describe('the starting wreck', () => {
     expect((margin - 0.5) * 1000).toBeGreaterThan(HERO.tether + HERO.height / 2);
   });
 
-  it('holds a panel cabled to a lamp and a generator, a vent, no furnace or crate, three doorways', () => {
+  it('holds a panel cabled to a lamp and a generator, a vent, an analyzer, no furnace or crate', () => {
     const sim = stillwake.create(1, wreck);
     const q = sim.query(grid);
     const kinds = q.machines().map((m) => m.kind);
-    expect(kinds).toEqual(['solarPanel', 'lamp', 'generator', 'vent']);
+    expect(kinds).toEqual(['solarPanel', 'lamp', 'analyzer', 'generator', 'vent']);
+    expect(sim.query(research).known()).toEqual([...START_KNOWN].sort());
     const doors = cellsOf(wreck, 'D').map((c) => q.structureAt(c));
     expect(doors).toEqual(Array(9).fill({ kind: 'door', open: false }));
-    const [panel, lamp, generator] = q.machines().map((m) => m.cell);
+    const [panel, lamp, , generator] = q.machines().map((m) => m.cell);
     // The generator and the lamp draw what the panel makes: in full.
     expect(sim.query(power).networks()).toEqual([
       {
@@ -85,7 +101,7 @@ describe('the starting wreck', () => {
     expect(A).toContain(sim.query(crew).spawn());
   });
 
-  it('builds a furnace in A of caught salvage, burns a plank in it, smelts scrap and walls the breach', () => {
+  it('builds a furnace in A of caught salvage, burns a plank in it and smelts scrap', () => {
     const w = airedWreck();
     const cost = MACHINES.furnace.cost;
     giveItems(w, 0, { scrapChunk: cost.scrapChunk + 1, hullPlate: cost.hullPlate, planks: 1 });
@@ -124,20 +140,16 @@ describe('the starting wreck', () => {
       item: 'scrap',
       count: ITEMS.scrapChunk.yields.scrap,
     });
-    w.do(items, 'move', { src: { crate: id, slot: 2 }, dst: {}, count: 999 }).run();
-    w.do(builder, 'place', {
-      cell: BREACH,
-      placement: { layer: 'structure', kind: 'wall', material: 'scrap' },
-    }).run();
-    expect(w.query(rooms).rooms()[0]?.openings).toEqual([]);
   });
 
-  it('finds room B, room A and the airlock, B open to space through its breach', () => {
-    const found = stillwake.create(1, wreck).query(rooms).rooms();
-    expect(found.map((r) => r.id)).toEqual([at(31, 19), at(46, 19), at(55, 20)]);
-    expect(found.map((r) => r.openings)).toEqual([[BREACH], [], []]);
-    // The breach is a cell of B, its opening.
-    expect(found.map((r) => r.volume)).toEqual([57, 32, 6]);
+  it('finds room A and the airlock; B, torn open, is space, its analyzer uncabled', () => {
+    const sim = stillwake.create(1, wreck);
+    const found = sim.query(rooms).rooms();
+    expect(found.map((r) => r.id)).toEqual([at(46, 19), at(55, 20)]);
+    expect(found.map((r) => r.openings)).toEqual([[], []]);
+    expect(sim.query(rooms).roomAt(ANALYZER)).toBe('space');
+    const id = sim.query(grid).machineAt(ANALYZER)?.id ?? 0;
+    expect(sim.query(power).satisfaction(id)).toBe(0);
   });
 
   it('airs room A from the generator within fifteen seconds, and nothing else', () => {
@@ -193,12 +205,40 @@ describe('the starting wreck', () => {
     expect(airedIn(w, A)).toBe(A.length);
   });
 
-  it('seals room B once its breach is walled over', () => {
+  it('makes B a room with scrap walls and back walls, its analyzer powered by a cable, learning', () => {
     const w = scenario(withBuilder, wreck);
-    w.do(builder, 'place', {
-      cell: BREACH,
-      placement: { layer: 'structure', kind: 'wall', material: 'scrap' },
-    }).run();
-    expect(w.query(rooms).rooms()[0]?.openings).toEqual([]);
+    // Walled where its hull was torn, and its back wall put back.
+    for (let y = B.top; y <= B.bottom; y++) {
+      for (let x = B.left; x <= B.right; x++) {
+        if (!torn(x, y)) continue;
+        const edge = x === B.left || y === B.top || y === B.bottom;
+        const placement = edge
+          ? ({ layer: 'structure', kind: 'wall', material: 'scrap' } as const)
+          : ({ layer: 'back', kind: 'backWall', material: 'scrap' } as const);
+        w.do(builder, 'place', { cell: at(x, y), placement });
+      }
+    }
+    w.run();
+    const room = w.query(rooms).roomAt(ANALYZER);
+    expect(room).not.toBe('space');
+    expect(
+      w
+        .query(rooms)
+        .rooms()
+        .find((r) => r.id === room)?.openings,
+    ).toEqual([]);
+    // A cable from the panel reaches it through the roof.
+    giveItems(w, 0, { scrap: 2 + 1 });
+    w.do(power, 'lay', { a: PANEL, b: ANALYZER }).run();
+    expect(w.refusals).toEqual([]);
+    const id = w.query(grid).machineAt(ANALYZER)?.id ?? 0;
+    const slot = w
+      .query(items)
+      .inventory(0)
+      .findIndex((s) => s?.item === 'scrap');
+    w.do(items, 'move', { src: { slot }, dst: { crate: id }, count: 1 }).run();
+    expect(w.query(power).satisfaction(id)).toBeGreaterThan(0);
+    w.run(2 * RESEARCH.ticks);
+    for (const blueprint of UNLOCKS.scrap) expect(w.query(research).known()).toContain(blueprint);
   });
 });
