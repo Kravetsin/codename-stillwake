@@ -16,6 +16,7 @@ export const EN: Readonly<Record<string, string>> = {
   'power.noNode': 'Nothing to fix a cable to',
   'power.sameNode': 'Both ends on one place',
   'power.tooLong': 'Too long: add an anchor',
+  'power.taut': 'A cable there would be pulled taut',
   'power.twice': 'Already cabled',
   'power.noCable': 'No cable here',
 

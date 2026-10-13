@@ -1,12 +1,12 @@
 # power
 
 Electricity: cables laid point to point between nodes, the networks they join, and how much of what
-its users would draw each network can give (ADR 0017).
+its users would draw each network can give (ADR 0017); cables have lengths and move by hand (0021).
 
 - **Depends on:** `grid` (machines and what is built, to find nodes), `rooms` (whether a panel stands
   in space), `items` (what a cable costs).
-- **State:** `cables` — every cable as the cells of its two nodes, the lower first, and whether it was
-  paid for, ordered by its ends. Saved. Derived: `networks` — what the cables join, in id order, each
+- **State:** `cables` — every cable as the cells of its two nodes, the lower first, whether it was
+  paid for, and its length in tenths of a cell, ordered by its ends. Saved. Derived: `networks` — what the cables join, in id order, each
   with its nodes, supply, demand and satisfaction; `satisfaction` — each cabled user's, by machine
   id. Both found again every tick, in the derivation phase.
 - **Files:** `nodes.ts` — nodes, spans and networks; `index.ts` — the module, its queries and commands.
@@ -19,6 +19,10 @@ its users would draw each network can give (ADR 0017).
   comes with the first cable laid there and goes with the last cut.
 - **A cable** joins two different nodes whose nearest cells are within `POWER.maxSpan` cells, straight;
   two nodes take one cable at most. It takes no cell, so it runs through walls and leaks no air.
+  **Its length** is the way between those nearest cells when it is laid, rounded up to a tenth of a
+  cell, counted up rather than taken as a square root, which may differ between machines.
+- **A cable's end moves** to another node with `move`: every cable ending at a node, or one named,
+  each keeping its length, and none may then span farther than it is long. Moving costs nothing.
 - **A network** is the nodes cables join, named by its lowest node cell. Its supply is what the
   machines on it that make power make, each only with every cell of it in space (a solar panel inside
   a room is in the shade); its demand, what the machines on it that draw power would draw: a furnace only while it has
@@ -27,22 +31,27 @@ its users would draw each network can give (ADR 0017).
   on it works at that share, slowed alike. A powered machine with no cable is on no network: it makes
   nothing and gets nothing.
 - A map lays its cables from `Layout.cables`, each end resolved to its node; a cable that ends on no
-  node does not load. They count as paid.
+  node does not load. They count as paid, each as long as the way its ends span.
 
 ## API
 
 - **Queries:** `cables()`; `networks()`; `nodeAt(cell)` — the node a cable laid there ends on;
   `networkOf(node)`; `cabled(node)` — whether a cable ends there, so `building` refuses to take a
   machine apart; `satisfaction(machineId)` — in thousandths, 0 off every network;
-  `layProblem(peer, a, b)` — why that peer's `lay` would be refused, for the cable ghost.
+  `layProblem(peer, a, b)` — why that peer's `lay` would be refused, for the cable ghost;
+  `moveProblem(from, to, cable?)` — why that `move` would be refused, for a dragged end.
 - **Commands:** `lay { a, b }` — a cable between the nodes at those cells, paid from the sender
   (`CABLE_COST`, nothing in creative mode), refused with `power.noNode`, `power.sameNode`,
   `power.tooLong`, `power.twice` or `items.notEnough`; `cut { a, b }` — takes the cable between those
-  node cells away, giving back what was paid, refused with `power.noCable` or `items.full`.
+  node cells away, giving back what was paid, refused with `power.noCable` or `items.full`;
+  `move { from, to, cable? }` — every cable ending at node `from`, or only `cable`, to the node at
+  cell `to`, refused with `power.noCable`, `power.noNode`, `power.sameNode`, `power.twice` or
+  `power.taut`.
 
 ## Invariants
 
 - Cables join two different nodes, the lower first, in order, each pair once.
+- No cable spans farther than it is long.
 - A network's satisfaction is between 0 and 1000, and what its users get, `floor(draw × satisfaction /
 1000)` summed, never exceeds its supply.
 

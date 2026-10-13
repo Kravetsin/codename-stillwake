@@ -14,9 +14,21 @@ const SPAN = POWER.maxSpan + 3;
 
 /**
  * Lays cables between built cells a few apart, a cell anywhere now and then (refused as no node or too
- * long), and cuts one already laid or a pair never cabled.
+ * long); moves the ends at a node, or one cable's, to a cell near or anywhere (refused as taut, no
+ * node, no cable there or twice); and cuts one already laid or a pair never cabled.
  */
 export function fuzzPower(state: DeepReadonly<PowerState>, rng: Rng) {
+  if (state.cables.length > 0 && rng.below(3) === 0) {
+    const cable = state.cables[rng.below(state.cables.length)];
+    const from =
+      rng.below(6) === 0 || !cable ? rng.below(CELLS) : rng.below(2) === 0 ? cable.a : cable.b;
+    const to = from + (rng.below(SPAN) - (SPAN >> 1)) + WIDTH * (rng.below(SPAN) - (SPAN >> 1));
+    const one = cable && rng.below(2) === 0 ? { cable: { a: cable.a, b: cable.b } } : {};
+    return {
+      type: 'move',
+      payload: { from, to: rng.below(8) === 0 ? rng.below(CELLS) : to, ...one },
+    } as const;
+  }
   if (state.cables.length > 0 && rng.below(3) === 0) {
     const cable = state.cables[rng.below(state.cables.length)];
     const pair =

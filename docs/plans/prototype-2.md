@@ -391,6 +391,16 @@ Done when: scenario tests for a back wall's material, cost and refund, for its l
 behind a wall or a closed door and a leak behind an open one; the wreck's balance tests pass; the
 desync fuzz draws back walls of every material.
 
+**P2-18 · Cables by hand, in the power mode** · M · sim `power`, content, client `power`,
+`building`, `crew`, ADR 0021 · after P2-17
+A cable has a length, set when laid; `move` carries every cable at a node, or one, to another node,
+refused when taut. The power overlay becomes the power mode: drag from a node to lay a cable, on past
+its reach through supports placed at anchors, drag a support or an end to move it, the right button
+to cut; targets lit while dragging; the cable tool leaves the build menu. Cables are drawn as long as
+they are, fittings where they end on walls.
+Done when: scenario tests for a cable's length, every `move` and each refusal, a save with lengths;
+the fuzz draws `move`; client tests for leading a cable past its reach and for the lit targets.
+
 **P2-08 · Playtest** · S · after P2-11
 A `docs/playtests/p2.md` template like P1's; the sessions; the concept updated.
 Done when: `p2.md` is written up from at least one solo and one co-op session, and the concept says

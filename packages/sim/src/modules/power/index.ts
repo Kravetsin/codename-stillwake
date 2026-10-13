@@ -9,10 +9,15 @@ import {
   byEnds,
   findNetworks,
   inSpan,
+  lengthOf,
   nodeAt,
   ordered,
+  reachOf,
+  reaches,
+  reachSquared,
   type Cable,
   type PowerNetwork,
+  type Size,
 } from './nodes';
 
 export type { Cable, PowerNetwork } from './nodes';
@@ -31,22 +36,67 @@ type Grid = QueryApi<GridModule>;
 
 /**
  * The cables a map lays, each end resolved to its node as `lay` would: a machine drawn there, by its
- * top-left, or the cell. A map whose cable ends on nothing a cable can end on does not load.
+ * top-left, or the cell; each as long as the way its ends span. A map whose cable ends on nothing a
+ * cable can end on does not load.
  */
 function startingCables(layout: Layout): Cable[] {
   const machines = machinesOf(layout);
-  const resolve = (cell: number) => {
+  const resolve = (cell: number): { node: number; size: Size } => {
     const machine = machines.find((m) => m.cells.includes(cell));
     const s: MachineSpec | undefined = machine && MACHINES[machine.kind];
-    if (machine && (s?.makes !== undefined || s?.draws !== undefined)) return machine.cell;
+    if (machine && s && (s.makes !== undefined || s.draws !== undefined)) {
+      return { node: machine.cell, size: s };
+    }
     const char = layout.rows[Math.floor(cell / layout.width)]?.[cell % layout.width] ?? ' ';
     // Every character but a space has a back wall to mount on, a machine's included.
     if (machine || char === ' ') throw new Error(`Map cell ${cell}: a cable ends on no node.`);
-    return cell;
+    return { node: cell, size: { width: 1, height: 1 } };
   };
   return (layout.cables ?? [])
-    .map(([a, b]) => ({ ...ordered(resolve(a), resolve(b)), paid: true }))
+    .map(([a, b]) => {
+      const p = resolve(a);
+      const q = resolve(b);
+      const length = lengthOf(reachSquared(layout.width, p.node, p.size, q.node, q.size));
+      return { ...ordered(p.node, q.node), paid: true, length };
+    })
     .sort(byEnds);
+}
+
+/** The cables a `move` from node `from` takes: the one named, or every one ending there. */
+function moved(cables: readonly Cable[], from: number, cable?: { a: number; b: number }): Cable[] {
+  const named = cable && ordered(cable.a, cable.b);
+  return cables.filter(
+    (c) => (c.a === from || c.b === from) && (!named || (c.a === named.a && c.b === named.b)),
+  );
+}
+
+/**
+ * Why cables cannot move from node `from` to the node at cell `to`, as a refusal key: none ends
+ * there, no node is there, one would end where it starts or join a pair already joined, or one would
+ * span farther than it is long.
+ */
+function moveProblem(
+  grid: Grid,
+  cables: readonly Cable[],
+  from: number,
+  to: number,
+  cable?: { a: number; b: number },
+): string | undefined {
+  const taken = moved(cables, from, cable);
+  if (taken.length === 0) return 'power.noCable';
+  const target = nodeAt(grid, to);
+  if (target === undefined) return 'power.noNode';
+  const kept = cables.filter((c) => !taken.includes(c));
+  const pairs = new Set(kept.map((c) => `${c.a}:${c.b}`));
+  for (const c of taken) {
+    const other = c.a === from ? c.b : c.a;
+    if (other === target) return 'power.sameNode';
+    const ends = ordered(other, target);
+    if (pairs.has(`${ends.a}:${ends.b}`)) return 'power.twice';
+    pairs.add(`${ends.a}:${ends.b}`);
+    if (!reaches(c.length, reachOf(grid, other, target))) return 'power.taut';
+  }
+  return undefined;
 }
 
 /** Why peer `from` cannot lay a cable from `a` to `b`, as a refusal key. */
@@ -107,6 +157,9 @@ const powerModule = defineModule<Deps>()({
     cabled: (ctx, node: number) => ctx.state.cables.some((c) => c.a === node || c.b === node),
     /** The share of its draw machine `id` gets, in thousandths; none off every network. */
     satisfaction: (ctx, id: number) => ctx.state.satisfaction.get(id) ?? 0,
+    /** Why a `move` from node `from` to cell `to` would be refused: what a dragged end shows. */
+    moveProblem: (ctx, from: number, to: number, cable?: { a: number; b: number }) =>
+      moveProblem(ctx.deps.grid.query, ctx.state.cables, from, to, cable),
     /** Why peer `peer`'s `lay` from `a` to `b` would be refused: what the cable ghost shows. */
     layProblem: (ctx, peer: number, a: number, b: number) =>
       layProblem(ctx.deps.grid.query, ctx.deps.items.query, ctx.state.cables, peer, a, b),
@@ -129,8 +182,26 @@ const powerModule = defineModule<Deps>()({
         const grid = ctx.deps.grid.query;
         const ends = ordered(nodeAt(grid, p.a) as number, nodeAt(grid, p.b) as number);
         const taken = ctx.deps.items.op.take(ctx.from, CABLE_COST);
-        ctx.state.cables.push({ ...ends, paid: Object.keys(taken).length > 0 });
+        const length = lengthOf(reachOf(grid, ends.a, ends.b));
+        ctx.state.cables.push({ ...ends, paid: Object.keys(taken).length > 0, length });
         ctx.state.cables.sort(byEnds);
+      },
+    },
+    move: {
+      validate(ctx, p: { from: number; to: number; cable?: { a: number; b: number } }) {
+        const why = moveProblem(ctx.deps.grid.query, ctx.state.cables, p.from, p.to, p.cable);
+        if (why) return refuse(why);
+      },
+      apply(ctx, p: { from: number; to: number; cable?: { a: number; b: number } }) {
+        const target = nodeAt(ctx.deps.grid.query, p.to) as number;
+        const taken = moved(ctx.state.cables, p.from, p.cable);
+        ctx.state.cables = ctx.state.cables
+          .map((c) => {
+            if (!taken.includes(c)) return c;
+            const other = c.a === p.from ? c.b : c.a;
+            return { ...ordered(other, target), paid: c.paid, length: c.length };
+          })
+          .sort(byEnds);
       },
     },
     cut: {
